@@ -88,7 +88,7 @@ def _get(url, *args, **kwargs):
 
 #######################################################################
 
-def _post(url, *args, **kwargs):
+def _post(url, data, *args, **kwargs):
     
     logger.debug(f"Calling REST API (post) with url='{url}'")
     #kwargs["timeout"]=10
@@ -99,7 +99,7 @@ def _post(url, *args, **kwargs):
     #  and return it.
     #
     try:
-        resp = session.post(url, *args, **kwargs)
+        resp = session.post(url, data, *args, **kwargs)
     except Exception as exc:
         logger.error("An exception occurred while attempting to post data to "
                      f"the REST API. Exception details: {exc}")
@@ -111,6 +111,10 @@ def _post(url, *args, **kwargs):
             }
         }
         return resp_data
+    
+    if resp.status_code not in (200, 201):
+        logger.warning(f"RestApiV1._post method returned status code {resp.status_code}")
+    
     
     #
     #  Interpret the response as JSON and return.
@@ -163,6 +167,21 @@ def get_countries(**kwargs):
 
 
 
+def post_component(type_id, data, **kwargs):
+    path = f"cdbdev/api/v1/component-types/{type_id}/components"
+    url = f"https://{config.rest_api}/{path}" 
+    
+    resp = _post(url, data=data, **kwargs)
+
+    print(resp)
+    if resp["status"] != "OK":
+        logger.error("Error while posting a component")
+        logger.info(f"url: {url}")
+        logger.info(f"data: {data}")
+        logger.info(f"response: {resp}")
+
+
+    return resp
 
 
 
