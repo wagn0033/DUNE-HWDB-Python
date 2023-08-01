@@ -9,6 +9,7 @@ Created on Wed Jul 12 12:25:31 2023
 import unittest
 from Test__get_hwitems_by_component_type_id import *
 from Test__get_hwitem_by_part_id import *
+from Test__get_misc import *
 
 if __name__ == "__main__":
     unittest.main()
