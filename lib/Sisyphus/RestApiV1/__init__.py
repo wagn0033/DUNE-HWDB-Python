@@ -96,6 +96,21 @@ def get_hwitem_by_part_id(part_id, **kwargs):
     
     return resp
 
+def get_image_by_part_id(part_id, **kwargs):
+    path = f"cdbdev/api/v1/components/{sanitize(part_id)}/images"
+    url = f"https://{config.rest_api}/{path}"
+
+    resp = _get(url, **kwargs)
+    return resp
+
+
+def get_countries(**kwargs):
+    path = "cdbdev/api/v1/countries"
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _get(url, **kwargs)
+    return resp 
+
 
 
 
