@@ -10,6 +10,7 @@ import unittest
 from Test__get_hwitems_by_component_type_id import *
 from Test__get_hwitem_by_part_id import *
 from Test__get_misc import *
+from Test__get_component_types import *
 
 if __name__ == "__main__":
     unittest.main()
