@@ -88,6 +88,48 @@ def _get(url, *args, **kwargs):
 
 #######################################################################
 
+def _get_binary(url, write_to_file, *args, **kwargs):
+    
+    
+    logger.debug(f"Calling API with url='{url}'")
+    
+    # kwargs["timeout"]=10
+    
+    #
+    #  Send the "get" request.
+    #  If an error occurs, create a JSON response explaining the problem
+    #  and return it.
+    #
+    try:
+        resp = session.get(url, *args, **kwargs)
+    except Exception as exc:
+        logger.error("An exception occurred while attempting to retrieve data from "
+                     f"the REST API. Exception details: {exc}")
+        resp_data = {
+            "data": "An exception occurred while retrieving data",
+            "status": "URL Error",
+            "addl_info": {
+                "exception_details": f"{exc}",
+            }
+        }
+        return resp_data
+    
+    if resp.status_code in (200, 201):
+        try:
+            with open(write_to_file, "wb") as f:
+                    f.write(resp.content)
+        except Exception as exc:
+            logger.error("An exception occurred while attempting to write binary "
+                         f"data to {write_to_file}. Exception details: {exc}")
+    else:
+        logger.error("The request to the REST API failed. HTTP status code "
+                     f"{resp.status_code}")
+        raise RuntimeError("the request failed: status code %d" 
+                                 % resp.status_code)
+
+#######################################################################
+
+
 def _post(url, data, *args, **kwargs):
     
     logger.debug(f"Calling REST API (post) with url='{url}'")
@@ -164,6 +206,23 @@ def get_countries(**kwargs):
     
     resp = _get(url, **kwargs)
     return resp 
+
+
+
+def get_component_images(part_type_id, **kwargs):
+    path = f"cdbdev/api/v1/component-types/{part_type_id}/images"
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _get(url, **kwargs)
+    return resp
+
+
+def get_image(image_id, write_to_file, **kwargs):
+    path = f"cdbdev/api/v1/img/{image_id}"
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _get_binary(url, write_to_file, **kwargs)
+    return resp
 
 
 
