@@ -141,8 +141,7 @@ def _post(url, data, *args, **kwargs):
             },
         }
         return err
-
-
+    
 def get_hwitem_by_part_id(part_id, **kwargs):
     path = f"cdbdev/api/v1/components/{sanitize(part_id)}"
     url = f"https://{config.rest_api}/{path}"
@@ -180,7 +179,6 @@ def post_component(type_id, data, **kwargs):
         logger.info(f"url: {url}")
         logger.info(f"data: {data}")
         logger.info(f"response: {resp}")
-        
 
 
     return resp
@@ -189,6 +187,8 @@ def post_component(type_id, data, **kwargs):
 
 
 
+#######################################################################
+#######################################################################
 
     
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ Tests:
 import os
 import json
 import unittest
-from Sisyphus.RestApiV1 import _post, post_component
+from Sisyphus.RestApiV1 import post_component
 from Sisyphus.Configuration import config
 logger = config.getLogger()
 
