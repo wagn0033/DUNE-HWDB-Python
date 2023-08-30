@@ -146,5 +146,22 @@ class Test__get_misc_with_input(unittest.TestCase):
         error_resp = _get(f"https://dbwebapi2.fnal.gov:8443/cdbdev/api/v1/systems/{err_proj_id}")
         self.assertEqual(error_resp, err_expected_resp)
     
+    def test_projid_sysid(self):
+        file_path = os.path.join(os.path.dirname(__file__), 'ExpectedResponses', 'misc', 'proj_sys.json')
+        with open(file_path , 'r') as file:
+            expected_resp = json.load(file)
+        proj_id = 'D'
+        sys_id = 1
+        resp = _get(f"https://dbwebapi2.fnal.gov:8443/cdbdev/api/v1/systems/{proj_id}/{sys_id}")
+
+        self.assertEqual(resp,expected_resp)
+
+        #checking if it throws error
+        er_proj_id = 'X'
+        er_sys_id = 80
+        error_resp = _get(f"https://dbwebapi2.fnal.gov:8443/cdbdev/api/v1/systems/{er_proj_id}/{er_sys_id}")
+
+        self.assertEqual(error_resp["status"], "Error")
+    
 if __name__ == "__main__":
     unittest.main()
