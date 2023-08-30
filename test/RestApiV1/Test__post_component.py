@@ -9,12 +9,16 @@ Tests:
     Python: get_hwitem_by_part_id(part_id)
     REST API: /api/v1/components/{part_id}
 """
+
+from Sisyphus.Configuration import config
+logger = config.getLogger()
+
 import os
 import json
 import unittest
+import random
+
 from Sisyphus.RestApiV1 import post_component
-from Sisyphus.Configuration import config
-logger = config.getLogger()
 
 
 class Test__post_component(unittest.TestCase):
@@ -25,9 +29,11 @@ class Test__post_component(unittest.TestCase):
 
     def test_post(self):
         
-        logger.info("Testing <post_component>")
+        logger.info("Testing <post_component> (V1)")
         
         part_type_id = "Z00100300001"
+        serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
+
         data = {
             "comments": "Here are some comments",
             "component_type": {
@@ -40,18 +46,21 @@ class Test__post_component(unittest.TestCase):
             "manufacturer": {
                 "id": 7
             },
-            "serial_number": "S99999",
-            "specifications": {},
+            "serial_number": serial_number,
+            "specifications": 
+            {
+                "Widget ID": serial_number,
+                "Color": "red",
+                "Comment": "Unit Test: post component"
+            },
             "subcomponents": {}
         }
         resp = post_component(part_type_id, data)
-        
 
+        logger.info(f"The response was: {resp}")
         
         self.assertEqual(resp["status"], "OK")
         #self.assertEqual(resp, expected_resp)
-
-
    
 if __name__ == "__main__":
     unittest.main()

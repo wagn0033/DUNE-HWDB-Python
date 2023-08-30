@@ -9,15 +9,9 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 from Sisyphus.Configuration import config
 logger = config.getLogger()
 
-
-#import Sisyphus.Config as Config
-#from Sisyphus.Config import config as cfg
-#logger = cfg.getLogger("RestApiV1")
-
 import json
 from requests import Session
 import requests.adapters
-
 import urllib.parse
 
 def sanitize(s):
@@ -141,7 +135,7 @@ def _post(url, data, *args, **kwargs):
     #  and return it.
     #
     try:
-        resp = session.post(url, data, *args, **kwargs)
+        resp = session.post(url, json=data, *args, **kwargs)
     except Exception as exc:
         logger.error("An exception occurred while attempting to post data to "
                      f"the REST API. Exception details: {exc}")
@@ -156,7 +150,7 @@ def _post(url, data, *args, **kwargs):
     
     if resp.status_code not in (200, 201):
         logger.warning(f"RestApiV1._post method returned status code {resp.status_code}")
-    
+        logger.info(f"The response was: {resp.text}")
     
     #
     #  Interpret the response as JSON and return.
@@ -184,6 +178,59 @@ def _post(url, data, *args, **kwargs):
         }
         return err
     
+#######################################################################
+
+def _patch(url, data, *args, **kwargs):
+    
+    logger.debug(f"Calling REST API (patch) with url='{url}'")
+    #kwargs["timeout"]=10
+
+    #
+    #  Send the "patch" request.
+    #  If an error occurs, create a JSON response explaining the problem
+    #  and return it.
+    #
+    try:
+        resp = session.patch(url, json=data, *args, **kwargs)
+    except Exception as exc:
+        logger.error("An exception occurred while attempting to patch data to "
+                     f"the REST API. Exception details: {exc}")
+        resp_data = {
+            "data": "An exception occurred while patching data",
+            "status": "ERROR",
+            "addl_info": {
+                "exception_details": f"{exc}",
+            }
+        }
+        return resp_data
+
+    if resp.status_code not in (200, 201):
+        logger.warning(f"RestApiV1._post method returned status code {resp.status_code}")
+        logger.info(f"The data was: {data}")
+        logger.info(f"The response was: {resp.text}")
+    
+    try:
+        resp_data = resp.json()
+        return resp_data
+    except json.JSONDecodeError:
+        # This is probably a 500 error that returned an HTML page
+        # instead of JSON text. Package it up to have the same
+        # structure as how the API would've handled a 4xx error so
+        # the consumer can look in the same place for info.
+        err = {
+            "data": "The server returned an error.",
+            "status": "ERROR",
+            "addl_info":
+            {
+                "http_response_code": resp.status_code,
+                "url" : url,
+                "response": resp.text,
+            },
+        }
+        return err
+
+#######################################################################
+
 def get_hwitem_by_part_id(part_id, **kwargs):
     path = f"cdbdev/api/v1/components/{sanitize(part_id)}"
     url = f"https://{config.rest_api}/{path}"
@@ -227,21 +274,18 @@ def get_image(image_id, write_to_file, **kwargs):
 
 
 def post_component(type_id, data, **kwargs):
-    path = f"cdbdev/api/v1/component-types/{type_id}/components"
+    path = f"cdbdev/api/v1/component-types/{type_id}/components" 
     url = f"https://{config.rest_api}/{path}" 
     
     resp = _post(url, data=data, **kwargs)
-
-    print(resp)
-    if resp["status"] != "OK":
-        logger.error("Error while posting a component")
-        logger.info(f"url: {url}")
-        logger.info(f"data: {data}")
-        logger.info(f"response: {resp}")
-
-
     return resp
 
+def patch_component(part_id, data, **kwargs):
+    path = f"cdbdev/api/v1/components/{part_id}" 
+    url = f"https://{config.rest_api}/{path}" 
+    
+    resp = _patch(url, data=data, **kwargs)
+    return resp
 
 
 
