@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
+test/RestApiV1/Test__get_misc.py
+Copyright (c) 2022 Regents of the University of Minnesota
+Author: Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+
 Tests: 
     get from under misc list
 """
@@ -26,7 +30,7 @@ class Test__get_misc_no_input(unittest.TestCase):
         
 
     def test_whoami(self):
-        
+        #will be broken eventually
         file_path = os.path.join(os.path.dirname(__file__),'ExpectedResponses', 'misc', 'alex_whoami.json')
         with open(file_path, 'r') as file:
             expected_resp = json.load(file)

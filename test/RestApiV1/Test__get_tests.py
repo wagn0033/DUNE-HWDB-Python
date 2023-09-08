@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
+"""
+test/RestApiV1/Test__get_tests.py
+Copyright (c) 2022 Regents of the University of Minnesota
+Author: Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+"""
 
 
 import unittest
