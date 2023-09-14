@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
+"""
+test/RestApiV1/Test__get_component_types.py
+Copyright (c) 2022 Regents of the University of Minnesota
+Author: Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+"""
 
 
 import unittest
@@ -27,7 +32,7 @@ class Test__get_component_type(unittest.TestCase):
         self.assertEqual(resp, expected_resp)
 
     def test_part_type_id_connectors(self):
-        part_type_id = 'D00501341001'
+        part_type_id = 'D00501341001' #change to different id
         file_path = os.path.join(os.path.dirname(__file__),'ExpectedResponses', 'componentTypes', 'connectors.json')
         with open(file_path, 'r') as file:
             expected_resp = json.load(file)
