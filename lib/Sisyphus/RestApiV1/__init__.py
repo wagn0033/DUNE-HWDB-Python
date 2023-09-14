@@ -31,7 +31,7 @@ session = create_session()
 
 def _get(url, *args, **kwargs):
     
-    logger.debug(f"Calling API with url='{url}'")
+    logger.debug(f"<_get> Calling REST API with url='{url}'")
     
     # kwargs["timeout"]=10
     
@@ -83,9 +83,8 @@ def _get(url, *args, **kwargs):
 #######################################################################
 
 def _get_binary(url, write_to_file, *args, **kwargs):
-    
-    
-    logger.debug(f"Calling API with url='{url}'")
+     
+    logger.debug(f"<_get_binary> Calling API with url='{url}'")
     
     # kwargs["timeout"]=10
     
@@ -126,7 +125,7 @@ def _get_binary(url, write_to_file, *args, **kwargs):
 
 def _post(url, data, *args, **kwargs):
     
-    logger.debug(f"Calling REST API (post) with url='{url}'")
+    logger.debug(f"<_post> Calling REST API with url='{url}'")
     #kwargs["timeout"]=10
     
     #
@@ -182,7 +181,7 @@ def _post(url, data, *args, **kwargs):
 
 def _patch(url, data, *args, **kwargs):
     
-    logger.debug(f"Calling REST API (patch) with url='{url}'")
+    logger.debug(f"<_patch> Calling REST API with url='{url}'")
     #kwargs["timeout"]=10
 
     #
@@ -205,7 +204,7 @@ def _patch(url, data, *args, **kwargs):
         return resp_data
 
     if resp.status_code not in (200, 201):
-        logger.warning(f"RestApiV1._post method returned status code {resp.status_code}")
+        logger.warning(f"RestApiV1._patch method returned status code {resp.status_code}")
         logger.info(f"The data was: {data}")
         logger.info(f"The response was: {resp.text}")
     
@@ -231,63 +230,69 @@ def _patch(url, data, *args, **kwargs):
 
 #######################################################################
 
-def get_hwitem_by_part_id(part_id, **kwargs):
-    path = f"cdbdev/api/v1/components/{sanitize(part_id)}"
-    url = f"https://{config.rest_api}/{path}"
-    
-    resp = _get(url, **kwargs)
-    
-    return resp
-
 def get_image_by_part_id(part_id, **kwargs):
-    path = f"cdbdev/api/v1/components/{sanitize(part_id)}/images"
+    logger.debug(f"<get_image_by_part_id>")
+    path = f"api/v1/components/{sanitize(part_id)}/images"
     url = f"https://{config.rest_api}/{path}"
 
     resp = _get(url, **kwargs)
     return resp
-
 
 def get_countries(**kwargs):
-    path = "cdbdev/api/v1/countries"
+    logger.debug(f"<get_countries>")
+    path = "api/v1/countries"
     url = f"https://{config.rest_api}/{path}"
     
     resp = _get(url, **kwargs)
     return resp 
 
-
-
 def get_component_images(part_type_id, **kwargs):
-    path = f"cdbdev/api/v1/component-types/{part_type_id}/images"
+    logger.debug(f"<get_component_images>")
+    path = f"api/v1/component-types/{part_type_id}/images"
     url = f"https://{config.rest_api}/{path}"
     
     resp = _get(url, **kwargs)
     return resp
 
-
 def get_image(image_id, write_to_file, **kwargs):
-    path = f"cdbdev/api/v1/img/{image_id}"
+    logger.debug(f"<get_image>")
+    path = f"api/v1/img/{image_id}"
     url = f"https://{config.rest_api}/{path}"
     
     resp = _get_binary(url, write_to_file, **kwargs)
     return resp
 
+##############################################################################
+#
+#  HW ITEMS
+#
+##############################################################################
 
+def get_hwitem(part_id, **kwargs):
+    logger.debug(f"<get_hwitem> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}"
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _get(url, **kwargs) 
+    return resp
 
-def post_component(type_id, data, **kwargs):
-    path = f"cdbdev/api/v1/component-types/{type_id}/components" 
+def post_hwitem(type_id, data, **kwargs):
+    logger.debug(f"<post_hwitem> type_id={type_id}")
+    path = f"api/v1/component-types/{sanitize(type_id)}/components" 
     url = f"https://{config.rest_api}/{path}" 
     
     resp = _post(url, data=data, **kwargs)
     return resp
 
-def patch_component(part_id, data, **kwargs):
-    path = f"cdbdev/api/v1/components/{part_id}" 
+def patch_hwitem(part_id, data, **kwargs):
+    logger.debug(f"<patch_hwitem> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}" 
     url = f"https://{config.rest_api}/{path}" 
     
     resp = _patch(url, data=data, **kwargs)
     return resp
 
-
+##############################################################################
 
 
 #######################################################################

@@ -20,6 +20,12 @@ chmod +x $PROJECT_ROOT/bin/*.py
 export PYTHONPATH=$PROJECT_ROOT/lib:$PYTHONPATH
 export PATH=$PROJECT_ROOT/bin:$PATH
 
+# 
+# Change the title of the terminal window
+#
+
+echo -ne '\x1b]0;HWDB Upload Docket\a'
+
 #
 # Run the script
 #
