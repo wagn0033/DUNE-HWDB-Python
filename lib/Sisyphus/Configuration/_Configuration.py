@@ -63,9 +63,7 @@ class Config:
         self.logging_file = os.path.join(self.config_root, self.logging_basename)
         
         self.logger = self.getLogger("Config")
-        self.logger.info("****************************")
-        self.logger.info("*** initializing logging ***")
-        self.logger.info("****************************")
+        self.logger.info("[LOG INIT]")
         
         self._parse_args(args)
         self.load()

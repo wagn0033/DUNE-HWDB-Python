@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 test/RestApiV1/Test__post_component.py
-Copyright (c) 2022 Regents of the University of Minnesota
+Copyright (c) 2023 Regents of the University of Minnesota
 Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
 Tests: 
@@ -18,49 +18,58 @@ import json
 import unittest
 import random
 
-from Sisyphus.RestApiV1 import post_component
+from Sisyphus.RestApiV1 import post_hwitem
 
 
-class Test__post_component(unittest.TestCase):
+class Test__post_hwitem(unittest.TestCase):
     def setUp(self):
-        pass
+        self.maxDiff = 0x10000
     def tearDown(self):
         pass
 
-    def test_post(self):
-        
-        logger.info("Testing <post_component> (V1)")
-        
-        part_type_id = "Z00100300001"
-        serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
+    def test_post_hwitem(self):
+        testname = "post_hwitem"
+        logger.info(f"[TEST {testname}]")
 
-        data = {
-            "comments": "Here are some comments",
-            "component_type": {
-                "part_type_id": "Z00100300001"
-            },
-            "country_code": "US",
-            "institution": {
-                "id": 186
-            },
-            "manufacturer": {
-                "id": 7
-            },
-            "serial_number": serial_number,
-            "specifications": 
-            {
-                "Widget ID": serial_number,
-                "Color": "red",
-                "Comment": "Unit Test: post component"
-            },
-            "subcomponents": {}
-        }
-        resp = post_component(part_type_id, data)
+        try:
+            logger.info("Testing <post_component> (V1)")
+            
+            part_type_id = "Z00100300001"
+            serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
 
-        logger.info(f"The response was: {resp}")
-        
-        self.assertEqual(resp["status"], "OK")
-        #self.assertEqual(resp, expected_resp)
+            data = {
+                "comments": "Here are some comments",
+                "component_type": {
+                    "part_type_id": "Z00100300001"
+                },
+                "country_code": "US",
+                "institution": {
+                    "id": 186
+                },
+                "manufacturer": {
+                    "id": 7
+                },
+                "serial_number": serial_number,
+                "specifications": 
+                {
+                    "Widget ID": serial_number,
+                    "Color": "red",
+                    "Comment": "Unit Test: post component"
+                },
+                "subcomponents": {}
+            }
+            resp = post_hwitem(part_type_id, data)
+
+            logger.info(f"The response was: {resp}")
+            
+            self.assertEqual(resp["status"], "OK")
+            #self.assertEqual(resp, expected_resp)
+        except AssertionError as err:
+            logger.error(f"[FAIL {testname}]")
+            logger.info(err)
+            raise err
+
+        logger.info(f"[PASS {testname}]")
    
 if __name__ == "__main__":
     unittest.main()

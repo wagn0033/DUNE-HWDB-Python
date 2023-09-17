@@ -12,7 +12,8 @@ Tests:
 import os
 import json
 import unittest
-from Sisyphus.RestApiV1 import get_hwitem_by_part_id, get_image_by_part_id
+from Sisyphus.RestApiV1 import get_hwitem
+from Sisyphus.RestApiV1 import get_component_type_image_list
 
 
 class Test__get_hwitem_by_part_id(unittest.TestCase):
