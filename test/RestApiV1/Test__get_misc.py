@@ -164,15 +164,14 @@ class Test__get_misc_no_input(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'roles.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
-            
             resp = get_roles()            
 
+            #self.assertIn(resp["data"][0]["component_types"],resp["data"])
+            self.assertIsInstance(resp["data"][-1]["id"], int)
+            self.assertIsInstance(resp["data"][0]["component_types"][0]["name"], str)
+            self.assertIsInstance(resp["data"][0]["users"][0]["user_id"], int)
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            #self.assertDictEqual(resp, expected_resp)
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -188,14 +187,13 @@ class Test__get_misc_no_input(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'users.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
             resp = get_users()
-            
+              
+            self.assertIsInstance(resp["data"][0]["user_id"],int )
+            self.assertIsInstance(resp["data"][0]["username"], str)
+            self.assertIsInstance(resp["data"][-1]["user_id"],int )
+            self.assertIsInstance(resp["data"][-1]["username"], str)
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")

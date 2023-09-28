@@ -17,7 +17,7 @@ from Sisyphus.RestApiV1 import get_test_type
 from Sisyphus.RestApiV1 import get_test_types
 from Sisyphus.RestApiV1 import get_test_type_by_oid
 
-from Sisyphus.RestApiV1._RestApiV1 import _get
+#from Sisyphus.RestApiV1._RestApiV1 import _get
 
 
 class Test__get_tests(unittest.TestCase):
