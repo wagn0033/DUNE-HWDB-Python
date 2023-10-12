@@ -18,7 +18,7 @@ from Sisyphus.RestApiV1 import get_systems
 from Sisyphus.RestApiV1 import get_subsystems
 #from Sisyphus.RestApiV1 import get_components
 
-from Sisyphus.RestApiV1 import Lookup
+from Sisyphus.RestApiV1 import Utilities
 
 from Sisyphus.Utils.Terminal import Style
 import sys
@@ -84,7 +84,7 @@ def get_manufacturer_list(args):
         # If they're both given, they MUST match
         if args.type_name is not None:
             try:
-                type_name, type_id = Lookup.lookup_part_type_id_by_fullname(args.type_name)
+                type_name, type_id = Utilities.lookup_part_type_id_by_fullname(args.type_name)
             except ValueError:
                 # There is no matching part type ID, so just return an empty list.
                 # Ignore the error.

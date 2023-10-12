@@ -35,5 +35,6 @@ contents = \
                 }
             ]
         }
-    ]
+    ],
+    "Encoders": []
 }
