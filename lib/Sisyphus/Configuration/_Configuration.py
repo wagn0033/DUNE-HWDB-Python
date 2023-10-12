@@ -26,12 +26,13 @@ import logging.config
 # def pp(obj):
 #     print(json.dumps(obj, indent=4))
 
-SISYPHUS_VERSION = "1.1.beta.0"
+from Sisyphus import version as SISYPHUS_VERSION
 
-#DEFAULT_API = 'dbwebapi2.fnal.gov:8443/cdbdev/api'
-DEFAULT_API = 'dbwebapi2.fnal.gov:8443/cdbdev'
+API_DEV = 'dbwebapi2.fnal.gov:8443/cdbdev'
+API_PROD = 'dbwebapi2.final.gov:8443/cdb'
+DEFAULT_API = API_DEV
 
-APPLICATION_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../../.."))
+APPLICATION_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
 CONFIG_ROOT = os.path.normpath(os.path.expanduser("~/.sisyphus"))
 CONFIG_BASENAME = "config.json"
 LOGGING_BASENAME = "logging.json"
@@ -48,6 +49,7 @@ KW_NAME = "name"
 KW_COUNTRY_CODE = "country code"
 KW_ID = "id"
 KW_LOGGING = "logging"
+KW_LOGLEVEL = "loglevel"
 
 class Config:
     def __init__(self, *, 
@@ -63,20 +65,29 @@ class Config:
         self.logging_file = os.path.join(self.config_root, self.logging_basename)
         
         self.logger = self.getLogger("Config")
-        self.logger.info("[LOG INIT]")
+        self.logger.info("[LOG INIT] logging initialized")
+        self.logger.info(f"[LOG INIT] ver={SISYPHUS_VERSION}")
+        self.logger.info(f"[LOG INIT] path={APPLICATION_PATH}")
         
         self._parse_args(args)
         self.load()
-        
+
+        self.logger = self.getLogger("Config")
         #self._load_config(filename)
         #self._populate_config()
 
+
     def getLogger(self, name="config"):
-        
         
         if not getattr(self, "_logging_initialized", False):
             self._init_logging()
-        return logging.getLogger(name)
+        logger = logging.getLogger(name)
+       
+        if getattr(self, "active_profile", None) is not None:
+            if self.active_profile[KW_LOGLEVEL] is not None:
+                logger.setLevel(self.active_profile[KW_LOGLEVEL])
+ 
+        return logger
 
     def _init_logging(self):
         
@@ -133,16 +144,21 @@ class Config:
 
     def _extract_cert_info(self):
         self.logger.debug("Extracting certificate information")
+            
+        self.cert_has_expired = None
+        self.cert_expires = None
+        self.cert_fullname = None
+        self.cert_username = None
+        self.cert_days_left = None
         
         if self.active_profile[KW_CERTIFICATE] is None:
             self.logger.debug("There is no certificate to extract data from.")
-            self.cert_has_expired = None
-            self.cert_expires = None
-            self.cert_fullname = None
-            self.cert_username = None
-            self.cert_days_left = None
             return 
-            
+        if self.cert_type == KW_P12:       
+            self.logger.debug("Unable to extract data from P12 certificate without password")
+            return 
+
+ 
         with open(self.active_profile[KW_CERTIFICATE], "r") as fp:
             ce = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, fp.read())
         
@@ -171,7 +187,7 @@ class Config:
     
         log_msg = (f"Certificate info: {self.cert_fullname} ({self.cert_username}), "
                    f"expires {self.cert_expires.strftime('%Y-%m-%d %H:%M:%S')}")
-        self.logger.info(log_msg)
+        self.logger.debug(log_msg)
                          
     
     
@@ -253,7 +269,7 @@ class Config:
                 
             
     def load(self):
-        self.logger.info("Loading config file and merging with command line args")
+        self.logger.debug("Loading config file and merging with command line args")
         self._load_config(self.config_file)
         self._populate_config()
         self._extract_cert_info()
@@ -275,7 +291,6 @@ class Config:
         
         #print(dir(self.temp_pem_file))
         #print(self.temp_pem_file)
-        
         
         gen_pem = subprocess.Popen(
                             [
@@ -315,20 +330,50 @@ class Config:
                 self.config_data[KW_DEFAULT_PROFILE] = self.profile_name
                 self.logger.debug(f"default profile set to '{self.config_data[KW_DEFAULT_PROFILE]}'")
         else:
-            self.profile_name = self.config_data[KW_DEFAULT_PROFILE] = self.config_data.get(KW_DEFAULT_PROFILE, "default")
+            self.profile_name = self.config_data[KW_DEFAULT_PROFILE] = \
+                        self.config_data.get(KW_DEFAULT_PROFILE, "default")
             self.logger.debug(f"using profile '{self.profile_name}'")
             
         # get the profile data for the active profile            
-        profiles = self.config_data[KW_PROFILES] = self.config_data.get(KW_PROFILES, {self.profile_name: {}})
-        active_profile = self.active_profile = profiles[self.profile_name] = profiles.get(self.profile_name, {})
+        profiles = self.config_data[KW_PROFILES] \
+                    = self.config_data.get(KW_PROFILES, {self.profile_name: {}})
+        active_profile = self.active_profile \
+                    = profiles[self.profile_name] \
+                    = profiles.get(self.profile_name, {})
         
+        # set the log level (which will be effective only AFTER config initializes, so there
+        # will be some initial info or debug messages even if level is set higher)
+        log_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'default']
+        if self.args.loglevel is not None:
+            if self.args.loglevel not in log_levels:
+                err_msg = f"Error: --loglevel must be in {log_levels}"
+                self.logger.error(err_msg)
+                raise ValueError(err_msg)
+            else:
+                if self.args.loglevel != 'default':
+                    active_profile[KW_LOGLEVEL] = self.args.loglevel
+                else:
+                    active_profile[KW_LOGLEVEL] = None
+        else:
+            active_profile[KW_LOGLEVEL] = active_profile.get(KW_LOGLEVEL, None)
+
         # get the REST API
+        self.logger.info(f"rest_api={self.args.rest_api}, dev={self.args.dev}, prod={self.args.prod}")
+        if [self.args.rest_api is not None, self.args.dev, self.args.prod].count(True) > 1:
+            err_msg = "Error: --rest-api, --dev, and --prod are mutually exclusive" 
+            self.logger.error(err_msg)
+            raise ValueError(err_msg)
+
         if self.args.rest_api is not None:
             active_profile[KW_REST_API] = self.args.rest_api
-            self.logger.debug(f"rest api set to '{active_profile[KW_REST_API]}'")
+        elif self.args.dev:
+            active_profile[KW_REST_API] = API_DEV
+        elif self.args.prod:
+            active_profile[KW_REST_API] = API_PROD
         else:
             active_profile[KW_REST_API] = active_profile.get(KW_REST_API, DEFAULT_API)
-            self.logger.debug(f"using rest api '{active_profile[KW_REST_API]}'")
+
+        self.logger.debug(f"using rest api '{active_profile[KW_REST_API]}'")
         
         # let's figure out the certificate situation...
         # 0) if --cert is provided without --cert-type, it will guess based on the
@@ -386,11 +431,14 @@ class Config:
         active_profile[KW_CERTIFICATE] = active_profile.get(KW_CERTIFICATE, self.args.cert)
         
         # Now the hard part. If it's a p12 with a password, we should convert to pem.
-        if active_profile[KW_CERT_TYPE] == KW_P12 and self.args.password is not None:
-            self.logger.debug("extracting PEM certificate from P12")
-            self._extract_pem(active_profile[KW_CERTIFICATE], self.args.password)
-            active_profile[KW_CERT_TYPE] = KW_PEM
-            active_profile[KW_CERTIFICATE] = self.temp_pem_file.name
+        if active_profile[KW_CERT_TYPE] == KW_P12:
+            if self.args.password is not None:
+                self.logger.debug("extracting PEM certificate from P12")
+                self._extract_pem(active_profile[KW_CERTIFICATE], self.args.password)
+                active_profile[KW_CERT_TYPE] = KW_PEM
+                active_profile[KW_CERTIFICATE] = self.temp_pem_file.name
+            else:
+                self.logger.debug("Using P12 certificate, but no password was supplied")
         else:
             #self.logger.debug(f"{active_profile[KW_CERT_TYPE]}, {self.args.password}")
             self.logger.debug("using PEM certificate")
@@ -430,31 +478,48 @@ class Config:
         
 
     def _parse_args(self, args=None):
-        self.arg_parser = argparse.ArgumentParser()        
+        self.arg_parser = argparse.ArgumentParser(allow_abbrev=False, add_help=False)        
 
-        self.arg_parser.add_argument('--cert-type',
+        group = self.arg_parser.add_argument_group(
+                        'Global Configuration Options',
+                        'These options are available for most scripts, and are only set '
+                        'for the duration of the script. If used with the '
+                        'Configuration Utility, however, they will be set permanently.')
+
+        group.add_argument('--cert-type',
                             dest='cert_type',
                             metavar='[ p12 | pem ]',
                             required=False,
                             help='type of certificate file being used: p12 or pem')
-        self.arg_parser.add_argument('--cert',
+        group.add_argument('--cert',
                             dest='cert',
                             metavar='<filename>',
                             required=False,
                             help='user certificate for accessing REST API')
-        self.arg_parser.add_argument('--password', 
+        group.add_argument('--password', 
                             dest='password',
                             metavar='<password>',
                             required=False,
                             help='password, required if using a p12 file. '
                                  '(The utility will extract a pem certificate '
                                  'and use that; the password will not be retained.')
-        self.arg_parser.add_argument('--rest-api',
+        group.add_argument('--dev',
+                            dest='dev',
+                            action='store_true',
+                            required=False,
+                            help=f'use the DEVELOPMENT server at {API_DEV}')
+        group.add_argument('--prod',
+                            dest='prod',
+                            action='store_true',
+                            required=False,
+                            help=f'use the PRODUCTION server at {API_PROD}')
+        group.add_argument('--rest-api',
                             dest='rest_api',
                             metavar='<url>',
                             required=False,
                             help=f'use the REST API at <url>, ex. {DEFAULT_API}')
 
+        '''
         self.arg_parser.add_argument('--institution-id', '--inst-id', '--inst',
                             dest='inst_id',
                             metavar='<inst-id>',
@@ -482,14 +547,23 @@ class Config:
                                   'uniquely identifies a country, use '
                                   'that country; otherwise list all matches without adding '
                                   'any country to the configuration')
+        '''
         
-        self.arg_parser.add_argument('--profile',
+        group.add_argument('--profile',
                             dest='profile',
                             metavar='<profile-name>',
                             required=False,
                             help="if multiple profiles exist in the system, use the profile "
                                 "named <profile-name>. Otherwise, use the default profile.")
-        
+        group.add_argument('--loglevel',
+                            dest='loglevel',
+                            metavar='<loglevel>',
+                            required=False,
+                            help="Only log messages at <loglevel> or higher in severity. "
+                                "(DEBUG, INFO, WARNING, ERRROR, CRITICAL, or 'default' to "
+                                "use the default level")    
+
+
         self.args, unknown = self.arg_parser.parse_known_args(args)
     
     def _default_log_settings(self):
@@ -581,5 +655,4 @@ else:
     config = Config()
 
 #logger.info("exiting module")
-
 
