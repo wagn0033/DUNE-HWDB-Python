@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Sisyphus/__init__.py
-Copyright (c) 2022 Regents of the University of Minnesota
+Copyright (c) 2023 Regents of the University of Minnesota
 Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 
-version = "1.0.20230615"
+version = "1.1.20230929.pre-release"

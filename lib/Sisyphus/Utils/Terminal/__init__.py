@@ -8,8 +8,15 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
 from collections import abc
 import shutil
-        
-from ._Style import Style
+
+# This is stupid. The first one works if you import this file,
+# but if you execute this file directly, you need the second.
+# I need to understand this better and implement this more
+# elegantly.
+try:        
+    from ._Style import Style
+except ImportError:
+    from _Style import Style
 
 class Box:
     default_width = 10
@@ -473,7 +480,9 @@ def preview_image(image_file, max_width=None, padding=0, background=None):
     
     method = PIL.Image.ANTIALIAS
     img2 = img.resize((term_width, num_rows), method)
-    
+   
+    alternate_blocks = False
+ 
     for rowindex in range(0, num_rows, 2):
         row_content = []
         if padding>0:
@@ -481,13 +490,15 @@ def preview_image(image_file, max_width=None, padding=0, background=None):
             row_content.append(' '*padding)
         for colindex in range(term_width):
             try:
+                block_parity = (alternate_blocks and (colindex+rowindex) % 2 == 0)
+
                 # top
                 c = img2.getpixel((colindex,rowindex))
                 if len(c) == 4:
                     r, g, b, a = c
                     A = 255-a
                     
-                    if colindex%2 == 0:
+                    if block_parity:
                         br, bg, bb = br1, bg1, bb1
                     else:
                         br, bg, bb = br2, bg2, bb2
@@ -503,7 +514,7 @@ def preview_image(image_file, max_width=None, padding=0, background=None):
                     r, g, b, a = c
                     A = 255-a
                     
-                    if colindex%2 == 0:
+                    if block_parity:
                         br, bg, bb = br2, bg2, bb2
                     else:
                         br, bg, bb = br1, bg1, bb1
@@ -513,7 +524,7 @@ def preview_image(image_file, max_width=None, padding=0, background=None):
                 else:
                     bottom = c
                 
-                if colindex%2 == 0:
+                if block_parity:
                     fore = bottom
                     back = top
                     char = chr(0x2584)

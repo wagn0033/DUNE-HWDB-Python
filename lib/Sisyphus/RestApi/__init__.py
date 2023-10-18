@@ -110,6 +110,8 @@ def _get(*args, **kwargs):
 
 # @log_execution_time(logger)    
 def _post(*args, **kwargs):
+    
+    logger.info(f"calling _post (V0) with args={args}, kwargs={kwargs}")
     kwargs["timeout"]=10
     try:
         # resp = p12post(*args, **kwargs, 
@@ -357,13 +359,15 @@ def patch_component_type():
 
 #######################################################################
 
-def post_component(type_id, data, **kwargs):
-    path = f"cdbdev/api/component-types/{type_id}/component"
-    url = f"https://{_api}/{path}" 
-    
-    resp = _post(url, data=data, **kwargs)
-
-    return resp
+#def post_component(type_id, data, **kwargs):
+#    path = f"cdbdev/api/component-types/{type_id}/components"
+#    url = f"https://{_api}/{path}" 
+#   
+#    logger.info(f"calling post_component (V0) with url='{url}'")
+# 
+#    resp = _post(url, data=data, **kwargs)
+#
+#    return resp
 
 #######################################################################
 
@@ -424,6 +428,8 @@ def get_components(part_type_id, page=None, term=None, **kwargs):
 def post_component(type_id, data, **kwargs):
     path = f"cdbdev/api/component-types/{type_id}/components"
     url = f"https://{_api}/{path}"
+
+    logger.info(f"calling post_component (V0) with url='{url}'")
 
     resp = _post(url, json=data, **kwargs)
     
