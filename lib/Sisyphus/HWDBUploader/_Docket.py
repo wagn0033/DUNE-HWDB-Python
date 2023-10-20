@@ -5,10 +5,14 @@ Sisyphus/HWDBUploader/_Docket.py
 Copyright (c) 2023 Regents of the University of Minnesota
 Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
+
 """
 
 from Sisyphus.Configuration import config
 logger = config.getLogger()
+
+
+from Sisyphus.HWDBUploader.keywords import *
 
 import Sisyphus.RestApiV1 as ra
 import Sisyphus.RestApiV1.Utilities as ut
@@ -22,6 +26,7 @@ import os
 from copy import deepcopy
 import re
 
+'''
 # Dictionary keys for Docket files
 DKT_DOCKET_NAME = "Docket Name"
 DKT_VALUES = "Values"
@@ -37,7 +42,7 @@ DKT_FILE_TYPE = "File Type"
 DKT_EXCEL = "Excel"
 DKT_CSV = "CSV"
 DKT_FILE_HANDLE = "File Handle"
-DKT_DATA_TYPE = "Data Type"
+DKT_SHEET_TYPE = "Sheet Type"
 DKT_ITEM = "Item"
 DKT_TEST = "Test"
 DKT_ITEM_IMAGES = "Item Image List"
@@ -73,6 +78,7 @@ RA_COUNTRY = "country"
 RA_CODE = "code"
 RA_ID = "id"
 RA_FUNCTIONAL_POSITION = "functional_position"
+'''
 
 pp = lambda s: print(json.dumps(s, indent=4))
 
@@ -454,8 +460,6 @@ class Docket:
                 }
             ) 
 
-            
-
 
     def _parse_source(self, dkt, source_item):
         logger.debug(f"parsing {source_item}")
@@ -512,7 +516,7 @@ class Docket:
             encoder_name = DKT_AUTO        
         
         # Check for a data type (e.g., item, test, image list)
-        data_type = source_item.get(DKT_DATA_TYPE, None)
+        data_type = source_item.get(DKT_SHEET_TYPE, None)
         if data_type is None:
             data_type = DKT_UNKNOWN
 
@@ -559,7 +563,7 @@ class Docket:
                             DKT_FILE_NAME: filename,
                             DKT_VALUES: {**values, **self.values},
                             DKT_ENCODER: encoder_name,
-                            DKT_DATA_TYPE: data_type,
+                            DKT_SHEET_TYPE: data_type,
                         })
             
             # Handle Excel files
@@ -575,7 +579,7 @@ class Docket:
                                 DKT_SHEET_NAME: sheet_name,
                                 DKT_VALUES: {**values, **self.values},
                                 DKT_ENCODER: encoder_name,
-                                DKT_DATA_TYPE: data_type,
+                                DKT_SHEET_TYPE: data_type,
                             })
                 # Add the sheets specified
                 else:
@@ -589,7 +593,7 @@ class Docket:
                         sheet_encoder = sheet_info.get(DKT_ENCODER, None)
                         if sheet_encoder is None:
                             sheet_encoder = encoder_name
-                        sheet_data_type = sheet_info.get(DKT_DATA_TYPE, None)
+                        sheet_data_type = sheet_info.get(DKT_SHEET_TYPE, None)
                         if sheet_data_type is None:
                             sheet_data_type = data_type
                     
@@ -617,7 +621,7 @@ class Docket:
                                 DKT_SHEET_NAME: sheet_name,
                                 DKT_VALUES: {**sheet_values, **values, **self.values},
                                 DKT_ENCODER: sheet_encoder,
-                                DKT_DATA_TYPE: sheet_data_type,
+                                DKT_SHEET_TYPE: sheet_data_type,
                             })
 
         src["Manifest"] = manifest
@@ -800,9 +804,11 @@ class Docket:
                 if resp[RA_STATUS] != RA_STATUS_OK:
                     raise RuntimeError("Failed to post hwitem")
                 
-                # Update any future operations that are still referring to the serial number instead of part_id
+                # Update any future operations that are still referring to the serial number
+                #   instead of part_id
                 part_id = resp[RA_PART_ID]
-                alt_id = f'{op_node["kwargs"]["part_type_id"]}:{op_node["kwargs"]["data"][RA_SERIAL_NUMBER]}'
+                alt_id = f'{op_node["kwargs"]["part_type_id"]}:' \
+                            f'{op_node["kwargs"]["data"][RA_SERIAL_NUMBER]}'
                 #SN_Lookup.delete(*alt_id)
                 self._resolve_serial_number(alt_id, part_id)
         
@@ -815,7 +821,8 @@ class Docket:
                 if resp[RA_STATUS] != RA_STATUS_OK:
                     raise RuntimeError("Failed to patch hwitem")
                 
-                # Update any future operations that are still referring to the serial number instead of part_id
+                # Update any future operations that are still referring to the serial number
+                #   instead of part_id
                 # This should be less likely for an update, but it's still possible 
                 part_id = resp[RA_PART_ID]
                 
@@ -889,18 +896,18 @@ class Docket:
 
 
     def process_sources(self):
-
+        pp(self.sources)
         for source_node in self.sources:
             for sheet_node in source_node["Manifest"]:
 
                 if sheet_node[DKT_ENCODER] == DKT_AUTO:
-                    if sheet_node[DKT_DATA_TYPE] == DKT_ITEM:
+                    if sheet_node[DKT_SHEET_TYPE] == DKT_ITEM:
                         self._process_auto_item(source_node, sheet_node)
-                    elif sheet_node[DKT_DATA_TYPE] == DKT_TEST:
+                    elif sheet_node[DKT_SHEET_TYPE] == DKT_TEST:
                         self._process_auto_test(source_node, sheet_node)
-                    elif sheet_node[DKT_DATA_TYPE] == DKT_ITEM_IMAGES:
+                    elif sheet_node[DKT_SHEET_TYPE] == DKT_ITEM_IMAGES:
                         self._process_auto_item_images(source_node, sheet_node)
-                    elif sheet_node[DKT_DATA_TYPE] == DKT_TEST_IMAGES:
+                    elif sheet_node[DKT_SHEET_TYPE] == DKT_TEST_IMAGES:
                         self._process_auto_test_images(source_node, sheet_node)
                     else:
                         raise ValueError("Automatic detection of data type not implemented (yet)")
