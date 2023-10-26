@@ -11,10 +11,12 @@ Author:
 from Sisyphus.Configuration import config
 logger = config.getLogger()
 
-
 from Sisyphus.HWDBUploader.keywords import *
+from Sisyphus.HWDBUploader._Encoder import Encoder
+from Sisyphus.HWDBUploader._Sheet import Sheet
 
 import Sisyphus.RestApiV1 as ra
+from Sisyphus.RestApiV1.keywords import *
 import Sisyphus.RestApiV1.Utilities as ut
 
 import json
@@ -26,119 +28,13 @@ import os
 from copy import deepcopy
 import re
 
-'''
-# Dictionary keys for Docket files
-DKT_DOCKET_NAME = "Docket Name"
-DKT_VALUES = "Values"
-DKT_SOURCES = "Sources"
-DKT_SOURCE_NAME = "Source Name"
-DKT_FILES = "Files"
-DKT_FILE_NAME = "File Name"
-DKT_SHEETS = "Sheets"
-DKT_SHEET_NAME = "Sheet Name"
-DKT_ENCODER = "Encoder"
-DKT_AUTO = "Auto"
-DKT_FILE_TYPE = "File Type"
-DKT_EXCEL = "Excel"
-DKT_CSV = "CSV"
-DKT_FILE_HANDLE = "File Handle"
-DKT_SHEET_TYPE = "Sheet Type"
-DKT_ITEM = "Item"
-DKT_TEST = "Test"
-DKT_ITEM_IMAGES = "Item Image List"
-DKT_TEST_IMAGES = "Test Image List"
-DKT_UNKNOWN = "Unknown"
-DKT_TYPE_ID = "Type ID"
-DKT_TYPE_NAME = "Type Name"
-DKT_EXTERNAL_ID = "External ID"
-DKT_SERIAL_NUMBER = "Serial Number"
-DKT_INST_ID = "Institution ID"
-DKT_MANU_ID = "Manufacturer ID"
-DKT_COUNTRY_CODE = "Country Code"
-DKT_COMMENTS = "Comments"
-DKT_ENABLED = "Enabled"
-
-# Dictionary keys for REST API
-RA_INSTITUTION = "institution"
-RA_COUNTRY_CODE = "country_code"
-RA_MANUFACTURER = "manufacturer"
-RA_ENABLED = "enabled"
-RA_COMMENTS = "comments"
-RA_SPECIFICATIONS = "specifications"
-RA_SUBCOMPONENTS = "subcomponents"
-RA_PART_ID = "part_id"
-RA_PART_TYPE_ID = "part_type_id"
-RA_STATUS = "status"
-RA_STATUS_OK = "OK"
-RA_STATUS_ERROR = "ERROR"
-RA_DATA = "data"
-RA_SERIAL_NUMBER = "serial_number"
-RA_COMPONENT_TYPE = "component_type"
-RA_COUNTRY = "country"
-RA_CODE = "code"
-RA_ID = "id"
-RA_FUNCTIONAL_POSITION = "functional_position"
-'''
 
 pp = lambda s: print(json.dumps(s, indent=4))
 
-def get_hwitem_complete(part_id):
-    logger.debug(f"getting part_id {part_id}")
-    resp = ra.get_hwitem(part_id)
-    if resp[RA_STATUS] != RA_STATUS_OK:
-        raise RuntimeError("Error getting hwitem")
-    data = resp[RA_DATA]
-
-    resp = ra.get_subcomponents(part_id)
-    if resp[RA_STATUS] != RA_STATUS_OK:
-        raise RuntimeError("Error getting subcomponents")
-
-    data[RA_SUBCOMPONENTS] = { item[RA_FUNCTIONAL_POSITION]: item[RA_PART_ID] for item in resp[RA_DATA] }
-
-    return data
-
-
-
-class _SN_Lookup:
-    _cache = {}
-    @classmethod
-    def __call__(cls, part_type_id, serial_number):
-        logger.debug(f"looking up {part_type_id}:{serial_number}")
-        if (part_type_id, serial_number) not in cls._cache.keys():
-            resp = ra.get_hwitems(part_type_id, serial_number=serial_number)
-            if resp[RA_STATUS] != RA_STATUS_OK:
-                msg = f"Error looking up serial number '{serial_number}' for " \
-                            "part type '{part_type_id}'"
-                logger.error(msg)
-                raise ValueError(msg)
-            if len(resp[RA_DATA]) == 1:
-                part_id = resp[RA_DATA][0][RA_PART_ID]
-                data = get_hwitem_complete(part_id)  
-                cls._cache[part_type_id, serial_number] = part_id, data
-
-            elif len(resp[RA_DATA]) == 0:
-                cls._cache[part_type_id, serial_number] = None
-            elif len(resp[RA_DATA]) > 1:
-                msg = f"Serial number '{serial_number}' for part type '{part_type_id}' " \
-                            "is assigned to {len(resp[RA_DATA])} parts."
-                logger.error(msg)
-                raise ValueError(msg)
-        return cls._cache[part_type_id, serial_number]
-    @classmethod
-    def update(cls, part_type_id, serial_number, data):
-        cls._cache[(part_type_id, serial_number)] = (data[RA_PART_TYPE_ID], data)
-    @classmethod
-    def delete(cls, part_type_id, serial_number):
-        if (part_type_id, serial_number) in cls._cache.keys():
-            del cls._cache[(part_type_id, serial_number)]
-
-SN_Lookup = _SN_Lookup()
-
-
-
 class Docket:
+    #{{{
     def __init__(self, dkt):
-
+        #{{{
         self.terminate_on_error = True
 
         # Global values for docket
@@ -175,9 +71,10 @@ class Docket:
                 self.add_docket(item)
         else:
             self.add_docket(dkt)
-
-
+        #}}}
+   
     def add_docket(self, dkt):
+        #{{{
         self.docket_counter += 1
 
         # Let's make a copy, since we're going to be tweaking it as we
@@ -191,10 +88,11 @@ class Docket:
         self._parse_values(dkt)
         self._parse_sources(dkt)
         self._parse_encoder(dkt)
-
+        #}}}
 
     @classmethod
     def df_coalesce_generator(cls, df, row_index, context={}):
+        #{{{
         def df_coalesce(col_name):
             # If the column col_name exists, return the value in that column.
             # If the cell is empty, return an empty string.
@@ -215,15 +113,18 @@ class Docket:
                 result = int(result)
             return result
         return df_coalesce   
- 
+        #}}} 
+
     def _parse_values(self, dkt):
+        #{{{
         if DKT_VALUES not in dkt.keys():
             return
 
         self.values = {**self.values, **dkt[DKT_VALUES]}
+        #}}}
 
     def _generate_hwitem_requests(self, old_data, new_data):
-
+        #{{{
         #pp(old_data)
         #pp(new_data)
 
@@ -231,10 +132,11 @@ class Docket:
             self._generate_new_hwitem(new_data)
         else:
             self._generate_update_hwitem(old_data, new_data)        
-
+        #}}}
 
     def _generate_new_hwitem(self, new_data):
-        
+        #{{{        
+
         # Make sure required information is there.
         if new_data[RA_INSTITUTION] is None:
             ValueError("Institution ID is required")
@@ -289,11 +191,11 @@ class Docket:
                     }
                 }
             )
-        
-
-
+        #}}}
 
     def _generate_update_hwitem(self, old_data, new_data):
+        #{{{
+
         # Test the things that MUST NOT be changed and raise an error if this is attempted
         # If they are None, interpret it as not trying to change it
         if new_data.get(RA_INSTITUTION, None) is not None:
@@ -365,8 +267,6 @@ class Docket:
         # put this in there regardless of whether it was the thing 
         # that triggered the "data_has_changed" flag
         data[RA_SPECIFICATIONS] = new_data[RA_SPECIFICATIONS]
-
-        
 
         if data_has_changed:
             self.update_hwitems.append(
@@ -459,9 +359,10 @@ class Docket:
                     #"new_data": new_data,
                 }
             ) 
-
+        #}}}
 
     def _parse_source(self, dkt, source_item):
+        #{{{
         logger.debug(f"parsing {source_item}")
 
         # The source should be a dictionary, but it is allowed to be a string.
@@ -474,10 +375,11 @@ class Docket:
         
         # Accumulate the 'refined' source node data here
         src = {
-            DKT_SOURCE_NAME: source_item[DKT_SOURCE_NAME],
             # We are potentially accumulating from several dockets,
             # so record which docket this source came from
-            DKT_DOCKET_NAME: dkt[DKT_DOCKET_NAME]
+            DKT_DOCKET_NAME: dkt[DKT_DOCKET_NAME],
+            
+            DKT_SOURCE_NAME: source_item[DKT_SOURCE_NAME],
         }
 
         # The source node MUST have a filename. 
@@ -535,7 +437,7 @@ class Docket:
                     }
                 except ValueError as err1:
                     try:
-                        csv_file = pd.read_csv(filename)
+                        csv_file = pd.read_csv(filename, on_bad_lines='skip')
                         self._file_cache[filename] = {
                             DKT_FILE_TYPE: DKT_CSV,
                             DKT_FILE_HANDLE: csv_file,
@@ -560,7 +462,9 @@ class Docket:
                 else:
                     manifest.append(
                         {
+                            **src,
                             DKT_FILE_NAME: filename,
+                            DKT_FILE_TYPE: DKT_CSV,
                             DKT_VALUES: {**values, **self.values},
                             DKT_ENCODER: encoder_name,
                             DKT_SHEET_TYPE: data_type,
@@ -575,7 +479,9 @@ class Docket:
                     for sheet_name in file_info[DKT_SHEET_NAME]:
                         manifest.append(
                             {
+                                **src,
                                 DKT_FILE_NAME: filename,
+                                DKT_FILE_TYPE: DKT_EXCEL,
                                 DKT_SHEET_NAME: sheet_name,
                                 DKT_VALUES: {**values, **self.values},
                                 DKT_ENCODER: encoder_name,
@@ -617,7 +523,9 @@ class Docket:
                         sheet_values = sheet_info.get(DKT_VALUES, {})
                         manifest.append(
                             {
+                                **src,
                                 DKT_FILE_NAME: filename,
+                                DKT_FILE_TYPE: DKT_EXCEL,
                                 DKT_SHEET_NAME: sheet_name,
                                 DKT_VALUES: {**sheet_values, **values, **self.values},
                                 DKT_ENCODER: sheet_encoder,
@@ -630,8 +538,10 @@ class Docket:
 
         # Add this source to sources
         self.sources.append(src) 
+        #}}}
 
     def _parse_sources(self, dkt):
+        #{{{
         logger.debug("Parsing sources")
         if DKT_SOURCES not in dkt.keys():
             logger.warning(f"Docket '{dkt[DKT_DOCKET_NAME]}' has no '{DKT_SOURCES}' node")
@@ -648,18 +558,39 @@ class Docket:
             if DKT_SOURCE_NAME not in source_item.keys():
                 source_item[DKT_SOURCE_NAME] = "Unnamed Source Node {source_index}"
             self._parse_source(dkt, source_item)
-        
+
+        #}}}        
+
     def _parse_encoder(self, dkt):
+        #{{{
         pass
+        #}}}
 
+    def _process_auto_item(self, sheet_node):
+        #{{{    
 
-    def _process_auto_item(self, source_node, sheet_node):
-    
+        sheet = Sheet(sheet_node)        
+        
         # We need to analyze the component type to see what fields we even need
-        # TBD: we can possibly get this from the sheet in the future, but for now
-        # it MUST be in the "Values"
-      
+        
         # First, let's get the Type ID 
+        if sheet.coalesce(DKT_TYPE_NAME) is not None:
+            part_type_name, part_type_id = ut.lookup_part_type_id_by_fullname(
+                                    sheet.coalesce(DKT_TYPE_NAME))
+            if sheet.coalesce(DKT_TYPE_ID) is not None:
+                if sheet.coalesce(DKT_TYPE_ID) != part_type_id:
+                    raise ValueError("Type ID and Type Name do not match!")
+            comp_type_info = ut.lookup_component_type_defs(part_type_id)
+        elif sheet.coalesce(DKT_TYPE_ID) is not None:
+            part_type_name = None
+            ppart_type_id = sheet.coalesce(DKT_TYPE_ID)
+        else:
+            raise ValueError("Unable to determine Type ID!")
+
+
+        pp(comp_type_info)
+        sys.exit()
+
         if DKT_TYPE_NAME in sheet_node[DKT_VALUES]: 
             type_info = ut.lookup_part_type_id_by_fullname(sheet_node[DKT_VALUES][DKT_TYPE_NAME])
             if DKT_TYPE_ID in sheet_node[DKT_VALUES]:
@@ -669,6 +600,7 @@ class Docket:
             else:
                 sheet_node[DKT_VALUES][DKT_TYPE_ID] = type_info[1]
         elif DKT_TYPE_ID not in sheet_node[DKT_VALUES]:
+            pp(sheet_node)
             raise ValueError("Unable to determine Type ID!")
         part_type_id = sheet_node[DKT_VALUES][DKT_TYPE_ID]
 
@@ -709,10 +641,10 @@ class Docket:
                     ValueError("New HW Items must have a serial number")
                 else:
                     new_data[RA_SERIAL_NUMBER] = serial_number
-                    if SN_Lookup(part_type_id, serial_number) is None:
+                    if ut.SN_Lookup(part_type_id, serial_number) is None:
                         new_data[RA_COMPONENT_TYPE] = {RA_PART_TYPE_ID: part_type_id},
                     else:
-                        part_id, old_data = SN_Lookup(part_type_id, serial_number)
+                        part_id, old_data = ut.SN_Lookup(part_type_id, serial_number)
                         new_data[RA_PART_ID] = part_id
             else:
                 old_data =  get_hwitem_complete(part_id)
@@ -765,8 +697,10 @@ class Docket:
             new_data[RA_SUBCOMPONENTS] = subcomponents
 
             self._generate_hwitem_requests(old_data, new_data)
+        #}}}
 
     def _resolve_serial_number(self, alt_id, part_id):
+        #{{{
         for op_node in self.enable_hwitems:
             if op_node["operation"] == "enable_hwitem":
                 if op_node["kwargs"][RA_PART_ID] == alt_id:
@@ -779,9 +713,11 @@ class Docket:
                     if subcomp == alt_id:
                         op_node["kwargs"]["subcomponents"][funcpos] = part_id
         part_type_id, serial_number = alt_id[:12], alt_id[13:]
-        SN_Lookup.delete(part_type_id, serial_number)
+        ut.SN_Lookup.delete(part_type_id, serial_number)
+        #}}}
 
     def display_plan(self):
+        #{{{
         print("========== New Items ===========")
         pp(self.new_hwitems)
         print("======== Updated Items =========") 
@@ -792,8 +728,10 @@ class Docket:
         pp(self.remove_subcomponents)
         print("===== Attach Subcomponents =====")
         pp(self.attach_subcomponents)
+        #}}}
 
     def update_hwdb(self):
+        #{{{
 
         # Add the new items
         for op_node in self.new_hwitems:
@@ -809,7 +747,7 @@ class Docket:
                 part_id = resp[RA_PART_ID]
                 alt_id = f'{op_node["kwargs"]["part_type_id"]}:' \
                             f'{op_node["kwargs"]["data"][RA_SERIAL_NUMBER]}'
-                #SN_Lookup.delete(*alt_id)
+                #ut.SN_Lookup.delete(*alt_id)
                 self._resolve_serial_number(alt_id, part_id)
         
         # Update items
@@ -829,7 +767,7 @@ class Docket:
                 # HACK HACK HACK
                 part_type_id = part_id[:12]
                 alt_id = f'{part_type_id}:{op_node["kwargs"]["data"][RA_SERIAL_NUMBER]}'
-                #SN_Lookup.delete(*alt_id)
+                #ut.SN_Lookup.delete(*alt_id)
                 self._resolve_serial_number(alt_id, part_id)
         
         # Update the enabled status
@@ -840,7 +778,7 @@ class Docket:
                 alt_id = op_node["kwargs"]["part_id"]
                 if ":" in alt_id:
                     part_type_id, serial_number = alt_id[:12], alt_id[13:]
-                    part_id, data = SN_Lookup(part_type_id, serial_number)
+                    part_id, data = ut.SN_Lookup(part_type_id, serial_number)
                     op_node["kwargs"]["part_id"] = part_id
                 resp = ut.enable_hwitem(**op_node["kwargs"])
                 if resp[RA_STATUS] != RA_STATUS_OK:
@@ -854,7 +792,7 @@ class Docket:
                 for funcpos, subcomp in op_node["kwargs"]["subcomponents"].items():
                     if ":" in subcomp:
                         part_type_id, serial_number = subcomp[:12], subcomp[13:]
-                        part_id, data = SN_Lookup(part_type_id, serial_number)
+                        part_id, data = ut.SN_Lookup(part_type_id, serial_number)
                         op_node["kwargs"]["subcomponents"][funcpos] = part_id
                 resp = ut.set_subcomponents(**kwargs)
                 if resp[RA_STATUS] != RA_STATUS_OK:
@@ -866,55 +804,52 @@ class Docket:
                 for funcpos, subcomp in op_node["kwargs"]["subcomponents"].items():
                     if ":" in subcomp:
                         part_type_id, serial_number = subcomp[:12], subcomp[13:]
-                        part_id, data = SN_Lookup(part_type_id, serial_number)
+                        part_id, data = ut.SN_Lookup(part_type_id, serial_number)
                         op_node["kwargs"]["subcomponents"][funcpos] = part_id
                 resp = ut.set_subcomponents(**op_node["kwargs"])
                 if resp[RA_STATUS] != RA_STATUS_OK:
                     raise RuntimeError("Failed to remove subcomponents")
 
+        #}}}
 
-
-
-
-
-    def _process_auto_test(self, source_node, sheet_node):
+    def _process_auto_test(self, sheet_node):
+        #{{{
         print("skipping test node")
         pass
+        #}}}
 
-
-
-    def _process_auto_item_images(self, source_node, sheet_node):
+    def _process_auto_item_images(self, sheet_node):
+        #{{{
         print("skipping item images node")
         pass
+        #}}}
 
-
-
-
-    def _process_auto_test_images(self, source_node, sheet_node):
+    def _process_auto_test_images(self, sheet_node):
+        #{{{
         print("skipping test images node")
         pass
-
+        #}}}
 
     def process_sources(self):
-        pp(self.sources)
+        #{{{
         for source_node in self.sources:
             for sheet_node in source_node["Manifest"]:
 
                 if sheet_node[DKT_ENCODER] == DKT_AUTO:
                     if sheet_node[DKT_SHEET_TYPE] == DKT_ITEM:
-                        self._process_auto_item(source_node, sheet_node)
+                        self._process_auto_item(sheet_node)
                     elif sheet_node[DKT_SHEET_TYPE] == DKT_TEST:
-                        self._process_auto_test(source_node, sheet_node)
+                        self._process_auto_test(sheet_node)
                     elif sheet_node[DKT_SHEET_TYPE] == DKT_ITEM_IMAGES:
-                        self._process_auto_item_images(source_node, sheet_node)
+                        self._process_auto_item_images(sheet_node)
                     elif sheet_node[DKT_SHEET_TYPE] == DKT_TEST_IMAGES:
-                        self._process_auto_test_images(source_node, sheet_node)
+                        self._process_auto_test_images(sheet_node)
                     else:
                         raise ValueError("Automatic detection of data type not implemented (yet)")
                 else:
                     raise ValueError("Custom encoders not implemented (yet)")
-
-
+        #}}}
+    #}}} 
 
 
 

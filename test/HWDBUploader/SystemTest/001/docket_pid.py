@@ -20,7 +20,7 @@ contents = \
             [   
                 {
                     "Sheet Name": "Bongo-Items",
-                    "Data Type": "Item",
+                    "Sheet Type": "Item",
                     "Values":
                     {
                         "Type ID": "Z00100300023",
@@ -28,7 +28,7 @@ contents = \
                 },
 #                {
 #                    "Sheet Name": "Bongo-Item-Images",
-#                    "Data Type": "Item Image List",
+#                    "Sheet Type": "Item Image List",
 #                    "Values":
 #                    {
 #                        "Type ID": "Z00100300023",
@@ -36,7 +36,7 @@ contents = \
 #                },
 #                {
 #                    "Sheet Name": "Bongo-Tests",
-#                    "Data Type": "Test",
+#                    "Sheet Type": "Test",
 #                    "Values":
 #                    {
 #                        "Type ID": "Z00100300023",
@@ -45,7 +45,7 @@ contents = \
 #                },
 #                {
 #                    "Sheet Name": "Bongo-Test-Images",
-#                    "Data Type": "Test Image List",
+#                    "Sheet Type": "Test Image List",
 #                    "Values":
 #                    {
 #                        "Type ID": "Z00100300023",
@@ -54,7 +54,7 @@ contents = \
 #                },
                 {
                     "Sheet Name": "Biff-Items",
-                    "Data Type": "Item",
+                    "Sheet Type": "Item",
                     "Values":
                     {
                         #"Type ID": "Z00100300022",
@@ -63,7 +63,7 @@ contents = \
                 },
 #                {
 #                    "Sheet Name": "Biff-Tests",
-#                    "Data Type": "Test",
+#                    "Sheet Type": "Test",
 #                    "Values":
 #                    {
 #                        "Type ID": "Z00100300022",

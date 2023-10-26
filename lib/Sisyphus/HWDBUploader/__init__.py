@@ -9,3 +9,4 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 from .keywords import *
 from ._Docket import *
 from ._Encoder import *
+from ._Sheet import *

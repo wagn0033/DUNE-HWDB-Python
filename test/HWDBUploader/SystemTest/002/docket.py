@@ -7,25 +7,90 @@
 #     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 # """
 
+item_manifest_excel = \
+{
+    "Source Name": "SiPM Item Manifest",
+    "Files": "SiPM-item-manifest.xlsx",
+    "Sheet Type": "Item",
+    "Values":
+    {
+        "Part Type Name": "Z.Sandbox.HWDBUnitTest.snork",
+        "Sample Value 1": 1,
+    },
+    #"Encoder": "SiPM Item",
+}
+
+item_manifest_csv = \
+{
+    "Source Name": "SiPM Item Manifest CSV",
+    "Files": "SiPM-item-manifest.csv",
+    "Sheet Type": "Item",
+    "Values":
+    {
+        "Sample Value 1": 1,
+    },
+    #"Encoder": "SiPM Item",
+}
+
+item_manifest_csv_staggered = \
+{
+    "Source Name": "SiPM Item Manifest CSV",
+    "Files": "SiPM-item-manifest_staggered.csv",
+    "Sheet Type": "Item",
+    "Values":
+    {
+        "Sample Value 1": 1,
+    },
+    #"Encoder": "SiPM Item",
+}
+
+item_manifest_csv_single = \
+{
+    "Source Name": "SiPM Item Manifest CSV",
+    "Files": "SiPM-item-manifest_single.csv",
+    "Sheet Type": "Item",
+    "Values":
+    {
+        "Sample Value 1": 1,
+    },
+    #"Encoder": "SiPM Item",
+}
+
+
+item_manifest_csv_no_locals = \
+{
+    "Source Name": "SiPM Item Manifest CSV",
+    "Files": "SiPM-item-manifest_no_locals.csv",
+    "Sheet Type": "Item",
+    "Values":
+    {
+        "Sample Value 1": 1,
+    },
+    #"Encoder": "SiPM Item",
+}
+
+test_DN = \
+{
+    "Source Name": "Dark Noise SiPM Counts",
+    "Files": "Dark-noise-SiPM-counts.xlsx",
+    "Sheets":
+    [
+        {
+            "Sheet Name": "Sheet1",
+            "Sheet Type": "Test",
+            "Encoder": "Dark Noise SiPM Counts",
+        }
+    ]
+}
+
 sources = \
 [
-    {
-        "Source Name": "SiPM Item Manifest",
-        "Files": "SiPM-item-manifest.xlsx",
-        "Encoder": "SiPM Item",
-    },
-    {
-        "Source Name": "Dark Noise SiPM Counts",
-        "Files": "Dark-noise-SiPM-counts.xlsx",
-        "Sheets":
-        [
-            {
-                "Sheet Name": "Sheet1",
-                "Sheet Type": "Test",
-                "Encoder": "Dark Noise SiPM Counts",
-            }
-        ]
-    }
+    item_manifest_excel,
+    #item_manifest_csv,
+    #item_manifest_csv_staggered,
+    #item_manifest_csv_single,
+    #item_manifest_csv_no_locals,
+    #test_DN,
 ]
 
 encoders = \

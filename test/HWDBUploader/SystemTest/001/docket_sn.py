@@ -19,7 +19,7 @@ contents = \
             [   
                 {
                     "Sheet Name": "Bongo-Items",
-                    "Data Type": "Item",
+                    "Sheet Type": "Item",
                     "Values":
                     {
                         "Type ID": "Z00100300023"
@@ -27,7 +27,7 @@ contents = \
                 },
                 {
                     "Sheet Name": "Biff-Items",
-                    "Data Type": "Item",
+                    "Sheet Type": "Item",
                     "Values":
                     {
                         "Type Name": "Z.Sandbox.HWDBUnitTest.biff"

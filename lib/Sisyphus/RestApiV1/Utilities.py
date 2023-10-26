@@ -11,7 +11,7 @@ from Sisyphus.Configuration import config
 logger = config.getLogger()
 
 import Sisyphus.RestApiV1 as ra
-
+from Sisyphus.RestApiV1.keywords import *
 
 #######################################################################
 
@@ -159,3 +159,68 @@ def set_subcomponents(part_id, subcomponents):
         raise RuntimeError("Error setting subcomponents")
 
     return resp
+
+#######################################################################
+
+def get_hwitem_complete(part_id):
+    logger.debug(f"getting part_id {part_id}")
+    resp = ra.get_hwitem(part_id)
+    if resp[RA_STATUS] != RA_STATUS_OK:
+        raise RuntimeError("Error getting hwitem")
+    data = resp[RA_DATA]
+
+    resp = ra.get_subcomponents(part_id)
+    if resp[RA_STATUS] != RA_STATUS_OK:
+        raise RuntimeError("Error getting subcomponents")
+
+    data[RA_SUBCOMPONENTS] = { item[RA_FUNCTIONAL_POSITION]: item[RA_PART_ID] for item in resp[RA_DATA] }
+
+    return data
+
+#######################################################################
+
+class _SN_Lookup:
+    _cache = {}
+    @classmethod
+    def __call__(cls, part_type_id, serial_number):
+        logger.debug(f"looking up {part_type_id}:{serial_number}")
+        if (part_type_id, serial_number) not in cls._cache.keys():
+            resp = ra.get_hwitems(part_type_id, serial_number=serial_number)
+            if resp[RA_STATUS] != RA_STATUS_OK:
+                msg = f"Error looking up serial number '{serial_number}' for " \
+                            "part type '{part_type_id}'"
+                logger.error(msg)
+                raise ValueError(msg)
+            if len(resp[RA_DATA]) == 1:
+                part_id = resp[RA_DATA][0][RA_PART_ID]
+                data = get_hwitem_complete(part_id)
+                cls._cache[part_type_id, serial_number] = part_id, data
+
+            elif len(resp[RA_DATA]) == 0:
+                cls._cache[part_type_id, serial_number] = None
+            elif len(resp[RA_DATA]) > 1:
+                msg = f"Serial number '{serial_number}' for part type '{part_type_id}' " \
+                            "is assigned to {len(resp[RA_DATA])} parts."
+                logger.error(msg)
+                raise ValueError(msg)
+        return cls._cache[part_type_id, serial_number]
+    @classmethod
+    def update(cls, part_type_id, serial_number, data):
+        cls._cache[(part_type_id, serial_number)] = (data[RA_PART_TYPE_ID], data)
+    @classmethod
+    def delete(cls, part_type_id, serial_number):
+        if (part_type_id, serial_number) in cls._cache.keys():
+            del cls._cache[(part_type_id, serial_number)]
+
+SN_Lookup = _SN_Lookup()
+
+#######################################################################
+
+
+
+
+
+
+
+
+
