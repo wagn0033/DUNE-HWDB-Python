@@ -371,6 +371,13 @@ def get_component_types(project_id, system_id, subsystem_id=None,
     resp = _get(url, params=params, **kwargs) 
     return resp
 
+def post_component(part_type_id, data, **kwargs):
+    logger.debug(f"<post_component> type_id={part_type_id}")
+    path = f"api/v1/component-types/{sanitize(part_type_id)}/components" 
+    url = f"https://{config.rest_api}/{path}" 
+    
+    resp = _post(url, data=data, **kwargs)
+    return resp
 ##############################################################################
 #
 #  TESTS
