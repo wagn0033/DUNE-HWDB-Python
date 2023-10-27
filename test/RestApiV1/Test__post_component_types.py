@@ -16,8 +16,8 @@ import random
 
 from Sisyphus.RestApiV1 import post_component
 
-class Test__post_component_types(unittest.Testcase):
-    unittest.skip
+class Test__post_component_types(unittest.TestCase):
+    
     def test_post_component(self):
         part_type_id = "Z00100300001"
         serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
