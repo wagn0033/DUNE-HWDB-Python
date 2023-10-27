@@ -23,8 +23,7 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         pass
     
     def test_normal_item(self):
-        file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'components', 'normal_item.json')
+        file_path = os.path.join(os.path.dirname(__file__),'ExpectedResponses', 'components', 'normal_item.json')
         with open(file_path, 'r') as file:
             expected_resp = json.load(file)
         resp = get_hwitem("Z00100300001-00021")
@@ -55,10 +54,9 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
     def test_skip_example(self):
         pass
     
-    @unittest.skip()
+    @unittest.skip("get_image_by_part_id not working")
     def test_image_by_part_id(self):
-        file_path = os.path.join(os.path.dirname(__file__), 'ExpectedResponses',
-                    'components', 'image_by_part_id.json')
+        file_path = os.path.join(os.path.dirname(__file__), 'ExpectedResponses','components', 'image_by_part_id.json')
         with open(file_path, 'r') as file:
             expected_resp = json.load(file)
         resp = get_image_by_part_id("Z00100100048-00033")

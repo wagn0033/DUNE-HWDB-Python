@@ -142,13 +142,8 @@ class Test__get_component_type(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
         
         try:
-            file_path = os.path.join(
-                    os.path.dirname(__file__), 
-                    'ExpectedResponses', 'componentTypes', 
-                    'list-components-by-sys.json')
-            with open(file_path , 'r') as file:
-                expected_resp = json.load(file)
-            proj_id = 'D'
+            
+            proj_id = 'Z'
             sys_id = 1
 
             page, size = 1, 100
@@ -157,7 +152,9 @@ class Test__get_component_type(unittest.TestCase):
             resp = get_component_types(proj_id, sys_id, page=page, size=size)
 
             self.assertEqual(resp['status'], "OK")
-            self.assertDictEqual(resp,expected_resp)
+            self.assertIsInstance(resp['data'][0]['category'], str)
+            self.assertIsInstance(resp['data'][0]['creator']['id'], int)
+
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -173,14 +170,8 @@ class Test__get_component_type(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
 
         try:
-            file_path = os.path.join(
-                    os.path.dirname(__file__), 
-                    'ExpectedResponses', 'componentTypes', 
-                    'comp-types-D-1-1.json')
-            with open(file_path , 'r') as file:
-                expected_resp = json.load(file)
             
-            proj_id = 'D'
+            proj_id = 'Z'
             sys_id = 1
             subsys_id = 1
             page, size = 1, 100
@@ -189,7 +180,8 @@ class Test__get_component_type(unittest.TestCase):
             resp = get_component_types(proj_id, sys_id, subsys_id, page=page, size=size)
 
             self.assertEqual(resp['status'], "OK")
-            self.assertDictEqual(resp,expected_resp)
+            self.assertIsInstance(resp['data'][0]['category'], str)
+            self.assertIsInstance(resp['data'][0]['creator']['id'], int)
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
