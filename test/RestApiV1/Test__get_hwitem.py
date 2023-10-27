@@ -23,10 +23,11 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         pass
     
     def test_normal_item(self):
-        file_path = os.path.join(os.path.dirname(__file__),'ExpectedResponses', 'components', 'normal_item.json')
+        file_path = os.path.join(os.path.dirname(__file__),
+                    'ExpectedResponses', 'components', 'normal_item.json')
         with open(file_path, 'r') as file:
             expected_resp = json.load(file)
-        resp = get_hwitem_by_part_id("Z00100300001-00021")
+        resp = get_hwitem("Z00100300001-00021")
         
         self.assertEqual(resp["status"], "OK")
         self.assertEqual(resp, expected_resp)
@@ -41,22 +42,23 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         # This test is more for testing that the RestApiV1 python library
         # correctly figures this out and returns the info as JSON.
         
-        resp = get_hwitem_by_part_id("Z00100200017-00001")
+        resp = get_hwitem("Z00100200017-00001")
         self.assertEqual(resp["status"], "Server Error")
     
     
     def test_invalid_item(self):
         
-        resp = get_hwitem_by_part_id("Z99999999999-99999")
+        resp = get_hwitem("Z99999999999-99999")
         self.assertEqual(resp["status"], "Error")
     
     @unittest.skip("test later")
     def test_skip_example(self):
         pass
     
-    #@unittest.skip()
+    @unittest.skip()
     def test_image_by_part_id(self):
-        file_path = os.path.join(os.path.dirname(__file__), 'ExpectedResponses','components', 'image_by_part_id.json')
+        file_path = os.path.join(os.path.dirname(__file__), 'ExpectedResponses',
+                    'components', 'image_by_part_id.json')
         with open(file_path, 'r') as file:
             expected_resp = json.load(file)
         resp = get_image_by_part_id("Z00100100048-00033")

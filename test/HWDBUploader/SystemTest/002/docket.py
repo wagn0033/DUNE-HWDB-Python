@@ -11,13 +11,13 @@ item_manifest_excel = \
 {
     "Source Name": "SiPM Item Manifest",
     "Files": "SiPM-item-manifest.xlsx",
-    "Sheet Type": "Item",
+    #"Sheet Type": "Item",
     "Values":
     {
-        "Part Type Name": "Z.Sandbox.HWDBUnitTest.snork",
         "Sample Value 1": 1,
     },
-    #"Encoder": "SiPM Item",
+    "Part Type Name": "Z.Sandbox.HWDBUnitTest.snork",
+    "Encoder": "SiPM Item (from source info)",
 }
 
 item_manifest_csv = \

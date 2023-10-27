@@ -12,13 +12,27 @@ logger = config.getLogger()
 
 import Sisyphus.RestApiV1 as ra
 from Sisyphus.RestApiV1.keywords import *
+import sys
 
 #######################################################################
 
 def lookup_part_type_id_by_fullname(fullname):
-
     # The full name should be formatted as [ProjID].[SystemName].[SubsytemName].[PartName],
     # so there should be exactly 3 periods.
+    
+    logger.debug(f"looking up part type by full name '{fullname}'")
+
+    # If the value has been cached, return that instead
+    myself = lookup_part_type_id_by_fullname
+    fnu = fullname.upper()
+    if not hasattr(myself, "_cache"):
+        myself._cache = {}
+    if fnu in myself._cache.keys():
+        value = myself._cache[fnu]
+        logger.debug(f"returning cached value {value}")
+        return value
+
+    # Validate formatting of fullname
     try:
         project_id, system_name, subsystem_name, part_name = fullname.split('.')
     except ValueError:
@@ -27,6 +41,8 @@ def lookup_part_type_id_by_fullname(fullname):
         raise ValueError(msg)
 
 
+    # Get the component type. We can use 0 for wildcards for proj and sys, because
+    # the full name should be unambiguous anyway.
     resp = ra.get_component_types(project_id.upper(), 0, 0, full_name=fullname)
 
     if resp["status"] != "OK":
@@ -40,21 +56,40 @@ def lookup_part_type_id_by_fullname(fullname):
         raise ValueError(msg)
 
     if len(resp['data']) > 1:
+        # This could happen because the "fullname" could contain PostgreSQL-style
+        # wildcards, which is permitted by the REST API
         msg = f"The full part name '{fullname}' is ambiguous"
         logger.error(msg)
         raise ValueError(msg)
 
-    return (resp['data'][0]['full_name'], resp['data'][0]['part_type_id'])
+    value = (
+            resp['data'][0]['part_type_id'],
+            resp['data'][0]['full_name'], 
+            )
+    logger.debug(f"Found value {value}. Caching and returning.")
+    myself._cache[value[0].upper()] = value
+    return value
 
 #######################################################################
 
 def lookup_component_type_defs(part_type_id):
+    logger.debug(f"looking up component type definition information for '{part_type_id}'")
 
     # TBD: NEED SOME ERROR HANDLING!!!
+    
+    # If the value has been cached, return that instead
+    myself = lookup_component_type_defs
+    pt_id = part_type_id.upper()
+    if not hasattr(myself, "_cache"):
+        myself._cache = {}
+    if pt_id in myself._cache.keys():
+        value = myself._cache[pt_id]
+        logger.debug(f"returning cached value {value}")
+        return value
 
-    type_info = {"part_type_id": part_type_id}
+    type_info = {"part_type_id": pt_id}
 
-    resp = ra.get_component_type(part_type_id) 
+    resp = ra.get_component_type(pt_id) 
     if resp["status"] != "OK":
         raise ValueError("Component type lookup failed.")
     
@@ -62,7 +97,7 @@ def lookup_component_type_defs(part_type_id):
     type_info["spec_def"] = resp['data']['properties']['specifications'][0]['datasheet']
     type_info["subcomponents"] = resp['data']['connectors']
 
-    resp = ra.get_test_types(part_type_id)
+    resp = ra.get_test_types(pt_id)
     if resp["status"] != "OK":
         raise ValueError("Test type lookup failed.")
     type_info["tests"] = [
@@ -74,10 +109,13 @@ def lookup_component_type_defs(part_type_id):
     ]
 
     for node in type_info["tests"]:
-        resp = ra.get_test_type(part_type_id, node["test_type_id"])
+        resp = ra.get_test_type(pt_id, node["test_type_id"])
         if resp["status"] != "OK":
             raise ValueError("Test type definition lookup failed.")
         node["test_def"] = resp['data']['properties']['specifications'][0]['datasheet']
+    
+    myself._cache[pt_id] = type_info
+
     return type_info
 
 #######################################################################

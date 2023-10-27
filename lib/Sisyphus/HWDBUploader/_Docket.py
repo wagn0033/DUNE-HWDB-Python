@@ -407,6 +407,28 @@ class Docket:
                     f"docket '{src[DKT_DOCKET_NAME]}' doesn't match any files.")
             logger.warning(msg)
             print(msg)
+            
+
+        # If the Part Type is defined in the source node, resolve it 
+        def resolve_part_type(part_type_id, part_type_name):
+            if part_type_name is not None:    
+                pt_id, pt_name = ut.lookup_part_type_id_by_fullname(part_type_name)
+                if part_type_id is not None and part_type_id != pt_id:
+                    raise ValueError("Type ID and Type Name do not match!")
+                return pt_id, pt_name
+            elif part_type_id is not None:
+                ctdef = ut.lookup_component_type_defs(part_type_id)
+                pt_id, pt_name = ctdef["part_type_id"], ctdef["full_name"]
+                return pt_id, pt_name
+            else:
+                return None    
+        pt_info = resolve_part_type(
+                        source_item.get(DKT_PART_TYPE_ID, None),
+                        source_item.get(DKT_PART_TYPE_NAME, None))
+        if pt_info is not None:
+            pt_id, pt_name = pt_info
+            src[DKT_PART_TYPE_ID] = pt_id
+            src[DKT_PART_TYPE_NAME] = pt_name
 
         # Grab the values attached at the source node level, if any.
         values = source_item.get(DKT_VALUES, {})
@@ -418,9 +440,9 @@ class Docket:
             encoder_name = DKT_AUTO        
         
         # Check for a data type (e.g., item, test, image list)
-        data_type = source_item.get(DKT_SHEET_TYPE, None)
-        if data_type is None:
-            data_type = DKT_UNKNOWN
+        sheet_type = source_item.get(DKT_SHEET_TYPE, None)
+        if sheet_type is None:
+            sheet_type = DKT_UNKNOWN
 
         # Let's go through each sheet for each file and assemble exactly what
         # operation we're trying to do on it into a manifest
@@ -467,7 +489,7 @@ class Docket:
                             DKT_FILE_TYPE: DKT_CSV,
                             DKT_VALUES: {**values, **self.values},
                             DKT_ENCODER: encoder_name,
-                            DKT_SHEET_TYPE: data_type,
+                            DKT_SHEET_TYPE: sheet_type,
                         })
             
             # Handle Excel files
@@ -485,7 +507,7 @@ class Docket:
                                 DKT_SHEET_NAME: sheet_name,
                                 DKT_VALUES: {**values, **self.values},
                                 DKT_ENCODER: encoder_name,
-                                DKT_SHEET_TYPE: data_type,
+                                DKT_SHEET_TYPE: sheet_type,
                             })
                 # Add the sheets specified
                 else:
@@ -499,9 +521,9 @@ class Docket:
                         sheet_encoder = sheet_info.get(DKT_ENCODER, None)
                         if sheet_encoder is None:
                             sheet_encoder = encoder_name
-                        sheet_data_type = sheet_info.get(DKT_SHEET_TYPE, None)
-                        if sheet_data_type is None:
-                            sheet_data_type = data_type
+                        local_sheet_type = sheet_info.get(DKT_SHEET_TYPE, None)
+                        if local_sheet_type is None:
+                            local_sheet_type = sheet_type
                     
 
                         if DKT_SHEET_NAME not in sheet_info:
@@ -529,8 +551,49 @@ class Docket:
                                 DKT_SHEET_NAME: sheet_name,
                                 DKT_VALUES: {**sheet_values, **values, **self.values},
                                 DKT_ENCODER: sheet_encoder,
-                                DKT_SHEET_TYPE: sheet_data_type,
+                                DKT_SHEET_TYPE: local_sheet_type,
                             })
+
+
+        # Let's actually look inside each sheet and see if there's some data hiding
+        # there that wasn't in the docket.
+        # In the sheet's "local values," we can use:
+        #    * Part Type ID
+        #    * Part Type Name
+        #    * Sheet Type
+        #    * Encoder
+        # If these are also supplied in the docket sources, they MUST NOT conflict with
+        # the local values.
+        # Any other local values are of no concern until the sheet is properly processed
+        # by the encoder. 
+        for sheet_node in manifest:
+            print("==sheet_node==")
+            pp(sheet_node)
+
+            sheet = Sheet(sheet_node)
+            print("==global_values==")
+            pp(sheet.global_values)
+            print("==local_values==")
+            pp(sheet.local_values)
+            print("==dataframe==")
+            print(sheet.dataframe)
+       
+            pt_info = resolve_part_type(
+                            sheet.local_values.get(DKT_PART_TYPE_ID, None),
+                            sheet.local_values.get(DKT_PART_TYPE_NAME, None))
+            if pt_info is not None:
+                pt_id, pt_name = pt_info
+                
+                if (sheet_node[DKT_PART_TYPE_ID] is not None 
+                        and sheet_node[DKT_PART_TYPE_ID] != pt_id):
+                    raise ValueError(f"'{DKT_PART_TYPE_ID}' in sheet contradicts the value "
+                                "set in docket sources.")
+                else:                
+                    sheet_node[DKT_PART_TYPE_ID] = pt_id
+                    sheet_node[DKT_PART_TYPE_NAME] = pt_name
+
+
+        sys.exit()
 
         src["Manifest"] = manifest
 
@@ -538,6 +601,10 @@ class Docket:
 
         # Add this source to sources
         self.sources.append(src) 
+        
+
+        print("==end parse_source==")
+
         #}}}
 
     def _parse_sources(self, dkt):
@@ -573,17 +640,17 @@ class Docket:
         
         # We need to analyze the component type to see what fields we even need
         
-        # First, let's get the Type ID 
-        if sheet.coalesce(DKT_TYPE_NAME) is not None:
+        # First, let's get the Part Type ID 
+        if sheet.coalesce(DKT_PART_TYPE_NAME) is not None:
             part_type_name, part_type_id = ut.lookup_part_type_id_by_fullname(
-                                    sheet.coalesce(DKT_TYPE_NAME))
-            if sheet.coalesce(DKT_TYPE_ID) is not None:
-                if sheet.coalesce(DKT_TYPE_ID) != part_type_id:
+                                    sheet.coalesce(DKT_PART_TYPE_NAME))
+            if sheet.coalesce(DKT_PART_TYPE_ID) is not None:
+                if sheet.coalesce(DKT_PART_TYPE_ID) != part_type_id:
                     raise ValueError("Type ID and Type Name do not match!")
             comp_type_info = ut.lookup_component_type_defs(part_type_id)
-        elif sheet.coalesce(DKT_TYPE_ID) is not None:
+        elif sheet.coalesce(DKT_PART_TYPE_ID) is not None:
             part_type_name = None
-            ppart_type_id = sheet.coalesce(DKT_TYPE_ID)
+            part_type_id = sheet.coalesce(DKT_PART_TYPE_ID)
         else:
             raise ValueError("Unable to determine Type ID!")
 
@@ -591,19 +658,21 @@ class Docket:
         pp(comp_type_info)
         sys.exit()
 
-        if DKT_TYPE_NAME in sheet_node[DKT_VALUES]: 
-            type_info = ut.lookup_part_type_id_by_fullname(sheet_node[DKT_VALUES][DKT_TYPE_NAME])
-            if DKT_TYPE_ID in sheet_node[DKT_VALUES]:
+        '''
+        if DKT_PART_TYPE_NAME in sheet_node[DKT_VALUES]: 
+            type_info = ut.lookup_part_type_id_by_fullname(
+                                sheet_node[DKT_VALUES][DKT_PART_TYPE_NAME])
+            if DKT_PART_TYPE_ID in sheet_node[DKT_VALUES]:
                 # If both Type ID and Type Name are given, they must match!
-                if sheet_node[DKT_VALUES][DKT_TYPE_ID] != type_info[1]:
+                if sheet_node[DKT_VALUES][DKT_PART_TYPE_ID] != type_info[1]:
                     raise ValueError("Type ID and Type Name do not match!")
             else:
-                sheet_node[DKT_VALUES][DKT_TYPE_ID] = type_info[1]
-        elif DKT_TYPE_ID not in sheet_node[DKT_VALUES]:
+                sheet_node[DKT_VALUES][DKT_PART_TYPE_ID] = type_info[1]
+        elif DKT_PART_TYPE_ID not in sheet_node[DKT_VALUES]:
             pp(sheet_node)
             raise ValueError("Unable to determine Type ID!")
-        part_type_id = sheet_node[DKT_VALUES][DKT_TYPE_ID]
-
+        part_type_id = sheet_node[DKT_VALUES][DKT_PART_TYPE_ID]
+        '''
         
         # Now let's go to the HWDB and see what fields we're going to need, 
         # i.e, what fields are in the Specs and Subcomponents

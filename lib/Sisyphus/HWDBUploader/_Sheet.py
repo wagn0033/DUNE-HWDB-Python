@@ -39,10 +39,8 @@ sheet node format
     },
     "Encoder": "Auto",
     "Sheet Type": "Item",
-
-    # we will add...
-    "Local Values": {},
-    "Dataframe": <pandas.DataFrame>,
+    "Part Type ID": None,
+    "Part Type Name": None,
 }
 
 '''
@@ -58,12 +56,19 @@ class Sheet:
         #{{{
         self.sheet_info = deepcopy(sheet_info)
 
-        print("Creating Sheet object")
-        print("==Sheet Info==")
-        pp(sheet_info)
+        #print("Creating Sheet object")
+        #print("==Sheet Info==")
+        #pp(sheet_info)
+
+        self.global_values = sheet_info.get("Values", {})
+        self.local_values = None
+        self.dataframe = None
 
         self._read_data()
-        
+       
+
+        #print("==End Sheet Info==")
+ 
         #}}}
 
     def coalesce(self, column, row_index=None):
@@ -73,10 +78,11 @@ class Sheet:
         of them exist, returns None.
         '''
 
-        global_values = self.sheet_info["Values"]
-        local_values = self.sheet_info["Local Values"]
-        df = self.sheet_info["Dataframe"]
-        default = local_values.get(column, global_values.get(column, None))
+        gv = self.global_values
+        lv = self.local_values
+        df = self.dataframe
+
+        default = lv.get(column, gv.get(column, None))
 
         if row_index is None:
             return default
@@ -137,9 +143,6 @@ class Sheet:
             logger.info(f"err")
             raise ValueError(msg)
 
-        #print("==DataFrame==")
-        #print(locals_df)
-
         # Only looking at the first column, the rule we will use to determine 
         # the layout shall be to look for the LAST occurence of "External ID" 
         # or "Serial Number" that has an empty cell above it, or is the first
@@ -166,7 +169,7 @@ class Sheet:
         # Let's grab the sheet local values, if there are any.
         # If the column header row is 0 or 1, there are no local values
         # If it's -1, then the whole sheet is local values
-        local_values = self.sheet_info["Local Values"] = {}
+        local_values = self.local_values = {}
 
         if column_header_row == -1:
             local_value_rows = len(locals_df[0])
@@ -204,7 +207,7 @@ class Sheet:
                         skiprows=column_header_row
                     )
 
-        self.sheet_info["Dataframe"] = df
+        self.dataframe = df
 
         #print("==DataFrame==")
         #print(df)
