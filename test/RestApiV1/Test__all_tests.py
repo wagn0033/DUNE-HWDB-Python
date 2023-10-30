@@ -9,7 +9,7 @@ Authors:
 """
 
 import unittest
-from Test__get_hwitem import *
+from test_gets.Test__get_hwitem import *
 from Test__get_misc import *
 from Test__get_component_types import *
 

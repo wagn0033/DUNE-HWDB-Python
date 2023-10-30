@@ -406,7 +406,10 @@ def patch_enable_item(part_id, data, **kwargs):
     
     resp = _patch(url, data=data, **kwargs)
     return resp
-    
+   
+#def patch_hwitem_enable
+
+ 
 def get_subcomponents(part_id, **kwargs):
     logger.debug(f"<get_subcomponents> part_id={part_id}")
     path = f"api/v1/components/{sanitize(part_id)}/subcomponents" 
