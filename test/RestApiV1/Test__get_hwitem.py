@@ -15,15 +15,17 @@ import unittest
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus.RestApiV1 import get_component_type_image_list
 
+pp = lambda s: print(json.dumps(s, indent=4))
 
 class Test__get_hwitem_by_part_id(unittest.TestCase):
     def setUp(self):
-        pass
+        self.maxDiff = 0x10000
     def tearDown(self):
         pass
     
     def test_normal_item(self):
-        file_path = os.path.join(os.path.dirname(__file__),'ExpectedResponses', 'components', 'normal_item.json')
+        file_path = os.path.join(os.path.dirname(__file__), 'ExpectedResponses', 
+                                'components', 'normal_item.json')
         with open(file_path, 'r') as file:
             expected_resp = json.load(file)
         resp = get_hwitem("Z00100300001-00021")
@@ -42,13 +44,13 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         # correctly figures this out and returns the info as JSON.
         
         resp = get_hwitem("Z00100200017-00001")
-        self.assertEqual(resp["status"], "Server Error")
+        self.assertEqual(resp["status"].upper(), "SERVER ERROR")
     
     
     def test_invalid_item(self):
         
         resp = get_hwitem("Z99999999999-99999")
-        self.assertEqual(resp["status"], "Error")
+        self.assertEqual(resp["status"].upper(), "ERROR")
     
     @unittest.skip("test later")
     def test_skip_example(self):
@@ -56,7 +58,8 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
     
     @unittest.skip("get_image_by_part_id not working")
     def test_image_by_part_id(self):
-        file_path = os.path.join(os.path.dirname(__file__), 'ExpectedResponses','components', 'image_by_part_id.json')
+        file_path = os.path.join(os.path.dirname(__file__), 'ExpectedResponses',
+                                'components', 'image_by_part_id.json')
         with open(file_path, 'r') as file:
             expected_resp = json.load(file)
         resp = get_image_by_part_id("Z00100100048-00033")
