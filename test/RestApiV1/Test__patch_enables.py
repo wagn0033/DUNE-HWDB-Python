@@ -9,16 +9,12 @@ Tests:
     post_hwitem()
         (using REST API: POST /api/v1/component-types/{type_id}/components)
     patch_enable_item()
-
-    patch_disable_item()
-
+        (using REST API: /api/v1/components/{part_id}/enable)
     get_hwitem()
         (using REST API: /api/v1/components/{part_id})
     post_bulk_add()
         (using REST API: POST /api/v1/component-types/{part_type_id}/bulk-add)
     patch_bulk_enable()
-
-    patch_bulk_disable()
 
     get_component_type()
         (using REST API: /api/v1/component-types/{part_type_id})
