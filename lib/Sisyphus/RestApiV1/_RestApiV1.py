@@ -312,6 +312,15 @@ def patch_hwitem(part_id, data, **kwargs):
     resp = _patch(url, data=data, **kwargs)
     return resp
 
+def patch_enable_item(part_id, data, **kwargs):
+    logger.debug(f"<patch_enable_item> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}/enable" 
+    url = f"https://{config.rest_api}/{path}" 
+    
+    resp = _patch(url, data=data, **kwargs)
+    return resp
+
+
 ##############################################################################
 #
 #  COMPONENT TYPES
@@ -424,6 +433,22 @@ def get_test_type_by_oid(oid, **kwargs):
     url = f"https://{config.rest_api}/{path}"
 
     resp = _get(url, **kwargs)
+    return resp
+
+def post_test_types(part_type_id, data, **kwargs):
+    logger.debug(f"<post_test_types> part_type_id={part_type_id}")
+    path = f"api/v1/component-types/{part_type_id}/test-types"
+    url = f"https://{config.rest_api}/{path}"
+
+    resp = _post(url, data=data, **kwargs)
+    return resp
+
+def post_test(part_id, data, **kwargs):
+    logger.debug(f"<post_test> part_id={part_id}")
+    path = f"api/v1/component-types/{part_id}/tests"
+    url = f"https://{config.rest_api}/{path}"
+
+    resp = _post(url, data=data, **kwargs)
     return resp
 
 
