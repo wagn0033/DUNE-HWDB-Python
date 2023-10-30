@@ -63,7 +63,8 @@ class Test__patch_hwitem(unittest.TestCase):
                     "Color": "red",
                     "Comment": "Unit Test: patch component, part 1"
                 },
-                "subcomponents": {}
+                "subcomponents": {},
+                #"enabled": True,
             }
 
             logger.info(f"Posting new hwitem: part_type_id={part_type_id}, "
@@ -92,6 +93,7 @@ class Test__patch_hwitem(unittest.TestCase):
                 },
                 "part_id": part_id,
                 "serial_number": serial_number,
+                #"enabled": True,
                 "specifications": {
                     "Widget ID": serial_number,
                     "Color": "green",
@@ -115,6 +117,7 @@ class Test__patch_hwitem(unittest.TestCase):
             self.assertEqual(resp["status"], "OK")
             self.assertEqual(resp["data"]["part_id"], part_id)
             self.assertEqual(resp["data"]["serial_number"], serial_number)
+            self.assertEqual(resp["data"]["enabled"], False)
             self.assertDictEqual(resp["data"]["specifications"][0], data["specifications"])
 
         except AssertionError as err:
@@ -124,6 +127,6 @@ class Test__patch_hwitem(unittest.TestCase):
 
         logger.info(f"[PASS {testname}]")
 
-   
+  
 if __name__ == "__main__":
     unittest.main()

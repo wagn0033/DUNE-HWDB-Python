@@ -192,7 +192,33 @@ Style.error = Style.fg("red")
 Style.success = Style.fg("green")
 
 
+def highlight(text, substring, *, match_case=False):
 
+    sub_len = len(substring)
+
+    if match_case:
+        cap_text = text
+        cap_sub = substring
+    else:
+        cap_text = text.upper()
+        cap_sub = substring.upper()
+
+    parts = []
+
+    last_end = 0
+    while True:
+        match_start = cap_text.find(cap_sub, last_end)
+        if match_start == -1:
+            break
+        parts.append(text[last_end:match_start])
+        next_end = match_start + sub_len
+        parts.append(Style.inverse(text[match_start:next_end]))
+        last_end = next_end
+    parts.append(text[last_end:]) 
+
+    return "".join(parts)
+
+Style.highlight = highlight
 
 def main():
     

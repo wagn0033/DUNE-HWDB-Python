@@ -4,13 +4,13 @@ DEBUG="\x1b[38;2;68;68;68m"
 INFO="\x1b[1;34m"
 WARNING="\x1b[38;2;255;170;34m"
 ERROR="\x1b[1;31m"
-CRITICAL="\x1b[37;41m"
+CRITICAL="\x1b[37;41m\x1b[K"
 
 TEST="\x1b[1;49;35m"
 PASS="\x1b[1;49;32m"
 FAIL="\x1b[1;49;31m"
 
-LOG_INIT="\x1b[44;37;1m"
+LOG_INIT="\x1b[44;37;1m\x1b[K"
 
 NORMAL_SENTINEL="@N@"
 NORMAL="\x1b[0m"
@@ -27,7 +27,7 @@ CRITICAL_MATCH="${TIMESTAMP}"' \[CRITICAL\] '
 echo -ne '\x1b]0;HWDB Log\a'
 #2023-09-15:20:17:19
 tail -n 100 -f ~/.sisyphus/log.txt | sed \
-    -e "s/.*\[LOG INIT\].*/${LOG_INIT}\n\n&\n${NORMAL}\n/" \
+    -e "s/.*\[LOG INIT\].*/${LOG_INIT}&${NORMAL}/g" \
     -e "s/\[TEST[^]]*\]/${TEST}&${NORMAL_SENTINEL}/g" \
     -e "s/\[PASS[^]]*\]/${PASS}&${NORMAL_SENTINEL}/g" \
     -e "s/\[FAIL[^]]*\]/${FAIL}&${NORMAL_SENTINEL}/g" \

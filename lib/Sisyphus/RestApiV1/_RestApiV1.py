@@ -11,30 +11,62 @@ Author:
 from Sisyphus.Configuration import config
 logger = config.getLogger()
 
+import Sisyphus.Configuration as Config
 import json
 from requests import Session
 import requests.adapters
 import urllib.parse
 
-def sanitize(s):
-    return urllib.parse.quote(str(s), safe="")
+
+KW_STATUS = "status"
+KW_ERROR = "ERROR"
+KW_SERVER_ERROR = "SERVER ERROR"
+
+class ServerError(Exception):
+    """thrown when the server is not returning a response"""
+
+raise_server_errors = False
+
+session_kwargs = {}
+
+# ##########
+# Use this function when constructing a URL that uses some variable as 
+# part of the URL itself, e.g.,
+#    path = f"api/v1/components/{sanitize(part_id)}"
+# DON'T use this function for paramters at the end of the URL if you're 
+# using "params" to pass them, because the session.get() method will 
+# do that for you, and doing it twice messes up things like postgres wildcards.
+def sanitize(s, safe=""):
+    return urllib.parse.quote(str(s), safe=safe)
 
 
-def create_session():
-    session = Session()
-    adapter = requests.adapters.HTTPAdapter(pool_connections=100, pool_maxsize=100)
-    session.mount(f'https://{config.rest_api}', adapter)
-    session.cert = config.certificate
-    return session
+def start_session():
+    global session
+    if config.cert_type == Config.KW_PEM:
+        session = Session()
+        adapter = requests.adapters.HTTPAdapter(pool_connections=100, pool_maxsize=100)
+        session.mount(f'https://{config.rest_api}', adapter)
+        session.cert = config.certificate
+    else:
+        logger.warning("Unable to start session because a certificate was not available.")
+        session = None
 
-session = create_session()
+session = None
+start_session()
 
 #######################################################################    
 
 def _get(url, *args, **kwargs):
-    
+
     logger.debug(f"<_get> Calling REST API with url='{url}'")
+
     
+   
+    if session is None:
+        msg = "No session available"
+        logger.error(msg)
+        raise RuntimeError(msg)
+ 
     # kwargs["timeout"]=10
     
     #
@@ -43,15 +75,19 @@ def _get(url, *args, **kwargs):
     #  and return it.
     #
     try:
-        resp = session.get(url, *args, **kwargs)
+        resp = session.get(url, *args, **{**kwargs, **session_kwargs})
     except Exception as exc:
-        logger.error("An exception occurred while attempting to retrieve data from "
+        msg = ("An exception occurred while attempting to retrieve data from "
                      f"the REST API. Exception details: {exc}")
+        logger.error(msg)
+        logger.info(f"The exception type was {type(exc)}")
+
+        if raise_server_errors:
+            raise ServerError(msg)
         resp_data = {
-            "data": "An exception occurred while retrieving data",
-            "status": "URL Error",
+            "status": KW_SERVER_ERROR,
             "addl_info": {
-                "exception_details": f"{exc}",
+                "msg": msg,
             }
         }
         return resp_data
@@ -63,7 +99,19 @@ def _get(url, *args, **kwargs):
     #
     try:
         resp_data = resp.json()
-        return resp_data
+
+        if type(resp_data) != dict:
+            err = {
+                "status": "Server Error",
+                "addl_info": {
+                    "msg": "The server returned invalid data",
+                    "response": f"{resp_data}",
+                }
+            }
+            return err
+        else:
+            return resp_data
+    
     except json.JSONDecodeError:
         # This is probably a 500 error that returned an HTML page 
         # instead of JSON text. Package it up to have the same 
@@ -71,15 +119,16 @@ def _get(url, *args, **kwargs):
         # the consumer can look in the same place for info.
         logger.error("The server returned content that was not valid JSON")
         err = {
-            "data": "The server returned content that was not valid JSON",
             "status": "Server Error",
             "addl_info":
             {
+                "msg": "The server returned content that was not valid JSON",
                 "http_response_code": resp.status_code,
                 "url" : url,
                 "response": resp.text,
             },
         }
+        logger.info(f"response: {resp.text}")
         return err
 
 #######################################################################
@@ -87,6 +136,11 @@ def _get(url, *args, **kwargs):
 def _get_binary(url, write_to_file, *args, **kwargs):
      
     logger.debug(f"<_get_binary> Calling API with url='{url}'")
+    
+    if session is None:
+        msg = "No session available"
+        logger.error(msg)
+        raise RuntimeError(msg)
     
     # kwargs["timeout"]=10
     
@@ -96,14 +150,14 @@ def _get_binary(url, write_to_file, *args, **kwargs):
     #  and return it.
     #
     try:
-        resp = session.get(url, *args, **kwargs)
+        resp = session.get(url, *args, **{**kwargs, **session_kwargs})
     except Exception as exc:
         logger.error("An exception occurred while attempting to retrieve data from "
                      f"the REST API. Exception details: {exc}")
         resp_data = {
-            "data": "An exception occurred while retrieving data",
-            "status": "URL Error",
+            "status": KW_SERVER_ERROR,
             "addl_info": {
+                "msg": "An exception occurred while retrieving data",
                 "exception_details": f"{exc}",
             }
         }
@@ -128,6 +182,12 @@ def _get_binary(url, write_to_file, *args, **kwargs):
 def _post(url, data, *args, **kwargs):
     
     logger.debug(f"<_post> Calling REST API with url='{url}'")
+    
+    if session is None:
+        msg = "No session available"
+        logger.error(msg)
+        raise RuntimeError(msg)
+   
     #kwargs["timeout"]=10
     
     #
@@ -136,14 +196,14 @@ def _post(url, data, *args, **kwargs):
     #  and return it.
     #
     try:
-        resp = session.post(url, json=data, *args, **kwargs)
+        resp = session.post(url, json=data, *args, **{**kwargs, **session_kwargs})
     except Exception as exc:
         logger.error("An exception occurred while attempting to post data to "
                      f"the REST API. Exception details: {exc}")
         resp_data = {
-            "data": "An exception occurred while posting data",
             "status": "ERROR",
             "addl_info": {
+                "msg": "An exception occurred while posting data",
                 "exception_details": f"{exc}",
             }
         }
@@ -168,15 +228,16 @@ def _post(url, data, *args, **kwargs):
         # the consumer can look in the same place for info.
         logger.error("The server returned content that was not valid JSON")
         err = {
-            "data": "The server returned content that was not valid JSON",
             "status": "Server Error",
             "addl_info":
             {
+                "msg": "The server returned content that was not valid JSON",
                 "http_response_code": resp.status_code,
                 "url" : url,
                 "response": resp.text,
             },
         }
+        logger.info(f"response: {resp.text}")
         return err
     
 #######################################################################
@@ -184,6 +245,12 @@ def _post(url, data, *args, **kwargs):
 def _patch(url, data, *args, **kwargs):
     
     logger.debug(f"<_patch> Calling REST API with url='{url}'")
+    
+    if session is None:
+        msg = "No session available"
+        logger.error(msg)
+        raise RuntimeError(msg)
+
     #kwargs["timeout"]=10
 
     #
@@ -192,14 +259,14 @@ def _patch(url, data, *args, **kwargs):
     #  and return it.
     #
     try:
-        resp = session.patch(url, json=data, *args, **kwargs)
+        resp = session.patch(url, json=data, *args, **{**kwargs, **session_kwargs})
     except Exception as exc:
         logger.error("An exception occurred while attempting to patch data to "
                      f"the REST API. Exception details: {exc}")
         resp_data = {
-            "data": "An exception occurred while patching data",
             "status": "ERROR",
             "addl_info": {
+                "msg": "An exception occurred while patching data",
                 "exception_details": f"{exc}",
             }
         }
@@ -219,15 +286,16 @@ def _patch(url, data, *args, **kwargs):
         # structure as how the API would've handled a 4xx error so
         # the consumer can look in the same place for info.
         err = {
-            "data": "The server returned an error.",
             "status": "ERROR",
             "addl_info":
             {
+                "msg": "The server returned an error.",
                 "http_response_code": resp.status_code,
                 "url" : url,
                 "response": resp.text,
             },
         }
+        logger.info(f"response: {resp.text}")
         return err
 
 #######################################################################
@@ -270,16 +338,15 @@ def get_hwitem(part_id, **kwargs):
     resp = _get(url, **kwargs) 
     return resp
 
-def get_hwitems(part_type_id, page=None, size=None, fields=None, **kwargs):
+def get_hwitems(part_type_id, *,
+                page=None, size=None, fields=None, 
+                serial_number=None,
+                part_id=None,
+                **kwargs):
     
-    ##
-    ## TBD:
-    ## * There should be a list of valid fields to check against
-    ## * We should be able to pass a particular vaue for a field (e.g. serial number)
-    ##   so we can search for only records matching that criterion.
-    ##
-
-    logger.debug(f"<get_component_types> part_type_id={part_type_id}")
+    logger.debug(f"<get_component_types> part_type_id={part_type_id},"
+                f"page={page}, size={size}, fields={fields}, "
+                f"serial_number={serial_number}, part_id={part_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}/components"
     url = f"https://{config.rest_api}/{path}"
 
@@ -288,17 +355,20 @@ def get_hwitems(part_type_id, page=None, size=None, fields=None, **kwargs):
         params.append(("page", page))
     if size is not None:
         params.append(("size", size))
-    
+    if serial_number is not None:
+        params.append(("serial_number", serial_number))
+    if part_id is not None:
+        params.append(("part_id", part_id))
     ## *** currently broken in REST API
-    #if fields is not None:
-    #    params.append(("fields", ",".join(fields)))
+    if fields is not None:
+        params.append(("fields", ",".join(fields)))
 
     resp = _get(url, params=params, **kwargs) 
     return resp
 
-def post_hwitem(type_id, data, **kwargs):
-    logger.debug(f"<post_hwitem> type_id={type_id}")
-    path = f"api/v1/component-types/{sanitize(type_id)}/components" 
+def post_hwitem(part_type_id, data, **kwargs):
+    logger.debug(f"<post_hwitem> part_type_id={part_type_id}")
+    path = f"api/v1/component-types/{sanitize(part_type_id)}/components" 
     url = f"https://{config.rest_api}/{path}" 
     
     resp = _post(url, data=data, **kwargs)
@@ -307,10 +377,27 @@ def post_hwitem(type_id, data, **kwargs):
 def patch_hwitem(part_id, data, **kwargs):
     logger.debug(f"<patch_hwitem> part_id={part_id}")
     path = f"api/v1/components/{sanitize(part_id)}" 
-    url = f"https://{config.rest_api}/{path}" 
+    url = f"https://{config.rest_api}/{path}"
     
     resp = _patch(url, data=data, **kwargs)
     return resp
+
+def post_bulk_hwitems(part_type_id, data, **kwargs):
+    logger.debug(f"<post_bulk_hwitems> part_type_id={part_type_id}")
+    path = f"api/v1/component-types/{sanitize(part_type_id)}/bulk-add"
+    url = f"https://{config.rest_api}/{path}"
+                
+    resp = _post(url, data=data, **kwargs)
+    return resp
+
+def patch_part_id_enable(part_id, data, **kwargs):
+    logger.debug(f"<patch_part_id_enable> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}/enable" 
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _patch(url, data=data, **kwargs)
+    return resp
+
 
 def patch_enable_item(part_id, data, **kwargs):
     logger.debug(f"<patch_enable_item> part_id={part_id}")
@@ -319,7 +406,22 @@ def patch_enable_item(part_id, data, **kwargs):
     
     resp = _patch(url, data=data, **kwargs)
     return resp
+    
+def get_subcomponents(part_id, **kwargs):
+    logger.debug(f"<get_subcomponents> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}/subcomponents" 
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _get(url, **kwargs)
+    return resp
 
+def patch_subcomponents(part_id, data, **kwargs):
+    logger.debug(f"<patch_subcomponents> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}/subcomponents" 
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _patch(url, data=data, **kwargs)
+    return resp
 
 ##############################################################################
 #
@@ -351,8 +453,10 @@ def get_component_type_specifications(part_type_id, **kwargs):
     resp = _get(url, **kwargs) 
     return resp
 
-def get_component_types(project_id, system_id, subsystem_id=None, 
-                        page=None, size=None, fields=None,**kwargs):
+def get_component_types(project_id, system_id, subsystem_id=None, *,
+                        full_name=None, comments=None,
+                        #part_type_id=None,
+                        page=None, size=None, fields=None, **kwargs):
     logger.debug(f"<get_component_types> project_id={project_id}, "
                     f"system_id={system_id}, subsystem_id={subsystem_id}")
     
@@ -374,6 +478,10 @@ def get_component_types(project_id, system_id, subsystem_id=None,
         params.append(("page", page))
     if size is not None:
         params.append(("size", size))
+    if full_name is not None:
+        params.append(("full_name", full_name))
+    if comments is not None:
+        params.append(("comments", comments))
     if fields is not None:
         params.append(("fields", ",".join(fields)))
 
