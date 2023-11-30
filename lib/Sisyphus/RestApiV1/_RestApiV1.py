@@ -496,6 +496,14 @@ def post_component(part_type_id, data, **kwargs):
     resp = _post(url, data=data, **kwargs)
     return resp
 
+def patch_hwitem_subcomp(part_id, data, **kwargs):
+    logger.debug(f"<patch_hwitem_subcomp> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}/subcomponents" 
+    url = f"https://{config.rest_api}/{path}" 
+    
+    resp = _patch(url, data=data, **kwargs)
+    return resp
+
 def post_bulk_add(part_type_id, data, **kwargs):
     logger.debug(f"<post_bulk_add> type_id={part_type_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}/bulk-add" 
@@ -509,7 +517,15 @@ def patch_bulk_update(part_type_id, data, **kwargs):
     path = f"api/v1/component-types/{sanitize(part_type_id)}/bulk-update" 
     url = f"https://{config.rest_api}/{path}" 
     
-    resp = _post(url, data=data, **kwargs)
+    resp = _patch(url, data=data, **kwargs)
+    return resp
+
+def patch_bulk_enable(part_id, data, **kwargs):
+    logger.debug(f"<patch_bulk_enable> part_id={part_id}")
+    path = f"api/v1/components/bulk-enable" 
+    url = f"https://{config.rest_api}/{path}" 
+    
+    resp = _patch(url, data=data, **kwargs)
     return resp
 
 ##############################################################################
@@ -543,7 +559,7 @@ def get_test_type_by_oid(oid, **kwargs):
     resp = _get(url, **kwargs)
     return resp
 
-def post_test_types(part_type_id, data, **kwargs):
+def post_test_type(part_type_id, data, **kwargs):
     logger.debug(f"<post_test_types> part_type_id={part_type_id}")
     path = f"api/v1/component-types/{part_type_id}/test-types"
     url = f"https://{config.rest_api}/{path}"

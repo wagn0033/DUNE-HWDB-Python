@@ -57,9 +57,9 @@ class Test__post_bulk_add(unittest.TestCase):
             logger.info(f"Response from post: {resp}") 
             self.assertEqual(resp["status"], "OK")
 
-            part_type_id = resp["data"][0]["part_id"]
+            part_id = resp["data"][0]["part_id"]
 
-            logger.info(f"New component type result: part_type_id={part_type_id}") 
+            logger.info(f"New part result: part_id={part_id}") 
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")

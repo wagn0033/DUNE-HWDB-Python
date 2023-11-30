@@ -40,7 +40,7 @@ class Test__post_hwitem(unittest.TestCase):
             data = {
                 "comments": "Here are some comments",
                 "component_type": {
-                    "part_type_id": "Z00100300001"
+                    "part_type_id": part_type_id
                 },
                 "country_code": "US",
                 "institution": {
@@ -58,12 +58,13 @@ class Test__post_hwitem(unittest.TestCase):
                 },
                 "subcomponents": {}
             }
+
             resp = post_hwitem(part_type_id, data)
 
             logger.info(f"The response was: {resp}")
             
             self.assertEqual(resp["status"], "OK")
-            #self.assertEqual(resp, expected_resp)
+            
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
             logger.info(err)

@@ -46,7 +46,7 @@ class Test__get_misc_no_input(unittest.TestCase):
 
         try:
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'countries.json')
+                    '..','ExpectedResponses', 'misc', 'countries.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             
@@ -71,7 +71,7 @@ class Test__get_misc_no_input(unittest.TestCase):
         try:
             #will be broken eventually
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'alex_whoami.json')
+                    '..','ExpectedResponses', 'misc', 'alex_whoami.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             
@@ -95,7 +95,7 @@ class Test__get_misc_no_input(unittest.TestCase):
 
         try:
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'institutions.json')
+                    '..','ExpectedResponses', 'misc', 'institutions.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             
@@ -119,7 +119,7 @@ class Test__get_misc_no_input(unittest.TestCase):
 
         try:
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'manufacturers.json')
+                    '..','ExpectedResponses', 'misc', 'manufacturers.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             resp = get_manufacturers()
@@ -142,7 +142,7 @@ class Test__get_misc_no_input(unittest.TestCase):
 
         try:
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'projects.json')
+                    '..','ExpectedResponses', 'misc', 'projects.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             resp = get_projects()
@@ -166,12 +166,11 @@ class Test__get_misc_no_input(unittest.TestCase):
         try:
             resp = get_roles()            
 
-            #self.assertIn(resp["data"][0]["component_types"],resp["data"])
             self.assertIsInstance(resp["data"][-1]["id"], int)
             self.assertIsInstance(resp["data"][0]["component_types"][0]["name"], str)
             self.assertIsInstance(resp["data"][0]["users"][0]["user_id"], int)
             self.assertEqual(resp["status"], "OK")
-            #self.assertDictEqual(resp, expected_resp)
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -202,7 +201,7 @@ class Test__get_misc_no_input(unittest.TestCase):
             raise err
         logger.info(f"[PASS {testname}]") 
     
-
+    #-----------------------------------------------------------------------------
    
 
 class Test__get_misc_with_input(unittest.TestCase):
@@ -219,7 +218,7 @@ class Test__get_misc_with_input(unittest.TestCase):
         try:
             userid = 13615 #alex
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'alex_whoami.json')
+                    '..','ExpectedResponses', 'misc', 'alex_whoami.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             resp = get_user(userid)
@@ -283,7 +282,7 @@ class Test__get_misc_with_input(unittest.TestCase):
 
             #checking if it throws return empty list/error
             file_path2 = os.path.join(os.path.dirname(__file__), 
-                    'ExpectedResponses', 'misc', 'empty_list.json')
+                    '..','ExpectedResponses', 'misc', 'empty_list.json')
             with open(file_path2 , 'r') as file:
                 err_expected_resp = json.load(file)
             
@@ -321,7 +320,7 @@ class Test__get_misc_with_input(unittest.TestCase):
             resp = get_subsystem(proj_id, sys_id, subsys_id)
 
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'projZsys1subsys1.json')
+                    '..','ExpectedResponses', 'misc', 'projZsys1subsys1.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
 
@@ -381,7 +380,7 @@ class Test__get_misc_with_input(unittest.TestCase):
 
         try:
             file_path = os.path.join(os.path.dirname(__file__), 
-                    'ExpectedResponses', 'misc', 'projZsy.json')
+                    '..','ExpectedResponses', 'misc', 'projZsy.json')
             with open(file_path , 'r') as file:
                 expected_resp = json.load(file)
             proj_id = 'Z'

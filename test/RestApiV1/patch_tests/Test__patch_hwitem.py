@@ -22,7 +22,7 @@ import json
 import unittest
 import random
 
-from Sisyphus.RestApiV1 import post_hwitem, patch_hwitem, get_hwitem
+from Sisyphus.RestApiV1 import post_hwitem, patch_hwitem, get_hwitem, patch_hwitem_subcomp
 
 class Test__patch_hwitem(unittest.TestCase):
 
@@ -128,5 +128,54 @@ class Test__patch_hwitem(unittest.TestCase):
         logger.info(f"[PASS {testname}]")
 
   
+    @unittest.skip("fails--no such component")
+    def test_patch_hwitem_subcomp(self):
+        testname = "patch_hwitem_subcomp"
+        logger.info(f"[TEST {testname}]") 
+
+        try:
+            part_id = "Z00100300010-00001"
+            component_id = 44757
+
+            data = {
+                "component": {
+                    "id": component_id,
+                    "part_id": part_id
+                },
+                "subcomponents": {
+                    "additionalProp1": "Z00100300007",
+                    "additionalProp2": "Z00100300008",
+                }
+            }
+
+            resp = patch_hwitem_subcomp(part_id, data)
+            logger.info(f"Response from patch: {resp}")
+            self.assertEqual(resp["status"], "OK")
+
+            data = {
+                "component": {
+                    "id": component_id,
+                    "part_id": part_id
+                },
+                "subcomponents": {
+                    "additionalProp1": None,
+                    "additionalProp2": None,
+                }
+            }
+
+            resp = patch_hwitem_subcomp(part_id, data)
+            logger.info(f"Response from patch: {resp}")
+            self.assertEqual(resp["status"], "OK")
+
+
+
+        except AssertionError as err:
+            logger.error(f"[FAIL {testname}]")
+            logger.info(err)
+            raise err
+
+        logger.info(f"[PASS {testname}]")
+
+
 if __name__ == "__main__":
     unittest.main()

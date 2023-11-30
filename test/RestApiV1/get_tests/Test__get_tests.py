@@ -33,7 +33,7 @@ class Test__get_tests(unittest.TestCase):
         try:
             part_type_id = 'D00501341001'
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'ops_on_tests', 
+                    '..','ExpectedResponses', 'ops_on_tests', 
                     'test-types-D00501341001.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
@@ -61,7 +61,7 @@ class Test__get_tests(unittest.TestCase):
             part_type_id = 'D00501341001'
             test_type_id = 465
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'ops_on_tests', 'part-id-test-type-id.json')
+                    '..','ExpectedResponses', 'ops_on_tests', 'part-id-test-type-id.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             
@@ -86,7 +86,7 @@ class Test__get_tests(unittest.TestCase):
         try:
             oid = 1
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'ops_on_tests', 'oid1.json')
+                    '..','ExpectedResponses', 'ops_on_tests', 'oid1.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             #resp = _get(f"https://dbwebapi2.fnal.gov:8443/cdbdev/api/v1/component-test-types/{oid}")

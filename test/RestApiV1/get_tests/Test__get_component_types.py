@@ -36,7 +36,7 @@ class Test__get_component_type(unittest.TestCase):
             part_type_id = 'D00501341001'
             file_path = os.path.join(
                     os.path.dirname(__file__),
-                    'ExpectedResponses', 'componentTypes', 
+                    '..','ExpectedResponses', 'componentTypes', 
                     'part-type-id-D00501341001.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
@@ -62,7 +62,7 @@ class Test__get_component_type(unittest.TestCase):
             #part_type_id = 'Z00100110001'
             file_path = os.path.join(
                     os.path.dirname(__file__),
-                    'ExpectedResponses', 'componentTypes', 
+                    '..','ExpectedResponses', 'componentTypes', 
                     'components_page1.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
@@ -91,7 +91,7 @@ class Test__get_component_type(unittest.TestCase):
             part_type_id = 'D00501341001' #change to different id
             file_path = os.path.join(
                     os.path.dirname(__file__),
-                    'ExpectedResponses', 'componentTypes', 
+                    '..','ExpectedResponses', 'componentTypes', 
                     'connectors.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
@@ -118,7 +118,7 @@ class Test__get_component_type(unittest.TestCase):
             part_type_id = 'D00501341001'
             file_path = os.path.join(
                     os.path.dirname(__file__),
-                    'ExpectedResponses', 'componentTypes', 
+                    '..','ExpectedResponses', 'componentTypes', 
                     'specifications.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
