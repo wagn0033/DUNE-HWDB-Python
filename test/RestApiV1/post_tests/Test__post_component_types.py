@@ -18,35 +18,45 @@ from Sisyphus.RestApiV1 import post_component
 
 class Test__post_component_types(unittest.TestCase):
     
-    @unittest.skip("fails")
     def test_post_component(self):
-        part_type_id = "Z00100300001"
-        serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
-        data = {
-            "comments": "unit testing",
-            "component_type": {
-                "part_type_id": part_type_id
-            },
-            "country_code": "US",
-            "institution": {
-                "id": 186
-            },
-            "manufacturer": {
-                "id": 7
-            },
-            "serial_number": serial_number,
-            "specifications": 
-            {
-                "Widget ID": serial_number,
-                "Color": "red",
-                "Comment": "Unit Test: post component"
-            },
-            "subcomponents": {
-                "additionalProp1": "string",
-                "additionalProp2": "string",
-                "additionalProp3": "string"
+        testname = "post_component"
+        logger.info(f"[TEST {testname}]")
+
+        try:
+            part_type_id = "Z00100300001"
+            serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
+            data = {
+                "comments": "unit testing",
+                "component_type": {
+                    "part_type_id": part_type_id
+                },
+                "country_code": "US",
+                "institution": {
+                    "id": 186
+                },
+                "manufacturer": {
+                    "id": 7
+                },
+                "serial_number": serial_number,
+                "specifications": 
+                {
+                    "Widget ID": serial_number,
+                    "Color": "red",
+                    "Comment": "Unit Test: post component"
+                },
+                "subcomponents": {}
             }
-        }
-        resp = post_component(part_type_id, data)
+            resp = post_component(part_type_id, data)
+            logger.info(f"response was {resp}")
+            self.assertEqual(resp["status"], "OK")
         
-        self.assertEqual(resp["status"], "OK")
+        except AssertionError as err:
+            logger.error(f"[FAIL {testname}]")
+            logger.info(err)
+            raise err
+
+        logger.info(f"[PASS {testname}]")
+   
+if __name__ == "__main__":
+    unittest.main()
+

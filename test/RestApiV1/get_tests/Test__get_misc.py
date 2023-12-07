@@ -69,16 +69,13 @@ class Test__get_misc_no_input(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
 
         try:
-            #will be broken eventually
-            file_path = os.path.join(os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'misc', 'alex_whoami.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
             
-            resp = whoami() #currently alex
+            resp = whoami() 
 
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            self.assertIsInstance(resp["data"]["full_name"], str)
+            self.assertIsInstance(resp["data"]["user_id"], int)
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -234,7 +231,7 @@ class Test__get_misc_with_input(unittest.TestCase):
         logger.info(f"[PASS {testname}]") 
 
     #-----------------------------------------------------------------------------
-    @unittest.skip("broken for some reason")
+    
     def test_get_role(self):
         testname = "get_role"
         logger.info(f"[TEST {testname}]")
@@ -246,12 +243,8 @@ class Test__get_misc_with_input(unittest.TestCase):
             self.assertEqual(resp["status"], "OK")
 
             
-            self.assertIsInstance(resp["data"][0]["component_types"][0]["name"], str)
-            self.assertIsInstance(resp["data"][0]["component_types"][0]["part_type_id"],str )
-
-            
-            self.assertIsInstance(resp["data"][-1]["users"][0]["user_id"],int )
-            self.assertIsInstance(resp["data"][-1]["users"][0]["user_id"],int )
+            self.assertEqual(resp["data"]["id"],role_id )
+            self.assertEqual(resp["data"]["name"], "tester")
             
             
 

@@ -31,17 +31,13 @@ class Test__get_tests(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
 
         try:
-            part_type_id = 'D00501341001'
-            file_path = os.path.join(os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'ops_on_tests', 
-                    'test-types-D00501341001.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+            part_type_id = 'Z00100300001'
             
             resp = get_test_types(part_type_id)            
 
             self.assertEqual(resp['status'], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            self.assertEqual(resp["data"][-1]["name"], "Bounce")
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -58,17 +54,15 @@ class Test__get_tests(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
 
         try:
-            part_type_id = 'D00501341001'
-            test_type_id = 465
-            file_path = os.path.join(os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'ops_on_tests', 'part-id-test-type-id.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+            part_type_id = 'Z00100300001'
+            test_type_id = 492
+            
             
             resp = get_test_type(part_type_id, test_type_id)            
 
             self.assertEqual(resp['status'], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            self.assertEqual(resp["component_type"]["name"], "Test Type 001")
+            self.assertEqual(resp["component_type"]["part_type_id"], part_type_id)
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")

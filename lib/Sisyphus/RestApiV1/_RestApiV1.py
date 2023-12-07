@@ -569,7 +569,7 @@ def post_test_type(part_type_id, data, **kwargs):
 
 def post_test(part_id, data, **kwargs):
     logger.debug(f"<post_test> part_id={part_id}")
-    path = f"api/v1/component-types/{part_id}/tests"
+    path = f"api/v1/components/{part_id}/tests"
     url = f"https://{config.rest_api}/{path}"
 
     resp = _post(url, data=data, **kwargs)

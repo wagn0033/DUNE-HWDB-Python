@@ -84,14 +84,31 @@ class Test__patch_bulk_update(unittest.TestCase):
                         "manufacturer": {
                             "id": 7
                         },
-                        "part_id": {part_id1, part_id2},
+                        "part_id": part_id1,
                         "serial_number": serial_number,
                         "specifications": {
                             "Color": "Blue"
                         }
                     }
+                ],
+                    "data": [
+                    {
+                        "batch": {
+                            "id": 0
+                        },
+                        "comments": "Patched component types",
+                        "manufacturer": {
+                            "id": 7
+                        },
+                        "part_id": part_id2,
+                        "serial_number": serial_number,
+                        "specifications": {
+                            "Color": "Red"
+                        }
+                    }
                 ]
                 }
+                
             
             resp = patch_bulk_update(part_type_id, data)
         
