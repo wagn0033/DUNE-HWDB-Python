@@ -128,14 +128,14 @@ class Test__patch_hwitem(unittest.TestCase):
         logger.info(f"[PASS {testname}]")
 
   
-    #enable sub component, then attach
+    
     def test_patch_hwitem_subcomp(self):
         testname = "patch_hwitem_subcomp"
         logger.info(f"[TEST {testname}]") 
 
         try:
             
-
+            #posting new item under Test Type 002
             part_type_id = "Z00100300002"
             serial_number = "S99999"
 
@@ -153,7 +153,7 @@ class Test__patch_hwitem(unittest.TestCase):
                 },
                 "serial_number": serial_number,
                 "specifications": {
-                    "DATA": f"serial number:{serial_number}"
+                        "Color":"Red"
                 },
                 "subcomponents": {}
             }
@@ -162,12 +162,26 @@ class Test__patch_hwitem(unittest.TestCase):
             logger.info(f"Response from post: {resp}") 
             self.assertEqual(resp["status"], "OK")
 
-            #component_id = resp["component_id"]
             part_id_subcomp = resp["part_id"]
 
+            #patching to enable : True
+            data = {
+                "comments": "here are some comments",
+                "component": {
+                "part_id": part_id_subcomp
+                },
+                "enabled": True,
+                "geo_loc": {
+                "id": 0
+                }
+            }
+
+            resp = patch_enable_item(part_id_subcomp, data)
+            logger.info(f"Response from patch: {resp}")
+            self.assertEqual(resp["status"], "OK")
 
 
-
+            #linking subcomponent to container
             part_id_container = "Z00100300001-00360"
 
             data = {
@@ -175,27 +189,28 @@ class Test__patch_hwitem(unittest.TestCase):
                     "part_id": part_id_container
                 },
                 "subcomponents": {
-                    "SubComp 1" : part_id_subcomp,
+                    "Subcomp 1" : part_id_subcomp,
                 }
             }
 
             resp = patch_hwitem_subcomp(part_id_container, data)
             logger.info(f"Response from patch: {resp}")
             self.assertEqual(resp["status"], "OK")
-            """
+            
+            #removing subcomponent from container
             data = {
                 "component": {
                     "part_id": part_id_container
                 },
                 "subcomponents": {
-                    "SubComp 1": None,
+                    "Subcomp 1": None,
                 }
             }
 
             resp = patch_hwitem_subcomp(part_id_container, data)
             logger.info(f"Response from patch: {resp}")
             self.assertEqual(resp["status"], "OK")
-            """
+            
 
 
         except AssertionError as err:
