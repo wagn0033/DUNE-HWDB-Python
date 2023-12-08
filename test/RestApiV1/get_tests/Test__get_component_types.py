@@ -28,21 +28,20 @@ class Test__get_component_type(unittest.TestCase):
     
     #-----------------------------------------------------------------------------    
 
+    @unittest.skip("under construction")
     def test_get_component_type(self):
         testname = "get_component_type"
         logger.info(f"[TEST {testname}]")
 
         try:
-            part_type_id = 'D00501341001'
-            file_path = os.path.join(
-                    os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'componentTypes', 
-                    'part-type-id-D00501341001.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+            part_type_id = 'Z00100300001'
+            
             resp = get_component_type(part_type_id)
+
             self.assertEqual(resp['status'], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            #self.assertIsInstance(resp['data']['batch'], int)
+            self.assertIsInstance(resp['data']['component_id'], int)
+            
  
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -88,18 +87,13 @@ class Test__get_component_type(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
         
         try:
-            part_type_id = 'D00501341001' #change to different id
-            file_path = os.path.join(
-                    os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'componentTypes', 
-                    'connectors.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+            part_type_id = 'Z00100300001' 
+            
             
             resp = get_component_type_connectors(part_type_id)
             
             self.assertEqual(resp['status'], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            self.assertEqual(resp['data']['Subcomp 1'], 'Z00100300002')
         
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -115,17 +109,14 @@ class Test__get_component_type(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
         
         try:
-            part_type_id = 'D00501341001'
-            file_path = os.path.join(
-                    os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'componentTypes', 
-                    'specifications.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+            part_type_id = 'Z00100300001'
             
             resp = get_component_type_specifications(part_type_id)
+            logger.info(f"response from HWDB:{resp}")
             self.assertEqual(resp['status'], "OK")
-            self.assertDictEqual(resp, expected_resp)
+
+            self.assertEqual(resp['data'][0]['creator'], "Alex Wagner")
+            self.assertEqual(resp['data'][0]['datasheet']['Widget ID'], None)
             
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")

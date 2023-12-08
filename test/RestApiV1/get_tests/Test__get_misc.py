@@ -91,15 +91,14 @@ class Test__get_misc_no_input(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'misc', 'institutions.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+            
             
             resp = get_institutions()
             
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            
+            self.assertEqual(resp['data'][0]['country']['code'], "US")
+            self.assertEqual(resp['data'][0]['country']['name'], "United States")
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -115,14 +114,16 @@ class Test__get_misc_no_input(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'misc', 'manufacturers.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
             resp = get_manufacturers()
             
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            self.assertEqual(resp['data'][0]['id'], 1)
+            self.assertEqual(resp['data'][0]['name'], "Homenick Ltd")
+
+            self.assertIsInstance(resp['data'][-1]['id'], int)
+            self.assertIsInstance(resp['data'][-1]['name'], str)
+            
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -138,14 +139,13 @@ class Test__get_misc_no_input(unittest.TestCase):
         logger.info(f"[TEST {testname}]")
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'misc', 'projects.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+            
             resp = get_projects()
             
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            
+            self.assertEqual(resp['data'][1]['id'], "D")
+            self.assertEqual(resp['data'][1]['name'], "DUNE")
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")

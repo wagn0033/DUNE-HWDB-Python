@@ -42,6 +42,8 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         
     @unittest.skip("fails")
     def test_broken_item(self):
+        testname = "test_broken_item"
+        logger.info(f"[TEST {testname}]")
         #
         # The items added before Country/Institution were required will
         # cause the REST API to throw an internal server error in HTML
@@ -51,6 +53,7 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         # correctly figures this out and returns the info as JSON.
         
         resp = get_hwitem("Z00100200017-00001")
+        logger.info(f"response from HWDB:{resp}")
         self.assertEqual(resp["status"].upper(), "SERVER ERROR")
     
     
@@ -59,9 +62,6 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         resp = get_hwitem("Z99999999999-99999")
         self.assertEqual(resp["status"].upper(), "ERROR")
     
-    @unittest.skip("test later")
-    def test_skip_example(self):
-        pass
     
     @unittest.skip("get_image_by_part_id not working")
     def test_image_by_part_id(self):
