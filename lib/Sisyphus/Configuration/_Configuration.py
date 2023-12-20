@@ -29,7 +29,7 @@ import logging.config
 from Sisyphus import version as SISYPHUS_VERSION
 
 API_DEV = 'dbwebapi2.fnal.gov:8443/cdbdev'
-API_PROD = 'dbwebapi2.final.gov:8443/cdb'
+API_PROD = 'dbwebapi2.fnal.gov:8443/cdb'
 DEFAULT_API = API_DEV
 
 APPLICATION_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
@@ -77,7 +77,7 @@ class Config:
         #self._populate_config()
 
 
-    def getLogger(self, name="config"):
+    def getLogger(self, name="unnamed"):
         
         if not getattr(self, "_logging_initialized", False):
             self._init_logging()
@@ -86,7 +86,7 @@ class Config:
         if getattr(self, "active_profile", None) is not None:
             if self.active_profile[KW_LOGLEVEL] is not None:
                 logger.setLevel(self.active_profile[KW_LOGLEVEL])
- 
+        logger.debug(f"returning logger '{name}'")
         return logger
 
     def _init_logging(self):
@@ -490,7 +490,8 @@ class Config:
                             dest='cert_type',
                             metavar='[ p12 | pem ]',
                             required=False,
-                            help='type of certificate file being used: p12 or pem')
+                            #help='type of certificate file being used: p12 or pem')
+                            help=argparse.SUPPRESS)
         group.add_argument('--cert',
                             dest='cert',
                             metavar='<filename>',
@@ -560,11 +561,14 @@ class Config:
                             metavar='<loglevel>',
                             required=False,
                             help="Only log messages at <loglevel> or higher in severity. "
-                                "(DEBUG, INFO, WARNING, ERRROR, CRITICAL, or 'default' to "
+                                "(DEBUG, INFO, WARNING, ERROR, CRITICAL, or 'default' to "
                                 "use the default level")    
 
+        group.add_argument('--version',
+                            action='version',
+                            version=f'Sisyphus {SISYPHUS_VERSION}')
 
-        self.args, unknown = self.arg_parser.parse_known_args(args)
+        self.args, self.remaining_args = self.arg_parser.parse_known_args(args)
     
     def _default_log_settings(self):
         '''Generate the settings for the Logging module'''

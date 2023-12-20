@@ -2,42 +2,45 @@
 # -*- coding: utf-8 -*-
 """
 Sisyphus/Utils/utils.py
-Copyright (c) 2022 Regents of the University of Minnesota
+Copyright (c) 2023 Regents of the University of Minnesota
 Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
-"""
 
-# TBD: could probably remove logging in this module, to reduce
-# unnecessary dependencies
-#from Sisyphus.Logging import logging
-#logger = logging.getLogger(__name__)
-#logger.info(f"{__name__} imported logging")
-from Sisyphus.Configuration import config
-logger = config.getLogger("utils")
+Miscellaneous utility functions
+"""
 
 import os, sys
 from functools import wraps
 
-#from functools import wraps, partial
-#from Sisyphus.Utils.utils import traverse
 
-#from collections.abc import Mapping, Sequence
+class objectmethod(classmethod):
+    '''Permits a method to be used in both the class and instances of the class
 
-class classmethod_strict(object):
-    def __init__(self, method):
-        self.method = method
-    def __get__(self, instance, cls):
-        if instance is not None:
-            raise TypeError("classmethod intended to be called "
-                            "from class only, not from instances")
-        #return lambda *args, **kw: self.method(cls, *args, **kw)
-        @wraps(self.method)
-        def fn(*args, **kwargs):
-            try:
-                return self.method(cls, *args, **kwargs)
-            except Exception as e:
-                print(e)
-                raise
-        return fn
+    It behaves essentially like classmethod, except the first argument
+    to the function (typically named 'cls') is only the class if called
+    from the class. If called from an instance, it is the instance
+    instead (typically named 'self').
+
+    >>> class Example:
+    ...     @objectmethod
+    ...     def func(obj):
+    ...         if type(obj) is type:
+    ...             print("called from class")
+    ...         else:
+    ...             print("called from instance")
+    ...
+    >>> Example.func()
+    called from class
+    >>> Example().func()
+    called from instance
+
+    '''
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return super().__get__(instance, owner)
+        else:
+            return self.__func__.__get__(instance, owner)
+
 
 def process_list(fn):
     def wrap(seq):
@@ -149,3 +152,8 @@ def traverse(container, path):
         return 'bad'
         #print(path, container)
         raise TypeError(f"path '{path}' was not valid")
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()

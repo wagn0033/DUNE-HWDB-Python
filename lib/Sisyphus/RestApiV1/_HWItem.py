@@ -8,7 +8,7 @@ Author:
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 import Sisyphus.RestApiV1 as ra
 

@@ -7,7 +7,7 @@ Created on Thu Feb  9 11:18:30 2023
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 from Sisyphus import RestApiV1 as ra
 

@@ -6,4 +6,4 @@ Copyright (c) 2023 Regents of the University of Minnesota
 Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 
-version = "1.1.20230929.pre-release"
+version = "1.2.dev.20231219a"

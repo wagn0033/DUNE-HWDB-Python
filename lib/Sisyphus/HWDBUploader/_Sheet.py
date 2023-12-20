@@ -5,10 +5,21 @@ Sisyphus/HWDBUploader/_Sheet.py
 Copyright (c) 2023 Regents of the University of Minnesota
 Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
+
+Provides a consistent interface for reading data from Excel or CSV sheets.
+
+The sheet may have some "default" column values specified by:
+  (1) passing in a "Values" node in the sheet info on construction, or
+  (2) reserving the top several rows of the sheet for key/value pairs,
+      followed by a blank line, followed by the actual row data.
+A sheet that only has the header data and is not followed by row data
+is considered to have exactly one "row" that consists of whatever keys 
+that are supplied in the header and/or "Values" node.
+
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 import Sisyphus.RestApiV1 as ra
 import Sisyphus.RestApiV1.Utilities as ut
@@ -23,6 +34,8 @@ import os
 from copy import deepcopy
 import re
 
+from dataclasses import dataclass, field
+from collections import namedtuple
 
 pp = lambda s: print(json.dumps(s, indent=4))
 
@@ -30,189 +43,227 @@ pp = lambda s: print(json.dumps(s, indent=4))
 sheet node format
 
 {
-    "Docket Name": "Docket 001",
-    "Source Name": "Bongos and Biffs",
-    "File Name": "Upload_SN.xlsx",
-    "Sheet Name": "Bongo-Items",
+    ##"Docket Name": "Docket 001",
+    "Docket": "docket.json",
+    ##"Source Name": "Bongos and Biffs",
+    "Source": "Bongos and Biffs",
+    ##"File Name": "Upload_SN.xlsx",
+    "File": "Upload_SN.xlsx",
+    ##"Sheet Name": "Bongo-Items",
+    "Sheet": "Bongo-Items",
     "Values": {
-        "Type ID": "Z00100300023"
+        "Part Type ID": "Z00100300023"
     },
     "Encoder": "Auto",
-    "Sheet Type": "Item",
-    "Part Type ID": None,
-    "Part Type Name": None,
+    "Record Type": "Item",
+    ##"Part Type ID": None,
+    ##"Part Type Name": None,
 }
-
 '''
+
+CellLocation = namedtuple("CellLocation", ["column", "row"])
+
+@dataclass
+class Cell:
+    """Class for holding a cell's contents, plus tracking information"""
+    source: str
+    location: CellLocation = None
+    warnings: list = field(default_factory=list)
+    datatype: str = None
+    value: 'typing.Any' = None
+
+
+
 
 class Sheet:
     #{{{
     '''Load a CSV or Excel sheet and provide an interface for Encoders to extract data'''
-    
-    #_file_cache = {}  ## maybe we don't need to cache. how much overhead is there in just
-                       ## reloading the file each time it's encountered?
 
     def __init__(self, sheet_info):
         #{{{
         self.sheet_info = deepcopy(sheet_info)
 
-        #print("Creating Sheet object")
-        #print("==Sheet Info==")
-        #pp(sheet_info)
-
         self.global_values = sheet_info.get("Values", {})
         self.local_values = None
         self.dataframe = None
+        self.rows = None
 
+        sheet_source_info = []
+        if "Docket" in sheet_info:
+            sheet_source_info.append(f"Docket '{sheet_info['Docket']}'")
+        if "Source" in sheet_info:
+            sheet_source_info.append(f"Source '{sheet_info['Source']}'")
+        if "Source" in sheet_info:
+            sheet_source_info.append(f"File '{sheet_info['File']}'")
+        if "Sheet" in sheet_info:
+            sheet_source_info.append(f"Sheet '{sheet_info['Sheet']}'")
+        self.sheet_source = ", ".join(sheet_source_info)
+        
         self._read_data()
-       
-
-        #print("==End Sheet Info==")
- 
         #}}}
 
+    def create_cell(self, location, value):
+        return Cell(self.sheet_source, location, None, None, value)
+    
     def coalesce(self, column, row_index=None):
+        #{{{
         '''
+        Returns the value of a cell, or a set default value.
+
         Returns the value for the row and column, if it exists. If it doesn't exist, it returns
         the value in the headers for the sheet, or the global values passed to the sheet. If none
         of them exist, returns None.
         '''
+    
+        if row_index is not None and (row_index >= self.rows or row_index < 0):
+            msg = f"{self.sheet_source}: row index {row_index} out of range"
+            logger.error(msg)
+            raise IndexError(msg)
 
-        gv = self.global_values
-        lv = self.local_values
-        df = self.dataframe
+        if row_index is not None and column in self.dataframe:
+            return self.create_cell(
+                    CellLocation(self.row_offset+row_index, column),
+                    self.dataframe[column][row_index])
+        
+        if column in self.local_values:
+            return self.create_cell(
+                    "header",
+                    self.local_values[column])
 
-        default = lv.get(column, gv.get(column, None))
+        if column in self.global_values:
+            return self.create_cell(
+                    "inherited",
+                    self.global_values[column])
 
-        if row_index is None:
-            return default
+        return self.create_cell("not found", None)
 
-        if column in df:
-            value = df[column][row_index]
-            if pd.isna(value) and default is not None:
-                return default
-            else:
-                return value
-        else:
-            return default
-                    
+        #}}}        
 
     def _read_data(self): 
         #{{{
         
-        filename = self.sheet_info["File Name"]
+        filename = self.sheet_info["File"]
         filetype = self.sheet_info["File Type"]
         sheetname = self.sheet_info.get("Sheet Name", None)
 
-        # Read only the first two columns of the sheet, which we will analyze
-        # further to determine what the true layout of the sheet might be
+        # make read_excel and read_csv look the same, so we don't
+        # have to keep handling each case differently.
         if filetype == DKT_EXCEL:
-            try:    
-                #excel_file = pd.ExcelFile(filename)
-                locals_df = pd.read_excel(
-                        filename, 
-                        self.sheet_info["Sheet Name"],
-                        header=None,
-                        usecols=[0, 1],
-                    )     
-                self.sheet_info["File Type"] = "Excel"
-            except ValueError as err:
-                msg = f"Could not load sheet '{sheetname}' from '{filename}'"
-                logger.error(msg)
-                logger.info(err)
-                raise ValueError(msg)
+            #print("SETTING EXCEL READ")
+            def read_sheet(**kwargs):
+                #print("READING EXCEL")
+                try:
+                    return pd.read_excel(
+                                filename,
+                                self.sheet_info["Sheet"],
+                                keep_default_na=False,
+                                **kwargs)
+                except ValueError as err:
+                    msg = f"Could not load sheet '{sheetname}' from '{filename}'"
+                    logger.error(msg)
+                    logger.info(err)
+                    raise ValueError(msg)
         elif filetype == DKT_CSV:
-            try:
-                locals_df = pd.read_csv(
-                    filename,
-                    header=None,
-                    usecols=[0, 1],
-                    skip_blank_lines=False,
-                    #on_bad_lines=lambda x: x[:2],
-                    #engine='python'
-                )
-                self.sheet_info["File Type"] = "CSV"
-            except ValueError as err2:
-                msg = f"Could not load '{filename}'"
-                logger.error(msg)
-                logger.info(f"err")
-                raise ValueError(msg)
+            #print("SETTING CSV READ")
+            def read_sheet(**kwargs):
+                #print("READING CSV")
+                try:
+                    return pd.read_csv(
+                                filename,
+                                keep_default_na=False,
+                                skip_blank_lines=False,
+                                **kwargs)
+                except ValueError as err2:
+                    msg = f"Could not load '{filename}'"
+                    logger.error(msg)
+                    logger.info(f"err")
+                    raise ValueError(msg)
         else:
             msg = f"Unknown File Type '{filetype}'"
             logger.error(msg)
             logger.info(f"err")
             raise ValueError(msg)
 
-        # Only looking at the first column, the rule we will use to determine 
-        # the layout shall be to look for the LAST occurence of "External ID" 
-        # or "Serial Number" that has an empty cell above it, or is the first
-        # cell. Everything above the empty cell will be considered global
-        # (key, value) pairs, and everything after will be a table of data.
-        #
-        # If the last occurence isn't preceded by a blank cell, and it's not
-        # the first cell, then we can try to interpret this as a single-record
-        # sheet, where the record is entirely defined by (key, value) pairs,
-        # with no table below.
-        #
-        # Note that if you do a single-record sheet, the first cell can't be
-        # "External ID" or "Serial Number", or it will try to interpret it
-        # as the beginning of the main table.
+        # Read only the first two columns of the sheet, which we will analyze
+        # further to determine what the true layout of the sheet might be
+        locals_df = read_sheet(header=None, usecols=lambda x: x is None or x<2)
         
-        column_header_row = -1
+        column_header_row = 0
         local_value_rows = 0
-        for row_index in reversed(range(len(locals_df[0]))):
-            if locals_df[0][row_index] in ["External ID", "Serial Number"]:
-                if row_index == 0 or pd.isna(locals_df[0][row_index-1]):
-                    column_header_row = row_index
+        local_values = {}
+        if len(locals_df.columns) < 2:
+            # note, it's possible for it to be just 1 if it's a 1-column table       
+            # but then there are definitely no locals.
+            column_header_row = 0
+            local_values = {}
+
+        else:
+            # Our strategy to determine whether what we just read is the
+            # header will be as follows:
+            # Read down the first column until there's an empty cell (or the
+            # end). If there's a non-empty cell after that, then this was
+            # probably the header and more data will follow. Check that the
+            # empty cell is actually an entirely empty row, because it could
+            # just be an omitted value in that column.
+            
+            local_values = {}
+            for row_index, series in locals_df.iterrows():
+                #if locals_df[0][row_index] in local_values:
+                #    msg = f"'{locals_df[0][row_index]}' declared multiple times"
+                #    logger.error(msg)
+                #    raise ValueError(msg)
+                local_values[locals_df[0][row_index]] = locals_df[1][row_index]
+                if series[0] == "":
+                    blank_line_df = read_sheet(
+                                header=None, 
+                                skiprows=lambda x: x!=row_index)
+                    row_values = list(blank_line_df.values[0])
+                    nonblanks = len([x for x in row_values if x!=""])
+                    if nonblanks > 0:
+                        # Since we hit a row that started with an empty cell
+                        # but wasn't entirely blank, we can conclude that
+                        # this wasn't a header at all.
+                        column_header_row = 0
+                        local_values = {}
+                    else:
+                        column_header_row = row_index + 1
+                        local_value_rows = row_index - 1
                     break
+            else: # that weird "for-else" construction is sometimes useful
+                # We got to the end without hitting the blank, so now we
+                # have to see whether the existing data makes more sense as
+                # a header or a table.
 
-        # Let's grab the sheet local values, if there are any.
-        # If the column header row is 0 or 1, there are no local values
-        # If it's -1, then the whole sheet is local values
-        local_values = self.local_values = {}
+                # does it have more than two columns, if we ask for it?
+                # if so, it's a table.
+                locals_df = read_sheet(header=None)
+                if len(locals_df.columns) > 2:
+                    column_header_row = 0
+                    local_values = {}
 
-        if column_header_row == -1:
-            local_value_rows = len(locals_df[0])
-        elif column_header_row in [0, 1]:
-            local_value_rows = 0
-        else:
-            local_value_rows = column_header_row - 1            
-
-        for row_index in range(local_value_rows):
-            if not pd.isna(locals_df[0][row_index]):
-                if not pd.isna(locals_df[1][row_index]):
-                    local_values[locals_df[0][row_index]] = locals_df[1][row_index]
+                # Since it has two columns, let's decide by whether the 
+                # local keys has "Record Type".
+                elif "Record Type" in local_values:
+                    column_header_row = None
+                    local_value_rows = row_index + 1
                 else:
-                    local_values[locals_df[0][row_index]] = ""
+                    local_values = {}
+ 
+        self.local_values = local_values
 
-        #print("==Local Values==")
-        #pp(self.sheet_info["Local Values"])
-
-        # Let's grab the table of values now
-        if column_header_row == -1:
-            # If this is a single-record sheet, make a dummy table with one row.
-            # When we try to get the values for this one row, it will "coalesce" to the
-            # local values and (possibly) make it a valid record if enough data is there.
-            df = pd.DataFrame({None: [None]})
+        if column_header_row is None:
+            self.dataframe = pd.DataFrame({None: [None]})
+            self.rows = 1
+            self.row_offset = None
         else:
-            if filetype == DKT_EXCEL:
-                df = pd.read_excel(
-                        filename,
-                        sheetname,
-                        skiprows=column_header_row
-                    )
-            else:
-                df = pd.read_csv(
-                        filename,
-                        skiprows=column_header_row
-                    )
+            logger.debug(f"reading table from {self.sheet_source} starting at "
+                    f"row {column_header_row}")
+            self.dataframe = read_sheet(skiprows=column_header_row)
+            self.rows = len(self.dataframe.index)
+            self.row_offset = column_header_row
 
-        self.dataframe = df
+        return
 
-        #print("==DataFrame==")
-        #print(df)
-
-    
 
         #}}}
 

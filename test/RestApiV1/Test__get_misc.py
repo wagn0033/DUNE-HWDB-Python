@@ -15,6 +15,7 @@ logger = config.getLogger()
 import unittest
 import os
 import json
+import sys
 from Sisyphus.RestApiV1 import get_countries
 from Sisyphus.RestApiV1 import whoami
 from Sisyphus.RestApiV1 import get_institutions
@@ -409,4 +410,4 @@ class Test__get_misc_with_input(unittest.TestCase):
 ##############################################################################
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=config.remaining_args)

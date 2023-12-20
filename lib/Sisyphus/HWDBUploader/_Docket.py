@@ -9,13 +9,15 @@ Author:
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 from Sisyphus.HWDBUploader.keywords import *
 from Sisyphus.HWDBUploader._Encoder import Encoder
 from Sisyphus.HWDBUploader._Sheet import Sheet
+from Sisyphus.HWDBUploader._Source import Source
 
 import Sisyphus.RestApiV1 as ra
+ra.session_kwargs = {'timeout': 10}
 from Sisyphus.RestApiV1.keywords import *
 import Sisyphus.RestApiV1.Utilities as ut
 
@@ -27,7 +29,6 @@ from glob import glob
 import os
 from copy import deepcopy
 import re
-
 
 pp = lambda s: print(json.dumps(s, indent=4))
 
@@ -42,6 +43,7 @@ class Docket:
 
         # Sources to be processed along with all data applicable to these sources
         self.sources = []
+        self.manifest = []
 
         # Encoders to process source files
         self.encoders = {}
@@ -75,6 +77,18 @@ class Docket:
    
     def add_docket(self, dkt):
         #{{{
+
+        ## Valid Docket fields
+        ## ===================
+        ## Docket Name
+        ## Part Type ID
+        ## Part Type Name
+        ## Values
+        ## (TBD) Includes
+        ## Encoders
+        ## Sources
+
+
         self.docket_counter += 1
 
         # Let's make a copy, since we're going to be tweaking it as we
@@ -85,9 +99,15 @@ class Docket:
         if DKT_DOCKET_NAME not in dkt.keys():
             dkt[DKT_DOCKET_NAME] = f"Unnamed Docket {self.docket_counter}"
 
+
+        # ======================
+
+
+
+
         self._parse_values(dkt)
-        self._parse_sources(dkt)
-        self._parse_encoder(dkt)
+        #self._parse_sources(dkt)
+        #self._parse_encoder(dkt)
         #}}}
 
     @classmethod
@@ -363,7 +383,7 @@ class Docket:
 
     def _parse_source(self, dkt, source_item):
         #{{{
-        logger.debug(f"parsing {source_item}")
+        logger.info(f"parsing {source_item}")
 
         # The source should be a dictionary, but it is allowed to be a string.
         # If it's a string, put it in a dictionary under "File Name" and use 
@@ -427,8 +447,8 @@ class Docket:
                         source_item.get(DKT_PART_TYPE_NAME, None))
         if pt_info is not None:
             pt_id, pt_name = pt_info
-            src[DKT_PART_TYPE_ID] = pt_id
-            src[DKT_PART_TYPE_NAME] = pt_name
+        else:
+            pt_id, pt_name = None, None
 
         # Grab the values attached at the source node level, if any.
         values = source_item.get(DKT_VALUES, {})
@@ -436,13 +456,13 @@ class Docket:
         # Check for an encoder at the source node level
         # (Note that there can be one at the sheet level that overrides this)
         encoder_name = source_item.get(DKT_ENCODER, None)
-        if encoder_name is None:
-            encoder_name = DKT_AUTO        
+        #if encoder_name is None:
+        #    encoder_name = DKT_AUTO        
         
         # Check for a data type (e.g., item, test, image list)
         sheet_type = source_item.get(DKT_SHEET_TYPE, None)
-        if sheet_type is None:
-            sheet_type = DKT_UNKNOWN
+        #if sheet_type is None:
+        #    sheet_type = DKT_UNKNOWN
 
         # Let's go through each sheet for each file and assemble exactly what
         # operation we're trying to do on it into a manifest
@@ -490,6 +510,8 @@ class Docket:
                             DKT_VALUES: {**values, **self.values},
                             DKT_ENCODER: encoder_name,
                             DKT_SHEET_TYPE: sheet_type,
+                            DKT_PART_TYPE_ID: pt_id,
+                            DKT_PART_TYPE_NAME: pt_name,
                         })
             
             # Handle Excel files
@@ -508,6 +530,8 @@ class Docket:
                                 DKT_VALUES: {**values, **self.values},
                                 DKT_ENCODER: encoder_name,
                                 DKT_SHEET_TYPE: sheet_type,
+                                DKT_PART_TYPE_ID: pt_id,
+                                DKT_PART_TYPE_NAME: pt_name,
                             })
                 # Add the sheets specified
                 else:
@@ -518,6 +542,20 @@ class Docket:
                         sheets = [ sheets ]
 
                     for sheet_info in sheets:
+
+                        # The part type could be defined in this node, so we have to look for it.
+                        # It will completely override the value in the parent (source) node, so
+                        # it doesn't have to match.
+                        pt_info = resolve_part_type(
+                                        sheet_info.get(DKT_PART_TYPE_ID, None),
+                                        sheet_info.get(DKT_PART_TYPE_NAME, None))
+                        if pt_info is not None:
+                            local_pt_id, local_pt_name = pt_info
+                        else:
+                            local_pt_id, local_pt_name = pt_id, pt_name
+
+        
+
                         sheet_encoder = sheet_info.get(DKT_ENCODER, None)
                         if sheet_encoder is None:
                             sheet_encoder = encoder_name
@@ -552,6 +590,8 @@ class Docket:
                                 DKT_VALUES: {**sheet_values, **values, **self.values},
                                 DKT_ENCODER: sheet_encoder,
                                 DKT_SHEET_TYPE: local_sheet_type,
+                                DKT_PART_TYPE_ID: local_pt_id,
+                                DKT_PART_TYPE_NAME: local_pt_name,
                             })
 
 
@@ -566,34 +606,78 @@ class Docket:
         # the local values.
         # Any other local values are of no concern until the sheet is properly processed
         # by the encoder. 
+        #print("==============================")
+        #print("     examining manifest       ")
+        #print("==============================")
         for sheet_node in manifest:
-            print("==sheet_node==")
-            pp(sheet_node)
+            #print("*************************")
+            #print("==sheet_node==")
+            #pp(sheet_node)
 
             sheet = Sheet(sheet_node)
-            print("==global_values==")
-            pp(sheet.global_values)
-            print("==local_values==")
-            pp(sheet.local_values)
-            print("==dataframe==")
-            print(sheet.dataframe)
-       
+            #print("==global_values==")
+            #pp(sheet.global_values)
+            #print("==local_values==")
+            #pp(sheet.local_values)
+            #print("==dataframe==")
+            #print(sheet.dataframe)
+      
+
+            # Get the Part Type information 
             pt_info = resolve_part_type(
                             sheet.local_values.get(DKT_PART_TYPE_ID, None),
                             sheet.local_values.get(DKT_PART_TYPE_NAME, None))
             if pt_info is not None:
+                logger.debug(f"part type info from sheet object: {pt_info}")
                 pt_id, pt_name = pt_info
                 
                 if (sheet_node[DKT_PART_TYPE_ID] is not None 
                         and sheet_node[DKT_PART_TYPE_ID] != pt_id):
-                    raise ValueError(f"'{DKT_PART_TYPE_ID}' in sheet contradicts the value "
-                                "set in docket sources.")
+
+                    msg = (
+                        "Part Type info in sheet contradicts the Part Type info in the docket. "
+                        f"Sheet -> ({pt_id}, {pt_name}), "
+                        f"Docket -> {sheet_node[DKT_PART_TYPE_ID], sheet_node[DKT_PART_TYPE_NAME]}"
+                    )
+                    
+                    raise ValueError(msg)
                 else:                
                     sheet_node[DKT_PART_TYPE_ID] = pt_id
                     sheet_node[DKT_PART_TYPE_NAME] = pt_name
+            
+            # Get the Sheet Type
+            local_sheet_type = sheet.local_values.get(DKT_SHEET_TYPE, None)
+            docket_sheet_type = sheet_node.get(DKT_SHEET_TYPE, None)
+            if local_sheet_type is not None:
+                if (docket_sheet_type is not None and local_sheet_type != docket_sheet_type):
+                    msg = (
+                        "Sheet Type in sheet contradicts the Sheet Type in the docket. "
+                        f"Sheet -> {local_sheet_type}, "
+                        f"Docket -> {docket_sheet_type}"
+                    )
+                    raise ValueError(msg)
+                else:
+                    sheet_node[DKT_SHEET_TYPE] = local_sheet_type
+
+            # Get the Encoder
+            local_encoder = sheet.local_values.get(DKT_ENCODER, None)
+            docket_encoder = sheet_node.get(DKT_ENCODER, None)
+            if local_encoder is not None:
+                if (docket_encoder is not None and local_encoder != docket_encoder):
+                    msg = (
+                        "Encoder in sheet contradicts the Encoder in the docket. "
+                        f"Sheet -> {local_encoder}, "
+                        f"Docket -> {docket_encoder}"
+                    )
+                    raise ValueError(msg)
+                else:
+                    sheet_node[DKT_ENCODER] = local_encoder
 
 
-        sys.exit()
+            #print("==sheet_node (after)==")
+            #pp(sheet_node)
+
+        #sys.exit()
 
         src["Manifest"] = manifest
 
@@ -603,13 +687,13 @@ class Docket:
         self.sources.append(src) 
         
 
-        print("==end parse_source==")
+        #print("==end parse_source==")
 
         #}}}
 
     def _parse_sources(self, dkt):
         #{{{
-        logger.debug("Parsing sources")
+        logger.info("Parsing sources")
         if DKT_SOURCES not in dkt.keys():
             logger.warning(f"Docket '{dkt[DKT_DOCKET_NAME]}' has no '{DKT_SOURCES}' node")
             return
@@ -621,10 +705,27 @@ class Docket:
         if type(sources) != list:
             sources = dkt[DKT_SOURCES]
 
+        # Create a base node containing information from the docket that should be carried
+        # to all source manifest nodes.
+        base = {
+            "Docket Name": dkt[DKT_DOCKET_NAME],
+            "Values": self.values,
+        }
+        
+
+
         for source_index, source_item in enumerate(sources):
             if DKT_SOURCE_NAME not in source_item.keys():
                 source_item[DKT_SOURCE_NAME] = "Unnamed Source Node {source_index}"
-            self._parse_source(dkt, source_item)
+            
+
+            self.sources.extend(Source.fromSourceNode(base, source_item))            
+
+            #m = Source(dkt, source_item)
+
+            sys.exit()
+
+            #self._parse_source(dkt, source_item)
 
         #}}}        
 
@@ -920,14 +1021,8 @@ class Docket:
         #}}}
     #}}} 
 
-
-
-
-
-
-
-
-
+if __name__ == "__main__":
+    pass
 
 
 
