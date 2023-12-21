@@ -32,6 +32,8 @@ from Sisyphus.RestApiV1 import post_hwitem, get_hwitem, patch_enable_item, post_
 
 class Test__patch_enables(unittest.TestCase):
 
+    #post a new item, patch it to be enabled, check if it was enabled. 
+    # Patch it again to disable it, check it was disabled
     def test_patch_enable_item(self):
         testname = "patch_enable_item"
         logger.info(f"[TEST {testname}]")    
@@ -138,7 +140,9 @@ class Test__patch_enables(unittest.TestCase):
 #-----------------------------------------------------------------------------
     
 
-
+    #post (2) items in bulk, get part ids from response of post, 
+    # use those part ids to enable them, check if they were enabled. 
+    # Disable them, check if they were disabled
     def test_patch_enable_bulk(self):
         testname = "patch_enable_bulk"
         logger.info(f"[TEST {testname}]")  

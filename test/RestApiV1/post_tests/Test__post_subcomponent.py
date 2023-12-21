@@ -18,6 +18,9 @@ from Sisyphus.RestApiV1 import post_component, post_hwitem, patch_enable_item, p
 
 class Test__post_subcomponent(unittest.TestCase):
     
+    #post an item under the part type id will be the subcomponent, 
+    # retrieve part id and enable it. post containter item with subcomponent, 
+    # check status. Patch the container item to remove subcomponent, check status.
     def test_post_subcomponent(self):
         testname = "post_subcomponent"
         logger.info(f"[TEST {testname}]")

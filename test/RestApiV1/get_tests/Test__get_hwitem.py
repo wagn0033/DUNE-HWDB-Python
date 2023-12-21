@@ -30,18 +30,31 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
     #tests by checking the structure: checks if component id is expected, 
     #and if part type id is expected
     def test_normal_item(self):
-        file_path = os.path.join(os.path.dirname(__file__), '..','ExpectedResponses', 
-                                'components', 'normal_item.json')
-        with open(file_path, 'r') as file:
-            expected_resp = json.load(file)
+        testname = "test_normal_item"
+        logger.info(f"[TEST {testname}]")
 
-        resp = get_hwitem("Z00100300001-00021")
-        logger.info(f"Response from post: {resp}")
+        try:
+            file_path = os.path.join(os.path.dirname(__file__), '..','ExpectedResponses', 
+                                    'components', 'normal_item.json')
+            with open(file_path, 'r') as file:
+                expected_resp = json.load(file)
+
+            resp = get_hwitem("Z00100300001-00021")
+            logger.info(f"Response from post: {resp}")
         
-        self.assertEqual(resp["status"], "OK")
-        self.assertEqual(resp['data']['component_id'],44801)
-        self.assertEqual(resp['data']['component_type']['part_type_id'], 'Z00100300001')
-        #self.assertEqual(resp, expected_resp)
+            self.assertEqual(resp["status"], "OK")
+            self.assertEqual(resp['data']['component_id'],44801)
+            self.assertEqual(resp['data']['component_type']['part_type_id'], 'Z00100300001')
+            #self.assertEqual(resp, expected_resp)
+
+        except AssertionError as err:
+            logger.error(f"[FAIL {testname}]")
+            logger.info(err)
+            logger.debug(f"({testname}) response:\n{json.dumps(resp, indent=4)}")
+            raise err
+        logger.info(f"[PASS {testname}]")
+
+    #-----------------------------------------------------------------------------     
         
     @unittest.skip("fails")
     def test_broken_item(self):
@@ -54,31 +67,58 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         #
         # This test is more for testing that the RestApiV1 python library
         # correctly figures this out and returns the info as JSON.
-        
-        resp = get_hwitem("Z00100200017-00001")
-        logger.info(f"response from HWDB:{resp}")
-        self.assertEqual(resp["status"].upper(), "SERVER ERROR")
+        try:
+            resp = get_hwitem("Z00100200017-00001")
+            logger.info(f"response from HWDB:{resp}")
+            self.assertEqual(resp["status"].upper(), "SERVER ERROR")
+
+        except AssertionError as err:
+            logger.error(f"[FAIL {testname}]")
+            logger.info(err)
+            logger.debug(f"({testname}) response:\n{json.dumps(resp, indent=4)}")
+            raise err
+        logger.info(f"[PASS {testname}]")
 
     #----------------------------------------------------------------------------- 
     
     #check if getting an invalid item throws an error
     def test_invalid_item(self):
+        testname = "test_invalid_item"
+        logger.info(f"[TEST {testname}]")
         
-        resp = get_hwitem("Z99999999999-99999")
-        self.assertEqual(resp["status"].upper(), "ERROR")
+        try:
+            resp = get_hwitem("Z99999999999-99999")
+            self.assertEqual(resp["status"].upper(), "ERROR")
+
+        except AssertionError as err:
+            logger.error(f"[FAIL {testname}]")
+            logger.info(err)
+            logger.debug(f"({testname}) response:\n{json.dumps(resp, indent=4)}")
+            raise err
+        logger.info(f"[PASS {testname}]")
     
     #----------------------------------------------------------------------------- 
     
-    
     @unittest.skip("get_image_by_part_id not working")
     def test_image_by_part_id(self):
-        file_path = os.path.join(os.path.dirname(__file__), '..', 'ExpectedResponses',
-                                'components', 'image_by_part_id.json')
-        with open(file_path, 'r') as file:
-            expected_resp = json.load(file)
-        resp = get_image_by_part_id("Z00100100048-00033")
-        #print(resp)
-        self.assertEqual(expected_resp, resp)
+        testname = "test_image_by_part_id"
+        logger.info(f"[TEST {testname}]")
+
+        try:
+            file_path = os.path.join(os.path.dirname(__file__), '..', 'ExpectedResponses',
+                                    'components', 'image_by_part_id.json')
+            with open(file_path, 'r') as file:
+                expected_resp = json.load(file)
+            resp = get_image_by_part_id("Z00100100048-00033")
+            #print(resp)
+            self.assertEqual(expected_resp, resp)
+
+        except AssertionError as err:
+            logger.error(f"[FAIL {testname}]")
+            logger.info(err)
+            logger.debug(f"({testname}) response:\n{json.dumps(resp, indent=4)}")
+            raise err
+        logger.info(f"[PASS {testname}]")
     
     ##############################################################################                                
 

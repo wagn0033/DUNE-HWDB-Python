@@ -36,7 +36,7 @@ class Test__patch_bulk_update(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @unittest.skip("not sure if it is correct")
+    @unittest.skip("throws internal server error 500")
     def test_patch_bulk_update(self):
         testname = "patch_bulk_update"
         logger.info(f"[TEST {testname}]") 
@@ -89,9 +89,7 @@ class Test__patch_bulk_update(unittest.TestCase):
                         "specifications": {
                             "Color": "Blue"
                         }
-                    }
-                ],
-                    "data": [
+                    },
                     {
                         "batch": {
                             "id": 0

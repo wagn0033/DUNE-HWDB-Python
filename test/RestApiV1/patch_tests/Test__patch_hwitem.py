@@ -34,6 +34,8 @@ class Test__patch_hwitem(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
 
+    #post new item, retrieve part id from post response, patch them item using 
+    # part id, check if it was patched by checking the structure
     def test_patch_hwitem(self):
         testname = "patch_hwitem"
         logger.info(f"[TEST {testname}]")    
@@ -129,6 +131,10 @@ class Test__patch_hwitem(unittest.TestCase):
 
     #----------------------------------------------------------------------------- 
     
+    #post an item under the part type id will be the subcomponent, 
+    # retrieve part id and enable it. Patch the container item with the 
+    # subcomponent , check status. Patch the container to remove subcomponent, 
+    # check status
     def test_patch_hwitem_subcomp(self):
         testname = "patch_hwitem_subcomp"
         logger.info(f"[TEST {testname}]") 

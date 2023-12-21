@@ -51,7 +51,7 @@ class Test__get_component_type(unittest.TestCase):
     
     #-----------------------------------------------------------------------------    
 
-
+    #checks the structure of the response: checks if integer is where it is expected
     def test_get_hwitems(self):
         testname = "get_hwitems"
         logger.info(f"[TEST {testname}]")

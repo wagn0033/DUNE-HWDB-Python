@@ -58,7 +58,8 @@ class Test__post_tests(unittest.TestCase):
 
 #-----------------------------------------------------------------------------
 
-    
+    #post test under untittest1 with it expected test data. check that it 
+    # throws error: try posting test under unittest1 without expected test data
     def test_post_test(self):
 
         testname = "post_test"

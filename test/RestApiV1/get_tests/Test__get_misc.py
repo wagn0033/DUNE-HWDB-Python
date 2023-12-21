@@ -65,6 +65,8 @@ class Test__get_misc_no_input(unittest.TestCase):
             
     #-----------------------------------------------------------------------------
 
+    #checks structure of response: checks for string and integer where is expected 
+    # in response
     def test_whoami(self):
         testname = "whoami"
         logger.info(f"[TEST {testname}]")
@@ -87,6 +89,7 @@ class Test__get_misc_no_input(unittest.TestCase):
         
     #-----------------------------------------------------------------------------
         
+    #checks structure of response: checks if the first entry is US
     def test_get_institutions(self):
         testname = "get_institutions"
         logger.info(f"[TEST {testname}]")
@@ -110,6 +113,8 @@ class Test__get_misc_no_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #checks structure of response: checks is the first entry is Homenick Ltd, and 
+    # that the last entry has an integer and string where it should be
     def test_get_manufacturers(self):
         testname = "get_manufacturers"
         logger.info(f"[TEST {testname}]")
@@ -135,6 +140,7 @@ class Test__get_misc_no_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #checks structure of response: checks if DUNE is the second entry
     def test_get_projects(self):
         testname = "get_projects"
         logger.info(f"[TEST {testname}]")
@@ -157,6 +163,8 @@ class Test__get_misc_no_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #checks structure of response: checks if integer and string is where it is 
+    # expected in response
     def test_get_roles(self):
         testname = "get_roles"
         logger.info(f"[TEST {testname}]")
@@ -164,10 +172,12 @@ class Test__get_misc_no_input(unittest.TestCase):
         try:
             resp = get_roles()            
 
+            self.assertEqual(resp["status"], "OK")
+
             self.assertIsInstance(resp["data"][-1]["id"], int)
             self.assertIsInstance(resp["data"][0]["component_types"][0]["name"], str)
             self.assertIsInstance(resp["data"][0]["users"][0]["user_id"], int)
-            self.assertEqual(resp["status"], "OK")
+            
             
 
         except AssertionError as err:
@@ -179,6 +189,8 @@ class Test__get_misc_no_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #checks structure of response: checks if integer and string is where it is 
+    # expected in response
     def test_get_users(self):
         testname = "get_users"
         logger.info(f"[TEST {testname}]")
@@ -186,11 +198,13 @@ class Test__get_misc_no_input(unittest.TestCase):
         try:
             resp = get_users()
               
+            self.assertEqual(resp["status"], "OK")
+
             self.assertIsInstance(resp["data"][0]["user_id"],int )
             self.assertIsInstance(resp["data"][0]["username"], str)
             self.assertIsInstance(resp["data"][-1]["user_id"],int )
             self.assertIsInstance(resp["data"][-1]["username"], str)
-            self.assertEqual(resp["status"], "OK")
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -209,6 +223,7 @@ class Test__get_misc_with_input(unittest.TestCase):
     
     #-----------------------------------------------------------------------------
     
+    #compares response to expected json response 
     def test_get_user(self):
         testname = "get_user"
         logger.info(f"[TEST {testname}]")
@@ -233,6 +248,8 @@ class Test__get_misc_with_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #checks structure of response: if role id is correct and is assigned tester 
+    # in response
     def test_get_role(self):
         testname = "get_role"
         logger.info(f"[TEST {testname}]")
@@ -258,6 +275,7 @@ class Test__get_misc_with_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
 
+    #checks structure of response: if integer is where is expected in response
     def test_get_subsystems(self): 
 
         testname = "get_subsystems"
@@ -297,6 +315,7 @@ class Test__get_misc_with_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #compares response to expected json response
     def test_get_subsystem(self): 
         testname = "get_subsystem"
         logger.info(f"[TEST {testname}]")
@@ -334,6 +353,7 @@ class Test__get_misc_with_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
    
+    #checks structure of response: if string is where it is expected in response
     def test_get_systems(self):
         testname = "get_systems"
         logger.info(f"[TEST {testname}]")
@@ -364,6 +384,7 @@ class Test__get_misc_with_input(unittest.TestCase):
     
     #-----------------------------------------------------------------------------
 
+    #compares response to expected json response
     def test_get_system(self):
         testname = "test_get_system"
         logger.info(f"[TEST {testname}]")

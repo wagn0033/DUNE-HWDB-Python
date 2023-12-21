@@ -27,6 +27,7 @@ class Test__post_hwitem(unittest.TestCase):
     def tearDown(self):
         pass
 
+    #posts item, checks status
     def test_post_hwitem(self):
         testname = "post_hwitem"
         logger.info(f"[TEST {testname}]")

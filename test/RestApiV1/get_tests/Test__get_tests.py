@@ -26,6 +26,7 @@ class Test__get_tests(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
 
+    #checks structure of response: if the last test is Bounce
     def test_test_types(self):
         testname = "get_test_types"
         logger.info(f"[TEST {testname}]")
@@ -49,6 +50,8 @@ class Test__get_tests(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
 
+    #checks structure of response: if the name of the 
+    # component type is Test Type 001, and has the correct part type id
     def test_test_type(self):
         testname = "get_test_type"
         logger.info(f"[TEST {testname}]")
@@ -73,6 +76,7 @@ class Test__get_tests(unittest.TestCase):
     
     #-----------------------------------------------------------------------------
 
+    #compares response to expected json response
     def test_test_type_by_oid(self):
         testname = "get_test_type_by_oid"
         logger.info(f"[TEST {testname}]")
