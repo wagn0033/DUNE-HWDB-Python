@@ -211,7 +211,7 @@ class Test__patch_hwitem(unittest.TestCase):
             logger.info(f"Response from patch: {resp}")
             self.assertEqual(resp["status"], "OK")
             
-
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")

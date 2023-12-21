@@ -15,7 +15,7 @@ from get_tests.Test__get_component_types import *
 from get_tests.Test__get_tests import *
 
 from post_tests.Test__post_bulk_add import *
-from post_tests.Test__post_component_types import *
+from post_tests.Test__post_subcomponent import *
 from post_tests.Test__post_hwitem import *
 from post_tests.Test__post_tests import *
 
