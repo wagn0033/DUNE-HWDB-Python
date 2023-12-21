@@ -144,7 +144,7 @@ class Test__patch_bulk_update(unittest.TestCase):
 
         logger.info(f"[PASS {testname}]")
 
-
+    ##############################################################################
 
 if __name__ == "__main__":
     unittest.main()

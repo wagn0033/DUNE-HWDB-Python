@@ -28,7 +28,7 @@ class Test__get_component_type(unittest.TestCase):
     
     #-----------------------------------------------------------------------------    
 
-    @unittest.skip("under construction")
+    #checks component type is correct by checking associated subcomponent
     def test_get_component_type(self):
         testname = "get_component_type"
         logger.info(f"[TEST {testname}]")
@@ -39,8 +39,7 @@ class Test__get_component_type(unittest.TestCase):
             resp = get_component_type(part_type_id)
 
             self.assertEqual(resp['status'], "OK")
-            #self.assertIsInstance(resp['data']['batch'], int)
-            self.assertIsInstance(resp['data']['component_id'], int)
+            self.assertEqual(resp['data']['connectors']['Subcomp 1'], 'Z00100300002')
             
  
         except AssertionError as err:
@@ -52,25 +51,20 @@ class Test__get_component_type(unittest.TestCase):
     
     #-----------------------------------------------------------------------------    
 
+
     def test_get_hwitems(self):
         testname = "get_hwitems"
         logger.info(f"[TEST {testname}]")
 
         try:
-            part_type_id = 'D00501341001'
-            #part_type_id = 'Z00100110001'
-            file_path = os.path.join(
-                    os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'componentTypes', 
-                    'components_page1.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
-
+            
+            part_type_id = 'Z00100110001'
             page, size = 1, 100
- 
             resp = get_hwitems(part_type_id, page=page, size=size)            
             
             self.assertEqual(resp['status'], "OK")
+            self.assertIsInstance(resp['data'][0]['component_id'], int)
+            self.assertIsInstance(resp['data'][0]['creator']['id'], int)
             #self.assertDictEqual(resp, expected_resp)
 
         except AssertionError as err:
@@ -82,6 +76,7 @@ class Test__get_component_type(unittest.TestCase):
 
     #-----------------------------------------------------------------------------    
     
+    #checks subcomponent associated is correct
     def test_component_type_connectors(self):
         testname = "get_component_type_connectors"
         logger.info(f"[TEST {testname}]")
@@ -104,6 +99,7 @@ class Test__get_component_type(unittest.TestCase):
     
     #-----------------------------------------------------------------------------    
     
+    #checks the structure of the response: checks creator is correct and datasheet
     def test_component_type_specifications(self):
         testname = "get_component_type_specifications"
         logger.info(f"[TEST {testname}]")
@@ -128,6 +124,8 @@ class Test__get_component_type(unittest.TestCase):
 
     #-----------------------------------------------------------------------------    
     
+    #checks structure of response: looks for string where expected, integer 
+    # when expected
     def test_component_types_by_proj_sys(self):
         testname = "get_component_types_by_proj_sys"
         logger.info(f"[TEST {testname}]")
@@ -156,6 +154,8 @@ class Test__get_component_type(unittest.TestCase):
 
     #-----------------------------------------------------------------------------    
     
+    #checks structure of response: looks for string where expected, integer 
+    # when expected
     def test_component_types_by_proj_sys_subsys(self):
         testname = "get_component_types_by_proj_sys_subsys"
         logger.info(f"[TEST {testname}]")

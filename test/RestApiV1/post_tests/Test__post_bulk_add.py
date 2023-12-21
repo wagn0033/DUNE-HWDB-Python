@@ -68,7 +68,8 @@ class Test__post_bulk_add(unittest.TestCase):
 
         logger.info(f"[PASS {testname}]")
 
-    
+    ##############################################################################
+
 if __name__ == "__main__":
     unittest.main()
 

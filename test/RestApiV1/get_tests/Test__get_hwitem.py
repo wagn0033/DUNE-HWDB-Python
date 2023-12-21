@@ -26,6 +26,9 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
     def tearDown(self):
         pass
     
+    #gets normal item
+    #tests by checking the structure: checks if component id is expected, 
+    #and if part type id is expected
     def test_normal_item(self):
         file_path = os.path.join(os.path.dirname(__file__), '..','ExpectedResponses', 
                                 'components', 'normal_item.json')
@@ -55,12 +58,16 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         resp = get_hwitem("Z00100200017-00001")
         logger.info(f"response from HWDB:{resp}")
         self.assertEqual(resp["status"].upper(), "SERVER ERROR")
+
+    #----------------------------------------------------------------------------- 
     
-    
+    #check if getting an invalid item throws an error
     def test_invalid_item(self):
         
         resp = get_hwitem("Z99999999999-99999")
         self.assertEqual(resp["status"].upper(), "ERROR")
+    
+    #----------------------------------------------------------------------------- 
     
     
     @unittest.skip("get_image_by_part_id not working")
@@ -72,7 +79,8 @@ class Test__get_hwitem_by_part_id(unittest.TestCase):
         resp = get_image_by_part_id("Z00100100048-00033")
         #print(resp)
         self.assertEqual(expected_resp, resp)
-                                   
+    
+    ##############################################################################                                
 
    
 if __name__ == "__main__":

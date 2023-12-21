@@ -127,7 +127,7 @@ class Test__patch_hwitem(unittest.TestCase):
 
         logger.info(f"[PASS {testname}]")
 
-  
+    #----------------------------------------------------------------------------- 
     
     def test_patch_hwitem_subcomp(self):
         testname = "patch_hwitem_subcomp"
@@ -220,6 +220,7 @@ class Test__patch_hwitem(unittest.TestCase):
 
         logger.info(f"[PASS {testname}]")
 
+    ##############################################################################
 
 if __name__ == "__main__":
     unittest.main()

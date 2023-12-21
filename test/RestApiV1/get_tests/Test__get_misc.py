@@ -40,6 +40,7 @@ class Test__get_misc_no_input(unittest.TestCase):
     #-----------------------------------------------------------------------------
 
     #checks countries list
+    #by comparing to an expected json file
     def test_get_countries(self):
         testname = "get_countries"
         logger.info(f"[TEST {testname}]")
@@ -281,10 +282,6 @@ class Test__get_misc_with_input(unittest.TestCase):
             
             err_proj_id = 's'
             
-            # NOTE for Urbas: I changed this from "systems" to "subsystems" since I'm 
-            # sure that's what was intended, but it means that the "expected result"
-            # needs to be updated. (Delete this note when done!)
-            #error_resp = _get(f"https://dbwebapi2.fnal.gov:8443/cdbdev/api/v1/systems/{err_proj_id}")
             error_resp = get_subsystems(err_proj_id, sys_id)          
             logger.debug(f"({testname}) response:\n{json.dumps(error_resp, indent=4)}")
 
