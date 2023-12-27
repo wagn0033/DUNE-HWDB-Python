@@ -1,9 +1,6 @@
-
-lib/Sisyphus/__pycache__/__init__.cpython-39.pyc
-*.pyc
-Examples/upload-docket/Tutorial/Example01/.~lock.HWItems.xlsx\#
-*.pyc
-*.swp
+**/*.pyc
+**/*.swp
+**/*.swo
 scratch
-scratch/*
-docs/.~lock.AdvancedDocket.docx\#
+**/*.~lock.*\#
+**/.DS_Store
