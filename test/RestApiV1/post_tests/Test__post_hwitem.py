@@ -27,6 +27,7 @@ class Test__post_hwitem(unittest.TestCase):
     def tearDown(self):
         pass
 
+    #posts item, checks status
     def test_post_hwitem(self):
         testname = "post_hwitem"
         logger.info(f"[TEST {testname}]")
@@ -40,7 +41,7 @@ class Test__post_hwitem(unittest.TestCase):
             data = {
                 "comments": "Here are some comments",
                 "component_type": {
-                    "part_type_id": "Z00100300001"
+                    "part_type_id": part_type_id
                 },
                 "country_code": "US",
                 "institution": {
@@ -58,18 +59,21 @@ class Test__post_hwitem(unittest.TestCase):
                 },
                 "subcomponents": {}
             }
+
             resp = post_hwitem(part_type_id, data)
 
             logger.info(f"The response was: {resp}")
             
             self.assertEqual(resp["status"], "OK")
-            #self.assertEqual(resp, expected_resp)
+            
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
             logger.info(err)
             raise err
 
         logger.info(f"[PASS {testname}]")
-   
+    
+    ##############################################################################
+
 if __name__ == "__main__":
     unittest.main()

@@ -28,10 +28,12 @@ import json
 import unittest
 import random
 
-from Sisyphus.RestApiV1 import post_hwitem, get_hwitem, patch_enable_item
+from Sisyphus.RestApiV1 import post_hwitem, get_hwitem, patch_enable_item, post_bulk_add, patch_bulk_enable
 
 class Test__patch_enables(unittest.TestCase):
 
+    #post a new item, patch it to be enabled, check if it was enabled. 
+    # Patch it again to disable it, check it was disabled
     def test_patch_enable_item(self):
         testname = "patch_enable_item"
         logger.info(f"[TEST {testname}]")    
@@ -134,6 +136,109 @@ class Test__patch_enables(unittest.TestCase):
             raise err
 
         logger.info(f"[PASS {testname}]")
+
+#-----------------------------------------------------------------------------
+    
+
+    #post (2) items in bulk, get part ids from response of post, 
+    # use those part ids to enable them, check if they were enabled. 
+    # Disable them, check if they were disabled
+    def test_patch_enable_bulk(self):
+        testname = "patch_enable_bulk"
+        logger.info(f"[TEST {testname}]")  
+
+        try:
+            #POST bulk
+            part_type_id = "Z00100300001"
+            data= {
+                "comments": "Here are some comments",
+                "component_type": {
+                    "part_type_id": part_type_id
+                },
+                "count": 2,
+                "country_code": "US",
+                "institution": {
+                "id": 186
+                },
+                "manufacturer": {
+                    "id": 7
+                }
+            }
+
+            logger.info(f"Posting bulk components: part_type_id={part_type_id}, ")
+            resp = post_bulk_add(part_type_id, data)
+            logger.info(f"Response from post: {resp}") 
+            self.assertEqual(resp["status"], "OK")
+
+            part_id1 = resp["data"][0]["part_id"]
+            part_id2 = resp["data"][1]["part_id"]
+
+            logger.info(f"New part result: part_id={part_id1, part_id2}") 
+
+            #ENABLE
+            
+            data = {
+                "data": [{
+                    "comments": "string",
+                    "enabled": True,
+                    "part_id": part_id1
+                    },
+                    {
+                    "comments": "string",
+                    "enabled": True,
+                    "part_id": part_id2
+                    }
+                ]}
+            
+            resp = patch_bulk_enable(part_id1, data)
+            resp = patch_bulk_enable(part_id2, data)
+            logger.info(f"Response from post: {resp}")
+            
+            
+            #GET/CHECK
+
+            resp = get_hwitem(part_id1)
+            resp2 = get_hwitem(part_id2)
+            self.assertTrue(resp["data"]["enabled"])
+            self.assertTrue(resp2["data"]["enabled"])
+            logger.info(f"Response from post: {resp}") 
+
+
+            #DISABLE
+
+            data = {
+                "data": [{
+                    "comments": "string",
+                    "enabled": False,
+                    "part_id": part_id1
+                    },
+                    {
+                    "comments": "string",
+                    "enabled": False,
+                    "part_id": part_id2
+                    }
+                ]}
+            
+            resp = patch_bulk_enable(part_id1, data)
+            resp = patch_bulk_enable(part_id2, data)
+            logger.info(f"Response from post: {resp}")
+
+            #GET/CHECK
+            resp = get_hwitem(part_id1)
+            resp2 = get_hwitem(part_id2)
+            self.assertFalse(resp["data"]["enabled"])
+            self.assertFalse(resp2["data"]["enabled"])
+            logger.info(f"Response from post: {resp}")
+
+        except AssertionError as err:
+            logger.error(f"[FAIL {testname}]")
+            logger.info(err)
+            raise err
+
+        logger.info(f"[PASS {testname}]")
+        
+    ##############################################################################
+
 
 
 if __name__ == "__main__":

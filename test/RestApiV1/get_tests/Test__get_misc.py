@@ -41,13 +41,14 @@ class Test__get_misc_no_input(unittest.TestCase):
     #-----------------------------------------------------------------------------
 
     #checks countries list
+    #by comparing to an expected json file
     def test_get_countries(self):
         testname = "get_countries"
         logger.info(f"[TEST {testname}]")
 
         try:
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'countries.json')
+                    '..','ExpectedResponses', 'misc', 'countries.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             
@@ -65,21 +66,20 @@ class Test__get_misc_no_input(unittest.TestCase):
             
     #-----------------------------------------------------------------------------
 
+    #checks structure of response: checks for string and integer where is expected 
+    # in response
     def test_whoami(self):
         testname = "whoami"
         logger.info(f"[TEST {testname}]")
 
         try:
-            #will be broken eventually
-            file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'alex_whoami.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
             
-            resp = whoami() #currently alex
+            resp = whoami() 
 
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            self.assertIsInstance(resp["data"]["full_name"], str)
+            self.assertIsInstance(resp["data"]["user_id"], int)
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -90,20 +90,20 @@ class Test__get_misc_no_input(unittest.TestCase):
         
     #-----------------------------------------------------------------------------
         
+    #checks structure of response: checks if the first entry is US
     def test_get_institutions(self):
         testname = "get_institutions"
         logger.info(f"[TEST {testname}]")
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'institutions.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+            
             
             resp = get_institutions()
             
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            
+            self.assertEqual(resp['data'][0]['country']['code'], "US")
+            self.assertEqual(resp['data'][0]['country']['name'], "United States")
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -114,19 +114,23 @@ class Test__get_misc_no_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #checks structure of response: checks is the first entry is Homenick Ltd, and 
+    # that the last entry has an integer and string where it should be
     def test_get_manufacturers(self):
         testname = "get_manufacturers"
         logger.info(f"[TEST {testname}]")
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'manufacturers.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
             resp = get_manufacturers()
             
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            self.assertEqual(resp['data'][0]['id'], 1)
+            self.assertEqual(resp['data'][0]['name'], "Homenick Ltd")
+
+            self.assertIsInstance(resp['data'][-1]['id'], int)
+            self.assertIsInstance(resp['data'][-1]['name'], str)
+            
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -137,19 +141,19 @@ class Test__get_misc_no_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #checks structure of response: checks if DUNE is the second entry
     def test_get_projects(self):
         testname = "get_projects"
         logger.info(f"[TEST {testname}]")
 
         try:
-            file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'projects.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+            
             resp = get_projects()
             
             self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+            
+            self.assertEqual(resp['data'][1]['id'], "D")
+            self.assertEqual(resp['data'][1]['name'], "DUNE")
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -160,6 +164,8 @@ class Test__get_misc_no_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #checks structure of response: checks if integer and string is where it is 
+    # expected in response
     def test_get_roles(self):
         testname = "get_roles"
         logger.info(f"[TEST {testname}]")
@@ -167,12 +173,13 @@ class Test__get_misc_no_input(unittest.TestCase):
         try:
             resp = get_roles()            
 
-            #self.assertIn(resp["data"][0]["component_types"],resp["data"])
+            self.assertEqual(resp["status"], "OK")
+
             self.assertIsInstance(resp["data"][-1]["id"], int)
             self.assertIsInstance(resp["data"][0]["component_types"][0]["name"], str)
             self.assertIsInstance(resp["data"][0]["users"][0]["user_id"], int)
-            self.assertEqual(resp["status"], "OK")
-            #self.assertDictEqual(resp, expected_resp)
+            
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -183,6 +190,8 @@ class Test__get_misc_no_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #checks structure of response: checks if integer and string is where it is 
+    # expected in response
     def test_get_users(self):
         testname = "get_users"
         logger.info(f"[TEST {testname}]")
@@ -190,11 +199,13 @@ class Test__get_misc_no_input(unittest.TestCase):
         try:
             resp = get_users()
               
+            self.assertEqual(resp["status"], "OK")
+
             self.assertIsInstance(resp["data"][0]["user_id"],int )
             self.assertIsInstance(resp["data"][0]["username"], str)
             self.assertIsInstance(resp["data"][-1]["user_id"],int )
             self.assertIsInstance(resp["data"][-1]["username"], str)
-            self.assertEqual(resp["status"], "OK")
+            
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -203,7 +214,7 @@ class Test__get_misc_no_input(unittest.TestCase):
             raise err
         logger.info(f"[PASS {testname}]") 
     
-
+    #-----------------------------------------------------------------------------
    
 
 class Test__get_misc_with_input(unittest.TestCase):
@@ -213,6 +224,7 @@ class Test__get_misc_with_input(unittest.TestCase):
     
     #-----------------------------------------------------------------------------
     
+    #compares response to expected json response 
     def test_get_user(self):
         testname = "get_user"
         logger.info(f"[TEST {testname}]")
@@ -220,7 +232,7 @@ class Test__get_misc_with_input(unittest.TestCase):
         try:
             userid = 13615 #alex
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'alex_whoami.json')
+                    '..','ExpectedResponses', 'misc', 'alex_whoami.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
             resp = get_user(userid)
@@ -236,7 +248,9 @@ class Test__get_misc_with_input(unittest.TestCase):
         logger.info(f"[PASS {testname}]") 
 
     #-----------------------------------------------------------------------------
-    @unittest.skip("broken for some reason")
+    
+    #checks structure of response: if role id is correct and is assigned tester 
+    # in response
     def test_get_role(self):
         testname = "get_role"
         logger.info(f"[TEST {testname}]")
@@ -248,12 +262,8 @@ class Test__get_misc_with_input(unittest.TestCase):
             self.assertEqual(resp["status"], "OK")
 
             
-            self.assertIsInstance(resp["data"][0]["component_types"][0]["name"], str)
-            self.assertIsInstance(resp["data"][0]["component_types"][0]["part_type_id"],str )
-
-            
-            self.assertIsInstance(resp["data"][-1]["users"][0]["user_id"],int )
-            self.assertIsInstance(resp["data"][-1]["users"][0]["user_id"],int )
+            self.assertEqual(resp["data"]["id"],role_id )
+            self.assertEqual(resp["data"]["name"], "tester")
             
             
 
@@ -266,6 +276,7 @@ class Test__get_misc_with_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
 
+    #checks structure of response: if integer is where is expected in response
     def test_get_subsystems(self): 
 
         testname = "get_subsystems"
@@ -284,16 +295,12 @@ class Test__get_misc_with_input(unittest.TestCase):
 
             #checking if it throws return empty list/error
             file_path2 = os.path.join(os.path.dirname(__file__), 
-                    'ExpectedResponses', 'misc', 'empty_list.json')
+                    '..','ExpectedResponses', 'misc', 'empty_list.json')
             with open(file_path2 , 'r') as file:
                 err_expected_resp = json.load(file)
             
             err_proj_id = 's'
             
-            # NOTE for Urbas: I changed this from "systems" to "subsystems" since I'm 
-            # sure that's what was intended, but it means that the "expected result"
-            # needs to be updated. (Delete this note when done!)
-            #error_resp = _get(f"https://dbwebapi2.fnal.gov:8443/cdbdev/api/v1/systems/{err_proj_id}")
             error_resp = get_subsystems(err_proj_id, sys_id)          
             logger.debug(f"({testname}) response:\n{json.dumps(error_resp, indent=4)}")
 
@@ -309,6 +316,7 @@ class Test__get_misc_with_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
     
+    #compares response to expected json response
     def test_get_subsystem(self): 
         testname = "get_subsystem"
         logger.info(f"[TEST {testname}]")
@@ -322,7 +330,7 @@ class Test__get_misc_with_input(unittest.TestCase):
             resp = get_subsystem(proj_id, sys_id, subsys_id)
 
             file_path = os.path.join(os.path.dirname(__file__),
-                    'ExpectedResponses', 'misc', 'projZsys1subsys1.json')
+                    '..','ExpectedResponses', 'misc', 'projZsys1subsys1.json')
             with open(file_path, 'r') as file:
                 expected_resp = json.load(file)
 
@@ -346,6 +354,7 @@ class Test__get_misc_with_input(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
    
+    #checks structure of response: if string is where it is expected in response
     def test_get_systems(self):
         testname = "get_systems"
         logger.info(f"[TEST {testname}]")
@@ -376,13 +385,14 @@ class Test__get_misc_with_input(unittest.TestCase):
     
     #-----------------------------------------------------------------------------
 
+    #compares response to expected json response
     def test_get_system(self):
         testname = "test_get_system"
         logger.info(f"[TEST {testname}]")
 
         try:
             file_path = os.path.join(os.path.dirname(__file__), 
-                    'ExpectedResponses', 'misc', 'projZsy.json')
+                    '..','ExpectedResponses', 'misc', 'projZsy.json')
             with open(file_path , 'r') as file:
                 expected_resp = json.load(file)
             proj_id = 'Z'

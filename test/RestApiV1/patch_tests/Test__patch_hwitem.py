@@ -22,7 +22,7 @@ import json
 import unittest
 import random
 
-from Sisyphus.RestApiV1 import post_hwitem, patch_hwitem, get_hwitem
+from Sisyphus.RestApiV1 import post_hwitem, patch_hwitem, get_hwitem, patch_hwitem_subcomp, patch_enable_item
 
 class Test__patch_hwitem(unittest.TestCase):
 
@@ -34,6 +34,8 @@ class Test__patch_hwitem(unittest.TestCase):
 
     #-----------------------------------------------------------------------------
 
+    #post new item, retrieve part id from post response, patch them item using 
+    # part id, check if it was patched by checking the structure
     def test_patch_hwitem(self):
         testname = "patch_hwitem"
         logger.info(f"[TEST {testname}]")    
@@ -127,6 +129,104 @@ class Test__patch_hwitem(unittest.TestCase):
 
         logger.info(f"[PASS {testname}]")
 
-  
+    #----------------------------------------------------------------------------- 
+    
+    #post an item under the part type id will be the subcomponent, 
+    # retrieve part id and enable it. Patch the container item with the 
+    # subcomponent , check status. Patch the container to remove subcomponent, 
+    # check status
+    def test_patch_hwitem_subcomp(self):
+        testname = "patch_hwitem_subcomp"
+        logger.info(f"[TEST {testname}]") 
+
+        try:
+            
+            #posting new item under Test Type 002
+            part_type_id = "Z00100300002"
+            serial_number = "S99999"
+
+            data = {
+                "comments": "posting for sub comp",
+                "component_type": {
+                    "part_type_id": part_type_id
+                },
+                "country_code": "US",
+                "institution": {
+                    "id": 186
+                },
+                "manufacturer": {
+                    "id": 7
+                },
+                "serial_number": serial_number,
+                "specifications": {
+                        "Color":"Red"
+                },
+                "subcomponents": {}
+            }
+
+            resp = post_hwitem(part_type_id, data)
+            logger.info(f"Response from post: {resp}") 
+            self.assertEqual(resp["status"], "OK")
+
+            part_id_subcomp = resp["part_id"]
+
+            #patching to enable : True
+            data = {
+                "comments": "here are some comments",
+                "component": {
+                "part_id": part_id_subcomp
+                },
+                "enabled": True,
+                "geo_loc": {
+                "id": 0
+                }
+            }
+
+            resp = patch_enable_item(part_id_subcomp, data)
+            logger.info(f"Response from patch: {resp}")
+            self.assertEqual(resp["status"], "OK")
+
+
+            #linking subcomponent to container
+            part_id_container = "Z00100300001-00360"
+
+            data = {
+                "component": {
+                    "part_id": part_id_container
+                },
+                "subcomponents": {
+                    "Subcomp 1" : part_id_subcomp,
+                }
+            }
+
+            resp = patch_hwitem_subcomp(part_id_container, data)
+            logger.info(f"Response from patch: {resp}")
+            self.assertEqual(resp["status"], "OK")
+            
+            #removing subcomponent from container
+            data = {
+                "component": {
+                    "part_id": part_id_container
+                },
+                "subcomponents": {
+                    "Subcomp 1": None,
+                }
+            }
+
+            resp = patch_hwitem_subcomp(part_id_container, data)
+            logger.info(f"Response from patch: {resp}")
+            self.assertEqual(resp["status"], "OK")
+            
+            
+
+        except AssertionError as err:
+            logger.error(f"[FAIL {testname}]")
+            logger.info(err)
+            raise err
+
+        logger.info(f"[PASS {testname}]")
+
+    ##############################################################################
+
 if __name__ == "__main__":
     unittest.main()

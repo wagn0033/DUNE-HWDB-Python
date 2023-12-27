@@ -29,7 +29,8 @@ class Test__post_bulk_add(unittest.TestCase):
     def tearDown(self):
         pass
 
-
+    
+    #post (2) items in bulk, check status of post, retrieve part ids of items posted
     def test_post_bulk_add(self):
         testname = "post_bulk_add"
         logger.info(f"[TEST {testname}]") 
@@ -57,9 +58,10 @@ class Test__post_bulk_add(unittest.TestCase):
             logger.info(f"Response from post: {resp}") 
             self.assertEqual(resp["status"], "OK")
 
-            part_type_id = resp["data"][0]["part_id"]
+            part_id1 = resp["data"][0]["part_id"]
+            part_id2 = resp["data"][1]["part_id"]
 
-            logger.info(f"New component type result: part_type_id={part_type_id}") 
+            logger.info(f"New parts result: part_id1={part_id1}, part_id2={part_id2} ") 
 
         except AssertionError as err:
             logger.error(f"[FAIL {testname}]")
@@ -68,7 +70,8 @@ class Test__post_bulk_add(unittest.TestCase):
 
         logger.info(f"[PASS {testname}]")
 
-    
+    ##############################################################################
+
 if __name__ == "__main__":
     unittest.main()
 
