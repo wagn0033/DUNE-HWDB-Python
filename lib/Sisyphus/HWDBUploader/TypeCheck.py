@@ -10,6 +10,9 @@ casting types
 -------------
 any
     use value as interpreted by Pandas. Convert NaN to null
+    TODO: might need to do something about those nasty "numpy.Int64's" that
+    can't be left alone if you want to slap it into JSON anywhere.
+
 string or str
     use str(value). Convert NaN to null, give warning
 integer or int
@@ -61,8 +64,8 @@ group
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
 
-import Sisyphus.RestApiV1 as ra
-import Sisyphus.RestApiV1.Utilities as ut
+#import Sisyphus.RestApiV1 as ra
+#import Sisyphus.RestApiV1.Utilities as ut
 
 import json
 import sys
@@ -74,6 +77,10 @@ import re
 
 from collections import namedtuple
 import math
+import numpy as np
+
+from Sisyphus.HWDBUploader.Sheet import Cell
+
 
 CastWarning = namedtuple("CastResult", ["dtype", "reason"])
 CastResult = namedtuple("CastResult", ["warnings", "original_value", "value"])
@@ -91,240 +98,271 @@ def isnan(value):
     #}}}
 
 def can_cast_null(value):
-    return str(value).lower() in null_sentinels or value is None or isnan(value)
+    return (
+        value is None 
+        or isnan(value)
+        or str(value).lower() in null_sentinels)
 
-def cast_generic_blank(arg, blank_type_name, blank_type_value):
+def cast_generic_blank(cell, blank_type_name, blank_type_value):
     #{{{
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-
-    if can_cast_null(value):
+    cell = deepcopy(cell)
+    if can_cast_null(cell.value):
         # This is a successful cast. No warnings.
-        return CastResult(None, value, blank_type_value)
+        cell.value = blank_type_value
+        cell.warnings = []
+        return cell
     else:
-        warnings.append(CastWarning(blank_type_name,
-                f"value '{value}' is not interpretable as {blank_type_name}"))
-        return CastResult(warnings, value, value)
+        cell.warnings.append(
+                f"'{cell.value}' is not interpretable as {blank_type_name}")
+        return cell
     #}}}
 
-def cast_null(value):
-    return cast_generic_blank(value, "null", None)
-def cast_empty(value):
-    return cast_generic_blank(value, "empty", "")
-def cast_nan(value):
-    return cast_generic_blank(value, "nan", math.nan)
+def cast_null(cell):
+    return cast_generic_blank(cell, "null", None)
+def cast_empty(cell):
+    return cast_generic_blank(cell, "empty", "")
+def cast_nan(cell):
+    return cast_generic_blank(cell, "nan", math.nan)
 
-def cast_str(arg):
+def cast_str(cell):
     #{{{
-    cast_type = "str"
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-    # Let's just say that everything can be cast as a string.
-    return CastResult(None, value, str(value))
+    # As far as I know, anything can be cast to as string. So just do it.
+    cell = deepcopy(cell)
+    cell.value = str(cell.value)
+    cell.warning = []
+    return cell
     #}}}
 
-def cast_int(arg):
+def cast_int(cell):
     #{{{
-    cast_type = "int"
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-    if can_cast_null(value):
-        # This is an UNSUCCESSFUL cast.
-        warning = CastWarning(cast_type, "value is NaN or interpretable as NaN")
-        return CastResult([warning, *warnings], value, math.nan)
-    else:
-        # try to cast it and see what happens
-        try:
-            return CastResult(None, value, int(str(value)))
-        except ValueError as err:
-            warning = CastWarning(cast_type, err.args[0])
-            return CastResult([warning, *warnings], value, value)
-    #}}}
+    cell = deepcopy(cell)
+    if type(cell.value) in (int, np.int64):
+        cell.value = int(cell.value)
+        cell.warnings = []
+        return cell
 
-def cast_float(arg):
-    #{{{
-    cast_type = "float"
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-    if can_cast_null(value):
-        # This is an UNSUCCESSFUL cast.
-        warning = CastWarning(cast_type, "value is NaN or interpretable as NaN")
-        return CastResult([warning, *warnings], value, None)
-    else:
-        # try to cast it and see what happens
-        try:
-            return CastResult(None, value, float(value))
-        except ValueError as err:
-            warning = CastWarning(cast_type, err.args[0])
-            return CastResult([warning, *warnings], value, str(value))
-    #}}}
-
-def cast_number(arg):
-    #{{{
-    cast_type = "number"
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-    if can_cast_null(value):
-        # This is an UNSUCCESSFUL cast.
-        warning = CastWarning(cast_type, "value is NaN or interpretable as NaN")
-        return CastResult([warning, *warnings], value, None)
-    else:
-        # try to cast it and see what happens
-        try:
-            return CastResult(None, value, int(value))
-        except ValueError as err:
-            try:
-                return CastResult(None, value, float(value))
-            except ValueError as err:
-                warning = CastWarning(cast_type, err.args[0])
-                return CastResult([warning, *warnings], value, str(value))
-    #}}}
-
-def cast_bool(arg):
-    #{{{
-    cast_type = "bool"
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-    if isnan(value):
-        # This is an UNSUCCESSFUL cast.
-        warning = CastWarning(cast_type, "value is null")
-        return CastResult([warning, *warnings], value, None)
-    else:
-        if str(value).upper() in ("TRUE", "T", "YES", "Y", "1"):
-            return CastResult(None, value, True)
-        elif str(value).upper() in ("FALSE", "F", "NO", "N", "0"):
-            return CastResult(None, value, False)
+    if type(cell.value) in (float, np.float64):
+        if isnan(cell.value):
+            cell.warnings.append("cannot interpret NaN as int")
+            return cell
+        elif cell.value - float(int(cell.value)) == 0.0:
+            cell.value = int(cell.value)
+            cell.warnings = []
+            return cell
         else:
-            warning = CastWarning(cast_type, f"Could not interpret as boolean: {value}")
-            return CastResult([warning, *warnings], value, str(value))
+            cell.warnings.append(f"interpreting '{cell.value}' as int would truncate value")
+            return cell
+
+    if type(cell.value) not in (str,):
+        cell.warnings.append(f"cannot interpret '{cell.value}' as int") 
+        return cell
+
+    # The remainder of this function tries to interpret a string as an int
+    try:
+        cell.value = int(cell.value)
+        cell.warnings = []
+        return cell
+    except (TypeError, ValueError) as err:
+        pass
+
+    try:
+        # strings like "143.0" or "1e9" won't cast as int, but seem like they
+        # should be valid, as long as there's no truncation error
+        value = float(cell.value)
+        if isnan(value):
+            cell.warnings.append(f"cannot interpret '{cell.value}' as int")
+            return cell
+        elif value - float(int(value)) == 0.0:
+            cell.value = value
+            cell.warnings = []
+            return cell
+        else:
+            cell.warnings.append(f"interpreting '{cell.value}' as int would truncate value")
+            return cell
+    except (TypeError, ValueError) as err:
+        pass
+
+    # TODO: Maybe interpret hex (0xff), oct (0o377) or bin (0b11111111)
+    # or maybe use ast.literal_eval. But for now, just give up.
+
+    cell.warnings.append(f"Could not interpret '{cell.value}' as int")
+    return cell
     #}}}
 
-def cast_list(arg):
+def cast_float(cell):
     #{{{
-    cast_type = "list"
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-    if isnan(value):
-        # This is an UNSUCCESSFUL cast.
-        warning = CastWarning(cast_type, "value is null")
-        return CastResult([warning, *warnings], value, None)
-    else:
-        try:
-            L = json.loads(str(value))
-        except json.JSONDecodeError as err:
-            L = None
+    # For the purposes of this module, NaN is not considered a valid float,
+    # even though it is of type float. To get it to accept NaN without warnings,
+    # make the type "float,nan", so it can fall back to NaN.
+    
+    cell = deepcopy(cell)
+    
+    if type(cell.value) in (float, np.float64, int, np.int64): 
+        if not isnan(cell.value):
+            cell.value = float(cell.value)
+            return cell
+        cell.warnings.append("value is NaN")
+        return cell
+    
+    if type(cell.value) not in (str,):
+        cell.warnings.append(f"cannot interpret '{cell.value}' as int")
+        return cell
+    
+    try:
+        cell.value = float(cell.value)
+        return cell 
+    except (TypeError, ValueError) as err:
+        pass
+    
+    cell.warnings.append(f"Could not interpret '{cell.value}' as int")
+    return cell
+    #}}}
+
+def cast_number(cell):
+    #{{{
+    # Try casting this to an int. If that fails, try as a float. Only
+    # return the warnings from the float.
+    cell = deepcopy(cell)
+    cell_copy = deepcopy(cell)
+    cell_copy.warnings = []
+    cell_copy = cast_int(cell_copy)
+    if len(cell_copy.warnings) == 0:
+        return cell_copy
+
+    return cast_float(cell)
+
+
+    #}}}
+
+def cast_bool(cell):
+    #{{{
+    # Interpret 0, False, "false", "f", "no", or "n" as False
+    # Interpret 1, True, "true", "t", "yes", or "y" as True
+    # String values are not case-sensitive
+
+    cell = deepcopy(cell)
+    
+    if str(cell).lower() in ("0", "0.0", "false", "f", "no", "n"):
+        cell.value = False
+        cell.warnings = []
+        return cell
+
+    if str(cell).lower() in ("1", "1.0", "true", "t", "yes", "y"):
+        cell.value = True
+        cell.warnings = []
+        return cell
+
+    cell.warnings.append(f"cannot interpret '{cell.value}' as bool")
+    return cell
+    #}}}
+
+def cast_list(cell):
+    #{{{
+    cell = deepcopy(cell)
+    try:
+        value = json.loads(str(cell.value))
         if type(L) is list:
-            return CastResult(None, value, L)
-        else:
-            warning = CastWarning(cast_type, f"Could not interpret as list: {value}")
-            return CastResult([warning, *warnings], value, str(value))
+            cell.value = value
+            return cell
+    except json.JSONDecodeError as err:
+        pass
+
+    cell.warnings.append(f"cannot interpret '{cell.value}' as list")
+    return cell
     #}}}
 
-def cast_dict(arg):
+def cast_dict(cell):
     #{{{
-    cast_type = "dict"
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-    if isnan(value):
-        # This is an UNSUCCESSFUL cast.
-        warning = CastWarning(cast_type, "value is null")
-        return CastResult([warning, *warnings], value, None)
-    else:
-        try:
-            L = json.loads(str(value))
-        except json.JSONDecodeError as err:
-            warning = CastWarning(cast_type, err.args[0])
-            return CastResult([warning, *warnings], value, str(value))
-
-        if type(L) is dict:
-            return CastResult(None, value, L)
-        else:
-            warning = CastWarning(cast_type, f"Could not interpret as dict: {value}, type={type(L)}")
-            return CastResult([warning, *warnings], value, str(value))
+    cell = deepcopy(cell)
+    try:
+        value = json.loads(str(cell.value))
+        if type(value) is dict:
+            cell.value = value
+            return cell
+    except json.JSONDecodeError as err:
+        pass    
+    cell.warnings.append(f"cannot interpret '{cell.value}' as dict")
+    return cell
     #}}}
 
-def cast_json(arg):
+def cast_json(cell):
     #{{{
-    cast_type = "json"
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-    if isnan(value):
-        # This is an UNSUCCESSFUL cast.
-        warning = CastWarning(cast_type, "value is null")
-        return CastResult([warning, *warnings], value, None)
-    else:
-        try:
-            L = json.loads(str(value))
-            return CastResult(None, value, L)
-        except json.JSONDecodeError as err:
-            warning = CastWarning(cast_type, err.args[0])
-            return CastResult([warning, *warnings], value, str(value))
+    cell = deepcopy(cell)
+    try:
+        cell.value = json.loads(str(cell.value))
+        return cell
+    except json.JSONDecodeError as err:
+        pass    
+    cell.warnings.append(f"cannot interpret '{cell.value}' as json")
+    return cell
     #}}}
 
-def cast_any(arg):
+def cast_any(cell):
     #{{{
-    cast_type = "any"
-    if type(arg) is CastResult:
-        warnings, value, unused = arg
-    else:
-        warnings, value = [], arg
-    if isnan(value):
-        return CastResult(None, value, None)
-    else:
-        return CastResult(None, value, value)
+    # We'll do our best here to just return the data as whatever type
+    # pandas gave it, but we'll have to change the numpy types to 
+    # their python equivalent so that json doesn't choke on it. I'm 
+    # figuring that if it's a string and it checks out as a dict or 
+    # list, we might as well do that as well. Otherwise, it should
+    # just leave it as it is.
+    # This shouldn't return any warnings.
+    cell = deepcopy(cell)
+
+    try:
+        value = json.loads(str(cell.value))
+        if type(value) in (dict, list):
+            cell.value = value
+            cell.warnings = []
+            return cell
+    except json.JSONDecodeError as err:
+        pass    
+
+    if type(cell.value) in (np.int64,):
+        cell.value = int(cell.value)
+    elif type(cell.value) in (np.float64,):
+        cell.value = float(cell.value)
+
+    cell.warnings = []
+    return cell
+
     #}}}
 
-def cast(value, typedef):
+def cast(cell):
     #{{{
-    for typedef in typedef.split(','):
+
+    type_chain = cell.datatype.lower().split(',')
+
+    for typedef in type_chain:
         if typedef in ('str', 'string', 'text'):
-            value = cast_str(value)
+            cell = cast_str(cell)
         elif typedef in ('int', 'integer'):
-            value = cast_int(value)
+            cell = cast_int(cell)
         elif typedef in ('float', 'real'):
-            value = cast_float(value)
+            cell = cast_float(cell)
         elif typedef in ('number', 'numeric'):
-            value = cast_number(value)
-        elif typedef in ('bool', 'bit'):
-            value = cast_bool(value)
+            cell = cast_number(cell)
+        elif typedef in ('bool', 'boolean', 'bit'):
+            cell = cast_bool(cell)
         elif typedef in ('null', 'none'):
-            value = cast_null(value)
-        elif typedef in ('empty'):
-            value = cast_empty(value)
-        elif typedef in ('nan', 'NaN'):
-            value = cast_nan(value)
+            cell = cast_null(cell)
+        elif typedef in ('empty',):
+            cell = cast_empty(cell)
+        elif typedef in ('nan',):
+            cell = cast_nan(cell)
         elif typedef in ('list', 'array'):
-            value = cast_list(value)
+            cell = cast_list(cell)
         elif typedef in ('dict', 'obj', 'object'):
-            value = cast_dict(value)
+            cell = cast_dict(cell)
         elif typedef in ('json',):
-            value = cast_json(value)
-        elif typedef in ('any'):
-            value = cast_any(value)
+            cell = cast_json(cell)
+        elif typedef in ('any',):
+            cell = cast_any(cell)
         else:
-            value = CastResult(
-                            [CastWarning(typedef, f"unknown type '{typedef}'")], value, value)
-        if value.warnings is None:
+            cell = cast_any(cell)
+            cell.warnings.append("Unknown type '{typedef}'")
+        if cell.warnings is None:
             break
 
-    return value
+    return cell
     #}}}
 

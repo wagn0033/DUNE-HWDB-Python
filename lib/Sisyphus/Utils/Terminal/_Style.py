@@ -9,7 +9,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 from Sisyphus.Utils.utils import objectmethod
 
 class Style:
-    
+    #{{{    
     def __init__(self, *args, **kwargs):
         
         # Property names and the private variables containing those properties
@@ -65,6 +65,7 @@ class Style:
                 setattr(self, propvar, value)
             else:    
                 setattr(self, propvar, kwargs.get(propname, getattr(self, propvar, None)))
+    #}}}
    
     #{{{     
     @objectmethod
@@ -244,6 +245,7 @@ class Style:
     }#}}}
     
     def __call__(self, text):
+        #{{{
         opener = ""
         closer = ""
         
@@ -312,6 +314,7 @@ class Style:
             #return  f"{opener}{LARGETOP}{text}\n{LARGEBOTTOM}{text}{closer}"
         else:
             return f"{opener}{text}{closer}"
+        #}}}
 
 #Style.ul = Style(ul=True)
 #Style.bold = Style(bold=True)
@@ -331,7 +334,7 @@ Style.success = Style.fg("green")
 ###############################################################################
 
 def highlight(text, substring, *, match_case=False, style=Style.inverse()):
-
+    #{{{
     sub_len = len(substring)
 
     if match_case:
@@ -355,6 +358,7 @@ def highlight(text, substring, *, match_case=False, style=Style.inverse()):
     parts.append(text[last_end:]) 
 
     return "".join(parts)
+    #}}}
 Style.highlight = highlight
 
 ###############################################################################
@@ -371,6 +375,7 @@ def fix_emoji_widths(s):
 Style.fix_emoji_widths = fix_emoji_widths
 
 BAD_WIDTH_CHARS = [ 
+    #{{{
     chr(c) for c in [
         # 0x1f000
         *[i for i in range(0x1f000, 0x1f100) if i not in (0x1f004, 0x1f0cf)],
@@ -416,6 +421,7 @@ BAD_WIDTH_CHARS = [
         # Maybe let's not worry about the rest
         #*range(0x1fb00, 0x20000),
     ]
+    #}}}
 ]
 
 ###############################################################################
@@ -428,7 +434,7 @@ def main():
 
     print(warn("yellow on green"))
     print()    
-    print(Style.underline()("\033[1;2]underline"))
+    print(Style.underline()("underline"))
     print()    
     print(Style.underscore()("underscore"))
     print()    
@@ -481,12 +487,23 @@ def main():
 
     # note, this isn't all the emojis, but we'll know if the fix worked if
     # we try these
+    start = 0x1f300
+    end = 0x1f600
+
+    bad_chars =  [chr(x) for x in 
+    [
+        *range(0xd800, 0xdc80),
+        *range(0xdd00, 0xe000),
+    ]]
+
     emojis = \
         [
-            "".join([ chr(c) for c in range(x, x+16)]) 
-            for x in range(0x1f300, 0x1f400, 0x10) 
+            hex(x) + " " + " ".join([ chr(c) for c in range(x, x+16)]) 
+            for x in range(start, end, 0x10) 
         ]
     for line in emojis:
+        for badchar in bad_chars:
+            line = line.replace(badchar, "[bad]")
         print(Style.large()(fix_emoji_widths(line)))
 
 
@@ -532,17 +549,28 @@ ESC # 4         Double-size characters on this line, bottom half
 ESC # 5         normal-size characters on this line
 ESC # 6         Double-wide characters on this line (discard 2nd half of line)
 
+ESC ]11;rgb:xx/yy/zz ESC \   change background color
+
+
+ESC [? 25 h      Show cursor
+ESC [? 25 l      Hide cursor
+ESC [? 1049 h    Enable alternative screen buffer
+ESC [? 1049 l    Disable alternative screen buffer
+
+ESC [s          Save cursor position
+ESC 7           Save cursor position (DEC)
+
+ESC [u          Restore cursor position
+ESC 8           Restore cursor position (DEC)
+
+ESC [ n L       Insert n lines
+ESC [ n M       Delete n lines
+ESC [ n P       Delete n chars
 
 
 
 
-
-
-
-
-
-
-
+https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 
 
 

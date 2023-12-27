@@ -12,8 +12,10 @@ logger = config.getLogger(__name__)
 
 import Sisyphus.RestApiV1 as ra
 from Sisyphus.RestApiV1.keywords import *
-import sys
 
+import sys
+from copy import deepcopy
+import multiprocessing.dummy as mp # multiprocessing interface, but uses threads instead
 from collections import namedtuple
 
 #######################################################################
@@ -140,6 +142,8 @@ def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True)
     return retval
     #}}}
 
+#######################################################################
+
 def lookup_part_type_by_name(part_type_name, max_records=100):
     #{{{
     '''Looks up part_types matching part_type_name
@@ -231,6 +235,8 @@ def lookup_part_type_by_name(part_type_name, max_records=100):
     return retval
     #}}}
 
+#######################################################################
+
 def fetch_hwitems(part_type_id = None,
                 part_type_name = None,
                 part_id = None,
@@ -240,13 +246,21 @@ def fetch_hwitems(part_type_id = None,
     '''retrieve multiple items from the HWDB based on criteria
 
     Uses "get_hwitems", which unfortunately (1) can't be queried in reverse
-    order, and (2) doesn't pull back the ENTIRE record like "get_hwitem" 
+    order, and (2) doesn't pull back the ENTIRE record like "get_hwitem"
     (singular) does. So, it has to do a fuckton of extra work and can take
     a horribly long time.
     '''
+    NUM_THREADS = 50
+    MIN_PAGE_SIZE = 50
+    MAX_PAGE_SIZE = 250
 
-    count = 99999 if (count == -1) else count
-    
+
+    save_session_kwargs = deepcopy(ra.session_kwargs)
+    ra.session_kwargs["timeout"] = 16
+
+
+    count = max(1, 100000 if (count == -1) else count)
+
     # "get_hwitems" doesn't permit part_type_name, so if it's present,
     # we have to look up the part_type_id for it, and ensure that
     # it is consistent with the given part_type_id, if there is one.
@@ -257,16 +271,27 @@ def fetch_hwitems(part_type_id = None,
                                     part_type_id=part_type_id,
                                     part_type_name=part_type_name)
         # If the above didn't raise anything, we're good.
-        # Let's grab the part_type_id from it, in case we don't 
+        # Let's grab the part_type_id from it, in case we don't
         # already have it.
         part_type_id = component_type["ComponentType"]["part_type_id"]
 
-
-
     retval = {}
 
+    # We're going to use a thread pool to get things, but we need to wrap
+    # the functions we need in order to pass the arguments correctly.
+    pool = mp.Pool(processes=NUM_THREADS)
+    get_hwitems = lambda args, kwargs: ra.get_hwitems(*args, **kwargs)
+    get_hwitem = lambda args, kwargs: ra.get_hwitem(*args, **kwargs)
+    get_subcomponents = lambda args, kwargs: ra.get_subcomponents(*args, **kwargs)
+
     # Let's first find out how many records we're dealing with
-    page_size = max(count, 50)
+
+    # There's no sense in using a page size that's too small, because
+    # we're more likely to capture the desired number of records if
+    # the page is larger. Likewise, we don't want the page to be too
+    # large, either.
+    page_size = min(max(count, MIN_PAGE_SIZE), MAX_PAGE_SIZE)
+
     resp = ra.get_hwitems(
                 part_type_id=part_type_id,
                 part_id=part_id,
@@ -275,7 +300,7 @@ def fetch_hwitems(part_type_id = None,
     total_records = resp["pagination"]["total"]
     num_pages = resp["pagination"]["pages"]
 
-    pages = [ resp ]    
+    pages = {1: resp["data"]}
 
     # If there's only one page, then we already have everything we need.
     if num_pages == 1:
@@ -290,57 +315,68 @@ def fetch_hwitems(part_type_id = None,
                     serial_number=serial_number,
                     size=page_size,
                     page=2)
-        pages.append(resp)
+        pages[2] = resp["data"]
 
-    # If there's more than two pages, then we either need the last page,
-    # or the last two pages, and we need to do some figuring to know which
-    # case. (We could do it with one page if we selected the size right,
-    # but we'd have to choose carefully so that the page breaks are in the
-    # right places that the last page has the necessary number of items.
-    # I don't feel like doing all the testing to ensure that this
-    # works right.)
+    # If there's more than two pages, then calculate how many pages we
+    # need, and get them.
     else:
         items_on_last_page = total_records - page_size * (num_pages - 1)
-        if items_on_last_page < count:
-            resp = ra.get_hwitems(
-                        part_type_id=part_type_id,
-                        part_id=part_id,
-                        serial_number=serial_number,
-                        size=page_size,
-                        page=num_pages-1)
-            pages.append(resp)
-        resp = ra.get_hwitems(
-                    part_type_id=part_type_id,
-                    part_id=part_id,
-                    serial_number=serial_number,
-                    size=page_size,
-                    page=num_pages)
-        pages.append(resp)
+        pages_needed = (count - 1) // page_size + 1
+        if (pages_needed-1) * page_size + items_on_last_page < count:
+            pages_needed += 1
 
-    # Iterate backwards through "pages" until we get the right number 
+        # Generate a bunch of async requests to get our data in parallel
+        page_res = {}
+        for page_num in range(num_pages, max(1, num_pages - pages_needed), -1):
+            kwargs = \
+            {
+                "part_type_id": part_type_id,
+                "part_id": part_id,
+                "serial_number": serial_number,
+                "size": page_size,
+                "page": page_num,
+            }
+            page_res[page_num] = pool.apply_async(get_hwitems, ((), kwargs))
+
+        # Read all the data that was gathered
+        for page_num, res in page_res.items():
+            pages[page_num] = res.get()["data"]
+
+    # Iterate backwards through "pages" until we get the right number
     # of records
     part_ids = []
-    for page in reversed(pages):
+    for page_num in reversed(sorted(pages.keys())):
+        page = pages[page_num]
         if len(part_ids) >= count: break
-        for rec in reversed(page["data"]):
+        for rec in reversed(page):
             part_ids.append(rec["part_id"])
             if len(part_ids) >= count: break
 
-    # Finally, we can go through each item and download it.
-    # TODO: multithreaded
+    # Generate more async requests
     hwitems = {part_id: {} for part_id in part_ids}
-
+    hwitems_res = {}
     for part_id in part_ids:
-        resp = ra.get_hwitem(part_id=part_id)
-        hwitems[part_id]["Item"] = resp["data"]
-        resp = ra.get_subcomponents(part_id=part_id)
-        hwitems[part_id]["Subcomponents"] = resp["data"]
+        item_res = pool.apply_async(get_hwitem, ((), {"part_id": part_id}))
+        subcomp_res = pool.apply_async(get_subcomponents, ((), {"part_id": part_id}))
+        hwitems_res[part_id] = {"Item": item_res, "Subcomponents": subcomp_res}
 
+    # Gather the collected data
+    for part_id, res_dict in hwitems_res.items():
+        hwitems[part_id] = \
+        {
+            "Item": res_dict["Item"].get()["data"],
+            "Subcomponents": res_dict["Subcomponents"].get()["data"],
+        }
 
+    pool.close()
+    pool.join()
+
+    ra.session_kwargs = save_session_kwargs
 
     return hwitems
 
     #}}}
+
 
 #######################################################################
 

@@ -9,6 +9,7 @@ Author:
 
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
+
 from Sisyphus.HWDBUploader import Sheet
 
 import unittest
@@ -45,7 +46,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 1)
             self.assertEqual(str(sheet.coalesce("Serial Number").value), "101")
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
@@ -79,7 +80,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(sheet.coalesce("Serial Number").value, None)
             self.assertEqual(sheet.coalesce("Serial Number", 0).value, 101)
@@ -115,7 +116,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(sheet.coalesce("Serial Number").value, None)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
@@ -151,7 +152,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(sheet.coalesce("Serial Number").value, None)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
@@ -189,7 +190,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
             self.assertEqual(str(sheet.coalesce("Serial Number", 4).value), "105")
@@ -226,7 +227,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
             self.assertEqual(str(sheet.coalesce("Serial Number", 4).value), "105")
@@ -265,7 +266,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
             self.assertEqual(str(sheet.coalesce("Serial Number", 4).value), "105")
@@ -305,7 +306,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 1)
             self.assertEqual(str(sheet.coalesce("Serial Number").value), "101")
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
@@ -340,7 +341,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(sheet.coalesce("Serial Number").value, None)
             self.assertEqual(sheet.coalesce("Serial Number", 0).value, 101)
@@ -377,7 +378,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(sheet.coalesce("Serial Number").value, None)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
@@ -414,7 +415,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(sheet.coalesce("Serial Number").value, None)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
@@ -453,7 +454,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
             self.assertEqual(str(sheet.coalesce("Serial Number", 4).value), "105")
@@ -491,7 +492,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
             self.assertEqual(str(sheet.coalesce("Serial Number", 4).value), "105")
@@ -531,7 +532,7 @@ class Test__Sheet(unittest.TestCase):
                 },
             }
 
-            sheet = Sheet(sheet_info)
+            sheet = Sheet.Sheet(sheet_info)
             self.assertEqual(sheet.rows, 5)
             self.assertEqual(str(sheet.coalesce("Serial Number", 0).value), "101")
             self.assertEqual(str(sheet.coalesce("Serial Number", 4).value), "105")

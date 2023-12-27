@@ -58,6 +58,17 @@ class InvalidResponse(RestApiException):
     returns something else, use this exception.
     """
 
+class CertificateError(RestApiException):
+    """The REST API server complained about the certificate
+
+    At the time of this writing, a bad certificate (possibly expired)
+    will cause the REST API to return a 400 code and the response
+    will be in HTML instead of JSON. But the response can be searched
+    for 'The SSL certificate error', at which time, this exception
+    should be raised.
+    """
+
+
 class DatabaseError(RestApiException):
     """The REST API server returned an "ERROR" status"""
 

@@ -52,6 +52,8 @@ def start_session():
 session = None
 start_session()
 
+log_lock = threading.Lock()
+
 #######################################################################    
 
 class retry:
@@ -68,7 +70,7 @@ class retry:
             last_err = None
             for try_num in range(1, retries+1):
                 try:
-                    resp = function(*args, **{**kwargs, "timeout": 5})
+                    resp = function(*args, **kwargs)
                     break
                 except ConnectionFailed as err:
                     msg = (f"Connection failure in '{function.__name__}' "
@@ -87,9 +89,14 @@ class retry:
 
 #######################################################################    
 
-@retry(retries=3)
-def _request(url, *args, **kwargs):
+@retry(retries=5)
+def _request(method, url, *args, return_type="json", **kwargs):
     '''Does a session.request() with some extra error handling
+
+    "Master" function for all gets, posts, and patches. If the return
+    type is "json" (which is the default), it will enforce that the 
+    response is a valid JSON dictionary that contains a "status" of 
+    "OK" otherwise.
 
     Raises
     ------
@@ -108,9 +115,14 @@ def _request(url, *args, **kwargs):
             The server returned a valid response, but returned a
             status other than "OK"
     '''
-
-    logger.debug(f"<_get> Calling REST API with url='{url}'")
-   
+    threadname = threading.current_thread().name
+    msg = (f"<_request> thread='{threadname}' "
+            f"url='{url}' method='{method.lower()}'")
+    if method.lower() in ("post", "patch"):
+        logger.info(msg)
+    else:
+        logger.debug(msg)  
+ 
     if session is None:
         msg = "No session available"
         logger.error(msg)
@@ -122,340 +134,114 @@ def _request(url, *args, **kwargs):
     augmented_kwargs = {**session_kwargs, **kwargs}
     
     try:
-        resp = session.get(url, *args, **augmented_kwargs)
+        resp = session.request(method, url, *args, **augmented_kwargs)
 
     except requests.exceptions.ConnectionError as conn_err:
         if "[Errno -2]" in str(conn_err):
-            msg = ("The server URL appears to be invalid. "
-                     f"Error details: {conn_err}")
-            logger.error(msg)
+            msg = ("The server URL appears to be invalid.")
+            with log_lock:
+                logger.error(msg)
+                logger.info(f"Exception details: {conn_err} (thread={threadname})")
             raise NameResolutionFailure(msg) from None
         elif "[Errno -3]" in str(conn_err):
-            msg = ("The server could not be reached. Check your internet connection. "
-                     f"Error details: {conn_err}")
-            logger.error(msg)
+            msg = ("The server could not be reached. Check your internet connection.")
+            with log_lock:
+                logger.error(msg)
+                logger.info(f"Exception details: {conn_err} (thread={threadname})")
             raise ConnectionFailed(msg) from None
         else:
             msg = ("A connection error occurred while attempting to retrieve data from "
-                     f"the REST API. Exception details: {conn_err}")
-            logger.error(msg)
+                     f"the REST API.")
+            with log_lock:
+                logger.error(msg)
+                logger.info(f"Exception details: {conn_err} (thread={threadname})")
             raise ConnectionFailed(msg) from None
+    except requests.exceptions.ReadTimeout as timeout_err:
+        msg = ("A read timeout error occurred while attempting to retrieve data from "
+                 f"the REST API.")
+        with log_lock:
+            logger.error(msg)
+            logger.info(f"Exception details: {timeout_err} (thread={threadname})")
+        raise ConnectionFailed(msg) from None
 
-    #
-    #  Convert the response to JSON and return.
-    #  If the response cannot be converted to JSON, raise an exception
-    #
-    try:
-        resp_json = resp.json()
-    except json.JSONDecodeError as json_err:
-        # This is probably a 500 error that returned an HTML page 
-        # instead of JSON
-        msg = "The server response was not valid JSON. Check logs for details."
-        logger.error(msg)
-        logger.info(f"Server response: {resp.text}")
-        logger.info(f"Status code: {resp.status_code}")
-        logger.info(f"JSONDecodeError: {json_err}")
-        raise InvalidResponse(msg) from None
+    if return_type.lower() == "json":
+        #
+        #  Convert the response to JSON and return.
+        #  If the response cannot be converted to JSON, raise an exception
+        #
+        try:
+            resp_json = resp.json()
+        except json.JSONDecodeError as json_err:
+            # This is probably a 4xx or 5xx error that returned an HTML page 
+            # instead of JSON. These are hard to figure out until we actually
+            # encounter them and look for some distinguishing characteristics,
+            # but we'll do what we can.
+            if "The SSL certificate error" in resp.text:
+                msg = "The certificate was not accepted by the server."
+                with log_lock:
+                    logger.error(msg)
+                    logger.info(f"thread={threadname}")
+                raise CertificateError(msg) from None    
+        
+            else:
+                msg = "The server response was not valid JSON. Check logs for details."
+                with log_lock:
+                    logger.error(msg)
+                    logger.info(f"Server response: {resp.text}")
+                    logger.info(f"Status code: {resp.status_code}")
+                    logger.info(f"JSONDecodeError: {json_err}")
+                    logger.info(f"thread={threadname}")
+                raise InvalidResponse(msg) from None
 
-    # 
-    #  Look at the response and make sure it complies with the expected
-    #  data format and does not indicate an error.
-    #
-    if type(resp_json) != dict:
-        msg = "The server response was not valid. Check logs for details."
-        logger.error(msg)
-        logger.info(f"Server response: {resp_json}")
-        raise InvalidResponse(msg) from None
-    elif KW_STATUS not in resp_json:
-        msg = "The server response was not valid. Check logs for details."
-        logger.error(msg)
-        logger.info(f"Server response: {resp_json}")
-        raise InvalidResponse(msg) from None
-    elif resp_json.get(KW_STATUS, None) != KW_STATUS_OK:
-        msg = "The server returned an error. Check logs for details."
-        logger.error(msg)
-        logger.info(resp_json)
-        logger.info(url)
-        logger.info(f"args={args}, kwargs={augmented_kwargs}")
-        
-        raise DatabaseError(msg, resp_json) from None
-        
-    return resp_json
+        # 
+        #  Look at the response and make sure it complies with the expected
+        #  data format and does not indicate an error.
+        #
+        if type(resp_json) != dict:
+            msg = "The server response was not valid. Check logs for details."
+            with log_lock:
+                logger.error(msg)
+                logger.info(f"Server response: {resp_json}")
+                logger.info(f"thread={threadname}")
+            raise InvalidResponse(msg) from None
+        elif KW_STATUS not in resp_json:
+            msg = "The server response was not valid. Check logs for details."
+            with log_lock:
+                logger.error(msg)
+                logger.info(f"Server response: {resp_json}")
+                logger.info(f"thread={threadname}")
+            raise InvalidResponse(msg) from None
+        elif resp_json.get(KW_STATUS, None) != KW_STATUS_OK:
+            msg = "The server returned an error. Check logs for details."
+            with log_lock:
+                logger.error(msg)
+                logger.info(resp_json)
+                logger.info(url)
+                logger.info(f"thread={threadname}")
+                logger.info(f"args={args}, kwargs={augmented_kwargs}")
+            raise DatabaseError(msg, resp_json) from None
+            
+        return resp_json
+    else:
+        return resp.contents
+
 
 #######################################################################    
 
-@retry(retries=3)
 def _get(url, *args, **kwargs):
-    '''Does a session.get() with some extra error handling
-
-    This function is for requests that expect the REST API server to return
-    a valid JSON dictionary object. Do not use for other response types,
-    e.g., images.
-
-    Raises
-    ------
-    NameResolutionFailure
-            The "get" returned a ConnectionError that is most likely
-            due to not being able to resolve the URL.
-    
-    ConnectionFailed
-            The "get" returned a ConnectionError for other reasons
-    
-    InvalidResponse
-            The server returned something that wasn't JSON, or wasn't a
-            dictionary, or the dictionary not have a "status"
-
-    DatabaseError
-            The server returned a valid response, but returned a
-            status other than "OK"
-    '''
-
-    logger.debug(f"<_get> Calling REST API with url='{url}'")
-   
-    if session is None:
-        msg = "No session available"
-        logger.error(msg)
-        raise NoSessionAvailable(msg)
- 
-    #
-    #  Send the "get" request and handle possible errors
-    #
-    augmented_kwargs = {**session_kwargs, **kwargs}
-    
-    try:
-        resp = session.get(url, *args, **augmented_kwargs)
-
-    except requests.exceptions.ConnectionError as conn_err:
-        if "[Errno -2]" in str(conn_err):
-            msg = ("The server URL appears to be invalid. "
-                     f"Error details: {conn_err}")
-            logger.error(msg)
-            raise NameResolutionFailure(msg) from None
-        elif "[Errno -3]" in str(conn_err):
-            msg = ("The server could not be reached. Check your internet connection. "
-                     f"Error details: {conn_err}")
-            logger.error(msg)
-            raise ConnectionFailed(msg) from None
-        else:
-            msg = ("A connection error occurred while attempting to retrieve data from "
-                     f"the REST API. Exception details: {conn_err}")
-            logger.error(msg)
-            raise ConnectionFailed(msg) from None
-
-    #
-    #  Convert the response to JSON and return.
-    #  If the response cannot be converted to JSON, raise an exception
-    #
-    try:
-        resp_json = resp.json()
-    except json.JSONDecodeError as json_err:
-        # This is probably a 500 error that returned an HTML page 
-        # instead of JSON
-        msg = "The server response was not valid JSON. Check logs for details."
-        logger.error(msg)
-        logger.info(f"Server response: {resp.text}")
-        logger.info(f"Status code: {resp.status_code}")
-        logger.info(f"JSONDecodeError: {json_err}")
-        raise InvalidResponse(msg) from None
-
-    # 
-    #  Look at the response and make sure it complies with the expected
-    #  data format and does not indicate an error.
-    #
-    if type(resp_json) != dict:
-        msg = "The server response was not valid. Check logs for details."
-        logger.error(msg)
-        logger.info(f"Server response: {resp_json}")
-        raise InvalidResponse(msg) from None
-    elif KW_STATUS not in resp_json:
-        msg = "The server response was not valid. Check logs for details."
-        logger.error(msg)
-        logger.info(f"Server response: {resp_json}")
-        raise InvalidResponse(msg) from None
-    elif resp_json.get(KW_STATUS, None) != KW_STATUS_OK:
-        msg = "The server returned an error. Check logs for details."
-        logger.error(msg)
-        logger.info(resp_json)
-        logger.info(url)
-        logger.info(f"args={args}, kwargs={augmented_kwargs}")
-        
-        raise DatabaseError(msg, resp_json) from None
-        
-    return resp_json
+    return _request("get", url, *args, **kwargs)
 
 #######################################################################
 
-@retry(retries=3)
-def _get_binary(url, write_to_file, *args, **kwargs):
-    # TODO: rewrite exception handling (like _get)    
- 
-    logger.debug(f"<_get_binary> Calling API with url='{url}'")
-    
-    if session is None:
-        msg = "No session available"
-        logger.error(msg)
-        raise NoSessionAvailable(msg)
-    
-    # kwargs["timeout"]=10
-    
-    #
-    #  Send the "get" request.
-    #  If an error occurs, create a JSON response explaining the problem
-    #  and return it.
-    #
-    try:
-        resp = session.get(url, *args, **{**kwargs, **session_kwargs})
-    except Exception as exc:
-        logger.error("An exception occurred while attempting to retrieve data from "
-                     f"the REST API. Exception details: {exc}")
-        resp_data = {
-            "status": KW_SERVER_ERROR,
-            "addl_info": {
-                "msg": "An exception occurred while retrieving data",
-                "exception_details": f"{exc}",
-            }
-        }
-        return resp_data
-    
-    if resp.status_code in (200, 201):
-        try:
-            with open(write_to_file, "wb") as f:
-                    f.write(resp.content)
-        except Exception as exc:
-            logger.error("An exception occurred while attempting to write binary "
-                         f"data to {write_to_file}. Exception details: {exc}")
-    else:
-        logger.error("The request to the REST API failed. HTTP status code "
-                     f"{resp.status_code}")
-        raise RuntimeError("the request failed: status code %d" 
-                                 % resp.status_code)
-
-#######################################################################
-
-
-@retry(retries=3)
 def _post(url, data, *args, **kwargs):
-    # TODO: rewrite exception handling (like _get)    
-    
-    logger.debug(f"<_post> Calling REST API with url='{url}'")
-    
-    if session is None:
-        msg = "No session available"
-        logger.error(msg)
-        raise NoSessionAvailable(msg)
-   
-    #kwargs["timeout"]=10
-    
-    #
-    #  Send the "post" request.
-    #  If an error occurs, create a JSON response explaining the problem
-    #  and return it.
-    #
-    try:
-        resp = session.post(url, json=data, *args, **{**kwargs, **session_kwargs})
-    except Exception as exc:
-        logger.error("An exception occurred while attempting to post data to "
-                     f"the REST API. Exception details: {exc}")
-        resp_data = {
-            "status": "ERROR",
-            "addl_info": {
-                "msg": "An exception occurred while posting data",
-                "exception_details": f"{exc}",
-            }
-        }
-        return resp_data
-    
-    if resp.status_code not in (200, 201):
-        logger.warning(f"RestApiV1._post method returned status code {resp.status_code}")
-        logger.info(f"The response was: {resp.text}")
-    
-    #
-    #  Interpret the response as JSON and return.
-    #  If the response cannot be interpreted as JSON, construct an alternate
-    #  JSON response stating the problem and return that instead.
-    #
-    try:
-        resp_data = resp.json()
-        return resp_data
-    except json.JSONDecodeError:
-        # This is probably a 500 error that returned an HTML page 
-        # instead of JSON text. Package it up to have the same 
-        # structure as how the API would've handled a 4xx error so
-        # the consumer can look in the same place for info.
-        logger.error("The server returned content that was not valid JSON")
-        err = {
-            "status": "Server Error",
-            "addl_info":
-            {
-                "msg": "The server returned content that was not valid JSON",
-                "http_response_code": resp.status_code,
-                "url" : url,
-                "response": resp.text,
-            },
-        }
-        logger.info(f"response: {resp.text}")
-        return err
-    
+    return _request("post", url, json=data, *args, **kwargs)
+
 #######################################################################
 
-@retry(retries=3)
 def _patch(url, data, *args, **kwargs):
-    # TODO: rewrite exception handling (like _get)    
-    
-    logger.debug(f"<_patch> Calling REST API with url='{url}'")
-    
-    if session is None:
-        msg = "No session available"
-        logger.error(msg)
-        raise RuntimeError(msg)
+    return _request("post", url, json=data, *args, **kwargs)
 
-    #kwargs["timeout"]=10
-
-    #
-    #  Send the "patch" request.
-    #  If an error occurs, create a JSON response explaining the problem
-    #  and return it.
-    #
-    try:
-        resp = session.patch(url, json=data, *args, **{**kwargs, **session_kwargs})
-    except Exception as exc:
-        logger.error("An exception occurred while attempting to patch data to "
-                     f"the REST API. Exception details: {exc}")
-        resp_data = {
-            "status": "ERROR",
-            "addl_info": {
-                "msg": "An exception occurred while patching data",
-                "exception_details": f"{exc}",
-            }
-        }
-        return resp_data
-
-    if resp.status_code not in (200, 201):
-        logger.warning(f"RestApiV1._patch method returned status code {resp.status_code}")
-        logger.info(f"The data was: {data}")
-        logger.info(f"The response was: {resp.text}")
-    
-    try:
-        resp_data = resp.json()
-        return resp_data
-    except json.JSONDecodeError:
-        # This is probably a 500 error that returned an HTML page
-        # instead of JSON text. Package it up to have the same
-        # structure as how the API would've handled a 4xx error so
-        # the consumer can look in the same place for info.
-        err = {
-            "status": "ERROR",
-            "addl_info":
-            {
-                "msg": "The server returned an error.",
-                "http_response_code": resp.status_code,
-                "url" : url,
-                "response": resp.text,
-            },
-        }
-        logger.info(f"response: {resp.text}")
-        return err
-
+#######################################################################
 #######################################################################
 
 def get_component_image(part_id, **kwargs):

@@ -18,6 +18,7 @@ that are supplied in the header and/or "Values" node.
 
 """
 
+from Sisyphus import version
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
 
@@ -84,6 +85,7 @@ class Sheet:
         self.sheet_info = deepcopy(sheet_info)
 
         self.global_values = sheet_info.get("Values", {})
+        self.global_values["HWDB Utility Version"] = version
         self.local_values = None
         self.dataframe = None
         self.rows = None
@@ -103,7 +105,12 @@ class Sheet:
         #}}}
 
     def create_cell(self, location, value):
-        return Cell(self.sheet_source, location, None, None, value)
+        return Cell(
+                source=self.sheet_source, 
+                location=location, 
+                warnings=[],
+                datatype="any",
+                value=value)
     
     def coalesce(self, column, row_index=None):
         #{{{
@@ -122,9 +129,10 @@ class Sheet:
 
         if row_index is not None and column in self.dataframe:
             return self.create_cell(
-                    CellLocation(self.row_offset+row_index, column),
+                    CellLocation(column, self.row_offset+row_index),
                     self.dataframe[column][row_index])
-        
+                    #self.dictionary[row_index][column])
+
         if column in self.local_values:
             return self.create_cell(
                     "header",
@@ -253,12 +261,14 @@ class Sheet:
 
         if column_header_row is None:
             self.dataframe = pd.DataFrame({None: [None]})
+            self.dictionary = self.dataframe.to_dict()
             self.rows = 1
             self.row_offset = None
         else:
             logger.debug(f"reading table from {self.sheet_source} starting at "
                     f"row {column_header_row}")
             self.dataframe = read_sheet(skiprows=column_header_row)
+            self.dictionary = self.dataframe.to_dict()
             self.rows = len(self.dataframe.index)
             self.row_offset = column_header_row
 

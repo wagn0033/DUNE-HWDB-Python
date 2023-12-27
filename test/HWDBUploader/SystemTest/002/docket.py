@@ -175,9 +175,6 @@ encoders = \
 #    },
 ]
 
-
-
-
 contents = \
 {
     "Docket Name": "My Docket",
@@ -185,3 +182,5 @@ contents = \
     "Encoders": encoders,
 }
 
+import json
+print(json.dumps(contents, indent=4))
