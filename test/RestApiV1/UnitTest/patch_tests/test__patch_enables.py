@@ -1,23 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-test/RestApiV1/Test__patch_hwitem.py
 Copyright (c) 2023 Regents of the University of Minnesota
 Author: Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
 
-Tests: 
-    post_hwitem()
-        (using REST API: POST /api/v1/component-types/{type_id}/components)
-    patch_enable_item()
-        (using REST API: /api/v1/components/{part_id}/enable)
-    get_hwitem()
-        (using REST API: /api/v1/components/{part_id})
-    post_bulk_add()
-        (using REST API: POST /api/v1/component-types/{part_type_id}/bulk-add)
-    patch_bulk_enable()
-
-    get_component_type()
-        (using REST API: /api/v1/component-types/{part_type_id})
+Tests setting "enabled" status in item
 """
 
 from Sisyphus.Configuration import config
@@ -31,12 +18,12 @@ import random
 from Sisyphus.RestApiV1 import post_hwitem, get_hwitem, patch_enable_item, post_bulk_add, patch_bulk_enable
 
 class Test__patch_enables(unittest.TestCase):
+    """Tests setting "enabled" status in item"""
 
     #post a new item, patch it to be enabled, check if it was enabled. 
     # Patch it again to disable it, check it was disabled
     def test_patch_enable_item(self):
-        testname = "patch_enable_item"
-        logger.info(f"[TEST {testname}]")    
+        """Tests setting "enabled" status in item"""
 
         try:
             #POST
@@ -131,11 +118,8 @@ class Test__patch_enables(unittest.TestCase):
 
 
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
+            logger.error(f"Assertion Error: {repr(err)}")
             raise err
-
-        logger.info(f"[PASS {testname}]")
 
 #-----------------------------------------------------------------------------
     
@@ -144,8 +128,7 @@ class Test__patch_enables(unittest.TestCase):
     # use those part ids to enable them, check if they were enabled. 
     # Disable them, check if they were disabled
     def test_patch_enable_bulk(self):
-        testname = "patch_enable_bulk"
-        logger.info(f"[TEST {testname}]")  
+        """Tests setting "enabled" status in several items at the same time"""
 
         try:
             #POST bulk
@@ -231,19 +214,13 @@ class Test__patch_enables(unittest.TestCase):
             logger.info(f"Response from post: {resp}")
 
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
+            logger.error(f"Assertion Error: {repr(err)}")
             raise err
-
-        logger.info(f"[PASS {testname}]")
         
     ##############################################################################
 
-
-
 if __name__ == "__main__":
-    unittest.main()
-
+    unittest.main(argv=config.remaining_args)
 
         
 

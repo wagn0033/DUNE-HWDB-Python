@@ -1,21 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-test/RestApiV1/Test__patch_hwitem.py
 Copyright (c) 2023 Regents of the University of Minnesota
-Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
+Authors:
+    Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+    Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
-Tests: 
-    post_hwitem()
-        (using REST API: POST /api/v1/component-types/{type_id}/components)
-    patch_hwitem() 
-        (using REST API: PATCH /api/v1/components/{part_id})
-    get_hwitem()
-        (using REST API: /api/v1/components/{part_id})
+Tests updating an item
 """
 
 from Sisyphus.Configuration import config
 logger = config.getLogger()
+
+from Sisyphus.Utils.UnitTest import LoggedTestCase
 
 import os
 import json
@@ -24,21 +21,19 @@ import random
 
 from Sisyphus.RestApiV1 import post_hwitem, patch_hwitem, get_hwitem, patch_hwitem_subcomp, patch_enable_item
 
-class Test__patch_hwitem(unittest.TestCase):
-
-    def setUp(self):
-        self.maxDiff = 0x10000
+class Test__patch_hwitem(LoggedTestCase):
+    """Tests updating an item"""
     
-    def tearDown(self):
-        pass
-
     #-----------------------------------------------------------------------------
 
     #post new item, retrieve part id from post response, patch them item using 
     # part id, check if it was patched by checking the structure
     def test_patch_hwitem(self):
-        testname = "patch_hwitem"
-        logger.info(f"[TEST {testname}]")    
+        """Tests updating an item
+
+        Creates a new item, patches it, and retrieves it to compare with
+        submitted data.
+        """
 
         try:
             # Part 1, post a component
@@ -123,11 +118,8 @@ class Test__patch_hwitem(unittest.TestCase):
             self.assertDictEqual(resp["data"]["specifications"][0], data["specifications"])
 
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
+            logger.error(f"Assertion Error: {repr(err)}")
             raise err
-
-        logger.info(f"[PASS {testname}]")
 
     #----------------------------------------------------------------------------- 
     
@@ -136,8 +128,10 @@ class Test__patch_hwitem(unittest.TestCase):
     # subcomponent , check status. Patch the container to remove subcomponent, 
     # check status
     def test_patch_hwitem_subcomp(self):
-        testname = "patch_hwitem_subcomp"
-        logger.info(f"[TEST {testname}]") 
+        """Set subcomponents for an item
+
+        This test involves several steps. See source code for details.
+        """
 
         try:
             
@@ -217,16 +211,11 @@ class Test__patch_hwitem(unittest.TestCase):
             logger.info(f"Response from patch: {resp}")
             self.assertEqual(resp["status"], "OK")
             
-            
-
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
+            logger.error(f"Assertion Error: {repr(err)}")
             raise err
-
-        logger.info(f"[PASS {testname}]")
 
     ##############################################################################
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=config.remaining_args)

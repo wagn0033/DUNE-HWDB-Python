@@ -70,7 +70,15 @@ class CertificateError(RestApiException):
 
 
 class DatabaseError(RestApiException):
-    """The REST API server returned an "ERROR" status"""
+    """The REST API server returned an "ERROR" status
+
+    If a more specific reason can be determined for causing the error,
+    it is better to create a subclass of this class and return it
+    instead.
+    """
+
+class BadSpecificationFormat(DatabaseError):
+    """The Specification or Test Result data did not match the definition."""
 
 class NameResolutionFailure(RestApiException):
     """The URL of the server could not be resolved"""

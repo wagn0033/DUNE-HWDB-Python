@@ -132,7 +132,6 @@ def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True)
 
     retval["TestTypes"] = ra.get_test_types(part_type_id)[ra.KW_DATA]
     
-    
     retval["TestTypeDefs"] = {}
     for test_type in retval["TestTypes"]:
         retval["TestTypeDefs"][test_type["name"]] = \
@@ -254,10 +253,8 @@ def fetch_hwitems(part_type_id = None,
     MIN_PAGE_SIZE = 50
     MAX_PAGE_SIZE = 250
 
-
     save_session_kwargs = deepcopy(ra.session_kwargs)
     ra.session_kwargs["timeout"] = 16
-
 
     count = max(1, 100000 if (count == -1) else count)
 

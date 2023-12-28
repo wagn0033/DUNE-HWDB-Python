@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-test/RestApiV1/Test__post_component.py
 Copyright (c) 2023 Regents of the University of Minnesota
-Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
+Authors:
+    Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+    Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
-Tests: 
-    Python: get_hwitem_by_part_id(part_id)
-    REST API: /api/v1/components/{part_id}
+Tests posting an item
 """
 
 from Sisyphus.Configuration import config
 logger = config.getLogger()
+
+from Sisyphus.Utils.UnitTest import LoggedTestCase
 
 import os
 import json
@@ -21,16 +22,12 @@ import random
 from Sisyphus.RestApiV1 import post_hwitem
 
 
-class Test__post_hwitem(unittest.TestCase):
-    def setUp(self):
-        self.maxDiff = 0x10000
-    def tearDown(self):
-        pass
+class Test__post_hwitem(LoggedTestCase):
+    """Tests posting an item"""
 
     #posts item, checks status
     def test_post_hwitem(self):
-        testname = "post_hwitem"
-        logger.info(f"[TEST {testname}]")
+        """Tests posting an item"""
 
         try:
             logger.info("Testing <post_component> (V1)")
@@ -67,13 +64,11 @@ class Test__post_hwitem(unittest.TestCase):
             self.assertEqual(resp["status"], "OK")
             
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
+            logger.error(f"Assertion Error: {repr(err)}")
             raise err
 
-        logger.info(f"[PASS {testname}]")
-    
     ##############################################################################
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=config.remaining_args)
+

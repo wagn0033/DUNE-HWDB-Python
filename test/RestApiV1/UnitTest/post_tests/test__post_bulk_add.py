@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-test/RestApiV1/Test__patch_hwitem.py
 Copyright (c) 2023 Regents of the University of Minnesota
-Author: Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+Authors:
+    Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+    Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
-Tests: 
-    post_bulk_add()
-        (using REST API: POST /api/v1/component-types/{part_type_id}/bulk-add)
-
+Tests bulk adding items
 """
 
 from Sisyphus.Configuration import config
 logger = config.getLogger()
+
+from Sisyphus.Utils.UnitTest import LoggedTestCase
 
 import os
 import json
@@ -21,22 +21,14 @@ import random
 
 from Sisyphus.RestApiV1 import post_bulk_add
 
-class Test__post_bulk_add(unittest.TestCase):
+class Test__post_bulk_add(LoggedTestCase):
+    """Tests bulk adding items"""
 
-    def setUp(self):
-        self.maxDiff = 0x10000
-    
-    def tearDown(self):
-        pass
-
-    
     #post (2) items in bulk, check status of post, retrieve part ids of items posted
     def test_post_bulk_add(self):
-        testname = "post_bulk_add"
-        logger.info(f"[TEST {testname}]") 
+        """Tests bulk adding items"""
 
         try:
-
             part_type_id = "Z00100300001"
             data= {
                 "comments": "Here are some comments",
@@ -64,17 +56,12 @@ class Test__post_bulk_add(unittest.TestCase):
             logger.info(f"New parts result: part_id1={part_id1}, part_id2={part_id2} ") 
 
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
+            logger.error(f"Assertion Error: {repr(err)}")
             raise err
 
-        logger.info(f"[PASS {testname}]")
 
     ##############################################################################
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=config.remaining_args)
 
-
-
-    

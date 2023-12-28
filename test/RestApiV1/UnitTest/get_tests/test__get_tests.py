@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-test/RestApiV1/Test__get_tests.py
-Copyright (c) 2022 Regents of the University of Minnesota
-Author: Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+Copyright (c) 2023 Regents of the University of Minnesota
+Authors:
+    Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+    Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
+
+Test RestApi functions related to Item Tests
 """
 
 from Sisyphus.Configuration import config
 logger = config.getLogger()
+
+from Sisyphus.Utils.UnitTest import LoggedTestCase
 
 import unittest
 import os
@@ -20,16 +25,14 @@ from Sisyphus.RestApiV1 import get_test_type_by_oid
 #from Sisyphus.RestApiV1._RestApiV1 import _get
 
 
-class Test__get_tests(unittest.TestCase):
-    def setUp(self):
-        self.maxDiff = 0x10000
+class Test__get_tests(LoggedTestCase):
+    """Test RestApi functions related to Item Tests"""
 
     #-----------------------------------------------------------------------------
 
     #checks structure of response: if the last test is Bounce
     def test_test_types(self):
-        testname = "get_test_types"
-        logger.info(f"[TEST {testname}]")
+        """Get a list of test types for a component type"""
 
         try:
             part_type_id = 'Z00100300001'
@@ -38,23 +41,19 @@ class Test__get_tests(unittest.TestCase):
 
             self.assertEqual(resp['status'], "OK")
             self.assertEqual(resp["data"][-1]["name"], "Bounce")
-            
-
+        
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
-            logger.debug(f"({testname}) response:\n{json.dumps(resp, indent=4)}")
+            logger.error(f"Assertion Error: {repr(err)}")
+            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        logger.info(f"[PASS {testname}]")
-
+            
 
     #-----------------------------------------------------------------------------
 
     #checks structure of response: if the name of the 
     # component type is Test Type 001, and has the correct part type id
     def test_test_type(self):
-        testname = "get_test_type"
-        logger.info(f"[TEST {testname}]")
+        """Get a specific test type definition"""
 
         try:
             part_type_id = 'Z00100300001'
@@ -66,20 +65,18 @@ class Test__get_tests(unittest.TestCase):
             self.assertEqual(resp['status'], "OK")
             self.assertEqual(resp["component_type"]["name"], "Test Type 001")
             self.assertEqual(resp["component_type"]["part_type_id"], part_type_id)
-
+        
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
-            logger.debug(f"({testname}) response:\n{json.dumps(resp, indent=4)}")
+            logger.error(f"Assertion Error: {repr(err)}")
+            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        logger.info(f"[PASS {testname}]")
+
     
     #-----------------------------------------------------------------------------
 
     #compares response to expected json response
     def test_test_type_by_oid(self):
-        testname = "get_test_type_by_oid"
-        logger.info(f"[TEST {testname}]")
+        """Get a specific test type definition by oid"""
 
         try:
             oid = 1
@@ -94,16 +91,14 @@ class Test__get_tests(unittest.TestCase):
             self.assertDictEqual(resp, expected_resp)
 
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
-            logger.debug(f"({testname}) response:\n{json.dumps(resp, indent=4)}")
+            logger.error(f"Assertion Error: {repr(err)}")
+            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        logger.info(f"[PASS {testname}]")
+
 
 ##############################################################################
 
 if __name__ == "__main__":
-    unittest.main()
-
+    unittest.main(argv=config.remaining_args)
 
     

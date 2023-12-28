@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DEBUG="\x1b[38;2;68;68;68m"
+DEBUG="\x1b[38;2;102;102;102m"
 INFO="\x1b[1;34m"
 WARNING="\x1b[38;2;255;170;34m"
 ERROR="\x1b[1;31m"

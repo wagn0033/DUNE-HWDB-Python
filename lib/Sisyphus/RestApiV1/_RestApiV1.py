@@ -119,6 +119,8 @@ def _request(method, url, *args, return_type="json", **kwargs):
     msg = (f"<_request> thread='{threadname}' "
             f"url='{url}' method='{method.lower()}'")
     if method.lower() in ("post", "patch"):
+        # Make it stand out more in the logs if this is actually updating
+        # the database
         logger.info(msg)
     else:
         logger.debug(msg)  
@@ -132,43 +134,55 @@ def _request(method, url, *args, return_type="json", **kwargs):
     #  Send the "get" request and handle possible errors
     #
     augmented_kwargs = {**session_kwargs, **kwargs}
+        
+    extra_info = \
+    [
+        "Additional Information about the error:",
+        f"| thread: {threadname}",
+        f"| url: {url}",
+        f"| method: {method}",
+        f"| args: {args}, kwargs: {augmented_kwargs}",
+    ]
     
     try:
         resp = session.request(method, url, *args, **augmented_kwargs)
 
     except requests.exceptions.ConnectionError as conn_err:
+        extra_info.append(f"| exception: {repr(conn_err)}")
         if "[Errno -2]" in str(conn_err):
             msg = ("The server URL appears to be invalid.")
             with log_lock:
                 logger.error(msg)
-                logger.info(f"Exception details: {conn_err} (thread={threadname})")
+                logger.info('\n'.join(extra_info))
             raise NameResolutionFailure(msg) from None
         elif "[Errno -3]" in str(conn_err):
             msg = ("The server could not be reached. Check your internet connection.")
             with log_lock:
                 logger.error(msg)
-                logger.info(f"Exception details: {conn_err} (thread={threadname})")
+                logger.info('\n'.join(extra_info))
             raise ConnectionFailed(msg) from None
         else:
             msg = ("A connection error occurred while attempting to retrieve data from "
                      f"the REST API.")
             with log_lock:
                 logger.error(msg)
-                logger.info(f"Exception details: {conn_err} (thread={threadname})")
+                logger.info('\n'.join(extra_info))
             raise ConnectionFailed(msg) from None
     except requests.exceptions.ReadTimeout as timeout_err:
+        extra_info.append(f"| exception: {repr(timeout_err)}")
         msg = ("A read timeout error occurred while attempting to retrieve data from "
                  f"the REST API.")
         with log_lock:
             logger.error(msg)
-            logger.info(f"Exception details: {timeout_err} (thread={threadname})")
+            logger.info('\n'.join(extra_info))
         raise ConnectionFailed(msg) from None
 
+    extra_info.append(f"| status code: {resp.status_code}")
+    extra_info.append(f"| response: {resp.text}")
+
     if return_type.lower() == "json":
-        #
         #  Convert the response to JSON and return.
         #  If the response cannot be converted to JSON, raise an exception
-        #
         try:
             resp_json = resp.json()
         except json.JSONDecodeError as json_err:
@@ -180,48 +194,56 @@ def _request(method, url, *args, return_type="json", **kwargs):
                 msg = "The certificate was not accepted by the server."
                 with log_lock:
                     logger.error(msg)
-                    logger.info(f"thread={threadname}")
+                    logger.info('\n'.join(extra_info))
                 raise CertificateError(msg) from None    
         
             else:
                 msg = "The server response was not valid JSON. Check logs for details."
                 with log_lock:
                     logger.error(msg)
-                    logger.info(f"Server response: {resp.text}")
-                    logger.info(f"Status code: {resp.status_code}")
-                    logger.info(f"JSONDecodeError: {json_err}")
-                    logger.info(f"thread={threadname}")
+                    logger.info('\n'.join(extra_info))
                 raise InvalidResponse(msg) from None
 
-        # 
         #  Look at the response and make sure it complies with the expected
         #  data format and does not indicate an error.
-        #
-        if type(resp_json) != dict:
+        if type(resp_json) == dict and resp_json.get(KW_STATUS, None) == KW_STATUS_OK:
+            return resp_json
+
+        #  Now we know we're going to have to raise an exception, but let's
+        #  try to be more specific.
+        if type(resp_json) != dict or KW_STATUS not in resp_json:
             msg = "The server response was not valid. Check logs for details."
             with log_lock:
                 logger.error(msg)
-                logger.info(f"Server response: {resp_json}")
-                logger.info(f"thread={threadname}")
+                logger.info('\n'.join(extra_info))
             raise InvalidResponse(msg) from None
-        elif KW_STATUS not in resp_json:
-            msg = "The server response was not valid. Check logs for details."
-            with log_lock:
-                logger.error(msg)
-                logger.info(f"Server response: {resp_json}")
-                logger.info(f"thread={threadname}")
-            raise InvalidResponse(msg) from None
-        elif resp_json.get(KW_STATUS, None) != KW_STATUS_OK:
-            msg = "The server returned an error. Check logs for details."
-            with log_lock:
-                logger.error(msg)
-                logger.info(resp_json)
-                logger.info(url)
-                logger.info(f"thread={threadname}")
-                logger.info(f"args={args}, kwargs={augmented_kwargs}")
-            raise DatabaseError(msg, resp_json) from None
+
+        if KW_DATA in resp_json:
+            database_errors = \
+            [
+                {
+                    "signature": "The test specifications do not match the "
+                                   "test type definition!",
+                    "message": "The Test Results format does not match the "
+                                 "test type definition",
+                    "ex_type": BadSpecificationFormat,
+                },
+            ]
             
-        return resp_json
+            for database_error in database_errors:
+                if (database_error["signature"] in resp_json['data']):
+                    msg = database_error["message"]
+                    with log_lock:
+                        logger.error(msg)
+                        logger.info('\n'.join(extra_info))
+                    raise database_error["ex_type"](msg)
+
+        # Fallthrough if no other conditions raised an error
+        msg = "The server returned an error. Check logs for details."
+        with log_lock:
+            logger.error(msg)
+            logger.info('\n'.join(extra_info))
+        raise DatabaseError(msg, resp_json) from None
     else:
         return resp.contents
 
@@ -239,13 +261,13 @@ def _post(url, data, *args, **kwargs):
 #######################################################################
 
 def _patch(url, data, *args, **kwargs):
-    return _request("post", url, json=data, *args, **kwargs)
+    return _request("patch", url, json=data, *args, **kwargs)
 
 #######################################################################
 #######################################################################
 
-def get_component_image(part_id, **kwargs):
-    logger.debug(f"<get_image_by_part_id>")
+def get_hwitem_image_list(part_id, **kwargs):
+    logger.debug(f"<get_hwitem_images>")
     path = f"api/v1/components/{sanitize(part_id)}/images"
     url = f"https://{config.rest_api}/{path}"
 

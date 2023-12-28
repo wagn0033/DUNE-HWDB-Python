@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-test/RestApiV1/Test__post_component_types.py
-Copyright (c) 2022 Regents of the University of Minnesota
-Author: Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+Copyright (c) 2023 Regents of the University of Minnesota
+Authors:
+    Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
+    Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
+
+Tests adding subcomponents to an item
 """
 
 from Sisyphus.Configuration import config
 logger = config.getLogger()
+
+from Sisyphus.Utils.UnitTest import LoggedTestCase
 
 import os
 import json
@@ -16,14 +21,17 @@ import random
 
 from Sisyphus.RestApiV1 import post_component, post_hwitem, patch_enable_item, patch_hwitem_subcomp
 
-class Test__post_subcomponent(unittest.TestCase):
+class Test__post_subcomponent(LoggedTestCase):
+    """Tests adding subcomponents to an item"""
     
     #post an item under the part type id will be the subcomponent, 
     # retrieve part id and enable it. post containter item with subcomponent, 
     # check status. Patch the container item to remove subcomponent, check status.
     def test_post_subcomponent(self):
-        testname = "post_subcomponent"
-        logger.info(f"[TEST {testname}]")
+        """Tests adding subcomponents to an item
+
+        Posts items and creates parent/child relationships between them.
+        """
 
         try:
 
@@ -116,13 +124,11 @@ class Test__post_subcomponent(unittest.TestCase):
             self.assertEqual(resp["status"], "OK")
         
         except AssertionError as err:
-            logger.error(f"[FAIL {testname}]")
-            logger.info(err)
+            logger.error(f"Assertion Error: {repr(err)}")
             raise err
 
-        logger.info(f"[PASS {testname}]")
     ##############################################################################
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=config.remaining_args)
 
