@@ -10,7 +10,7 @@ Test RestApiV1 functions related to Component Types
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 from Sisyphus.Utils.UnitTest import LoggedTestCase
 

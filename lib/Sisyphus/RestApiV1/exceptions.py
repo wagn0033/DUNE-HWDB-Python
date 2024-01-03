@@ -68,6 +68,8 @@ class CertificateError(RestApiException):
     should be raised.
     """
 
+class InsufficientPermissions(RestApiException):
+    """The user does not have the authority for this request"""
 
 class DatabaseError(RestApiException):
     """The REST API server returned an "ERROR" status

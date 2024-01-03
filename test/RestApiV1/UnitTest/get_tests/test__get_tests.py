@@ -10,7 +10,7 @@ Test RestApi functions related to Item Tests
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 from Sisyphus.Utils.UnitTest import LoggedTestCase
 

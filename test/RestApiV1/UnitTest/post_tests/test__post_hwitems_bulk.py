@@ -19,13 +19,13 @@ import json
 import unittest
 import random
 
-from Sisyphus.RestApiV1 import post_bulk_add
+from Sisyphus.RestApiV1 import post_hwitems_bulk
 
-class Test__post_bulk_add(LoggedTestCase):
+class Test__post_hwitems_bulk(LoggedTestCase):
     """Tests bulk adding items"""
 
     #post (2) items in bulk, check status of post, retrieve part ids of items posted
-    def test_post_bulk_add(self):
+    def test_post_hwitems_bulk(self):
         """Tests bulk adding items"""
 
         try:
@@ -46,7 +46,7 @@ class Test__post_bulk_add(LoggedTestCase):
             }
 
             logger.info(f"Posting bulk components: part_type_id={part_type_id}, ")
-            resp = post_bulk_add(part_type_id, data)
+            resp = post_hwitems_bulk(part_type_id, data)
             logger.info(f"Response from post: {resp}") 
             self.assertEqual(resp["status"], "OK")
 

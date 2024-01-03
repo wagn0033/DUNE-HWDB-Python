@@ -54,9 +54,10 @@ start_session()
 
 log_lock = threading.Lock()
 
-#######################################################################    
+#-----------------------------------------------------------------------------
 
 class retry:
+    #{{{
     '''Wrapper for RestApi functions to permit them to retry on a connection failure'''
 
     def __init__(self, retries=1):
@@ -85,12 +86,13 @@ class retry:
             return resp
 
         return wrapped_function
+    #}}}
 
-
-#######################################################################    
+#-----------------------------------------------------------------------------
 
 @retry(retries=5)
 def _request(method, url, *args, return_type="json", **kwargs):
+    #{{{
     '''Does a session.request() with some extra error handling
 
     "Master" function for all gets, posts, and patches. If the return
@@ -178,7 +180,12 @@ def _request(method, url, *args, return_type="json", **kwargs):
         raise ConnectionFailed(msg) from None
 
     extra_info.append(f"| status code: {resp.status_code}")
-    extra_info.append(f"| response: {resp.text}")
+    extra_info.append(f"| elapsed: {resp.elapsed}")
+    extra_info.append(f"| headers: {resp.headers}")
+    if resp.encoding == "utf-8":
+        extra_info.append(f"| response: {resp.text}")
+    else:
+        extra_info.append(f"| response: [binary]")
 
     if return_type.lower() == "json":
         #  Convert the response to JSON and return.
@@ -228,6 +235,11 @@ def _request(method, url, *args, return_type="json", **kwargs):
                                  "test type definition",
                     "ex_type": BadSpecificationFormat,
                 },
+                {
+                    "signature": "Not authorized",
+                    "message": "The user does not have the authority for this request",
+                    "ex_type": InsufficientPermissions,
+                },
             ]
             
             for database_error in database_errors:
@@ -245,26 +257,30 @@ def _request(method, url, *args, return_type="json", **kwargs):
             logger.info('\n'.join(extra_info))
         raise DatabaseError(msg, resp_json) from None
     else:
-        return resp.contents
+        logger.debug("returning raw response object")
+        return resp
+    #}}}
 
-
-#######################################################################    
+#-----------------------------------------------------------------------------
 
 def _get(url, *args, **kwargs):
     return _request("get", url, *args, **kwargs)
 
-#######################################################################
+#-----------------------------------------------------------------------------
 
 def _post(url, data, *args, **kwargs):
     return _request("post", url, json=data, *args, **kwargs)
 
-#######################################################################
+#-----------------------------------------------------------------------------
 
 def _patch(url, data, *args, **kwargs):
     return _request("patch", url, json=data, *args, **kwargs)
 
-#######################################################################
-#######################################################################
+##############################################################################
+#
+#  IMAGES
+#
+##############################################################################
 
 def get_hwitem_image_list(part_id, **kwargs):
     logger.debug(f"<get_hwitem_images>")
@@ -274,6 +290,23 @@ def get_hwitem_image_list(part_id, **kwargs):
     resp = _get(url, **kwargs)
     return resp
 
+#-----------------------------------------------------------------------------
+
+def post_hwitem_image(part_id, header, filename, **kwargs):
+    """Add an image for an Item"""
+    
+    logger.debug(f"<post_hwitem_image> part_id={part_id}, filename={filename}")
+    path = f"api/v1/components/{sanitize(part_id)}/images"
+    url = f"https://{config.rest_api}/{path}"
+
+    with open(filename, 'rb') as fp:
+        files = {"image": fp}
+        resp = _post(url, data=header, files=files)
+
+    return resp
+
+#-----------------------------------------------------------------------------
+
 def get_component_type_image_list(part_type_id, **kwargs):
     logger.debug(f"<get_component_images>")
     path = f"api/v1/component-types/{part_type_id}/images"
@@ -282,12 +315,46 @@ def get_component_type_image_list(part_type_id, **kwargs):
     resp = _get(url, **kwargs)
     return resp
 
-def get_image(image_id, write_to_file, **kwargs):
+#-----------------------------------------------------------------------------
+
+def post_component_type_image(part_type_id, image_payload, **kwargs):
+    """Add an image to a Component Type"""
+
+#-----------------------------------------------------------------------------
+
+
+def get_test_image_list(part_id, test_id, **kwargs):
+    """Get a list of images for a given test oid
+
+    The oid represents a test record for a test type for an item.
+    """
+    logger.debug(f"<get_test_image_list> part_id={part_id}, test_id={test_id}")
+    path = f"api/v1/components/{part_id}/tests/{test_type_id}/images"
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _get(url, **kwargs)
+
+#-----------------------------------------------------------------------------
+
+def post_test_image(oid, image_payload, **kwargs):
+    """Add an image to a given test oid
+    
+    The oid represents a test record for a test type for an item.
+    """
+
+#-----------------------------------------------------------------------------
+
+def get_image(image_id, write_to_file=None, **kwargs):
     logger.debug(f"<get_image>")
     path = f"api/v1/img/{image_id}"
     url = f"https://{config.rest_api}/{path}"
     
-    resp = _get_binary(url, write_to_file, **kwargs)
+    resp = _get(url, return_type="raw", **kwargs)
+
+    if write_to_file is not None:
+        with open(write_to_file, "wb") as fp:
+            fp.write(resp.content)
+
     return resp
 
 ##############################################################################
@@ -303,6 +370,8 @@ def get_hwitem(part_id, **kwargs):
     
     resp = _get(url, **kwargs) 
     return resp
+
+#-----------------------------------------------------------------------------
 
 def get_hwitems(part_type_id, *,
                 page=None, size=None, fields=None, 
@@ -332,6 +401,8 @@ def get_hwitems(part_type_id, *,
     resp = _get(url, params=params, **kwargs) 
     return resp
 
+#-----------------------------------------------------------------------------
+
 def post_hwitem(part_type_id, data, **kwargs):
     logger.debug(f"<post_hwitem> part_type_id={part_type_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}/components" 
@@ -339,6 +410,8 @@ def post_hwitem(part_type_id, data, **kwargs):
     
     resp = _post(url, data=data, **kwargs)
     return resp
+
+#-----------------------------------------------------------------------------
 
 def patch_hwitem(part_id, data, **kwargs):
     logger.debug(f"<patch_hwitem> part_id={part_id}")
@@ -348,6 +421,8 @@ def patch_hwitem(part_id, data, **kwargs):
     resp = _patch(url, data=data, **kwargs)
     return resp
 
+#-----------------------------------------------------------------------------
+
 def post_bulk_hwitems(part_type_id, data, **kwargs):
     logger.debug(f"<post_bulk_hwitems> part_type_id={part_type_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}/bulk-add"
@@ -356,25 +431,17 @@ def post_bulk_hwitems(part_type_id, data, **kwargs):
     resp = _post(url, data=data, **kwargs)
     return resp
 
-def patch_part_id_enable(part_id, data, **kwargs):
-    logger.debug(f"<patch_part_id_enable> part_id={part_id}")
-    path = f"api/v1/components/{sanitize(part_id)}/enable" 
-    url = f"https://{config.rest_api}/{path}"
-    
-    resp = _patch(url, data=data, **kwargs)
-    return resp
-
-
-def patch_enable_item(part_id, data, **kwargs):
-    logger.debug(f"<patch_enable_item> part_id={part_id}")
-    path = f"api/v1/components/{sanitize(part_id)}/enable" 
-    url = f"https://{config.rest_api}/{path}" 
-    
-    resp = _patch(url, data=data, **kwargs)
-    return resp
+#-----------------------------------------------------------------------------
    
-#def patch_hwitem_enable
+def patch_hwitem_enable(part_id, data, **kwargs):
+    logger.debug(f"<patch_hwitem_enable> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}/enable"
+    url = f"https://{config.rest_api}/{path}"
 
+    resp = _patch(url, data=data, **kwargs)
+    return resp
+
+#-----------------------------------------------------------------------------
  
 def get_subcomponents(part_id, **kwargs):
     logger.debug(f"<get_subcomponents> part_id={part_id}")
@@ -383,6 +450,8 @@ def get_subcomponents(part_id, **kwargs):
     
     resp = _get(url, **kwargs)
     return resp
+
+#-----------------------------------------------------------------------------
 
 def patch_subcomponents(part_id, data, **kwargs):
     logger.debug(f"<patch_subcomponents> part_id={part_id}")
@@ -406,6 +475,8 @@ def get_component_type(part_type_id, **kwargs):
     resp = _get(url, **kwargs) 
     return resp
 
+#-----------------------------------------------------------------------------
+
 def get_component_type_connectors(part_type_id, **kwargs):
     logger.debug(f"<get_component_type_connectors> part_type_id={part_type_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}/connectors"
@@ -413,6 +484,7 @@ def get_component_type_connectors(part_type_id, **kwargs):
     
     resp = _get(url, **kwargs) 
     return resp
+#-----------------------------------------------------------------------------
 
 def get_component_type_specifications(part_type_id, **kwargs):
     logger.debug(f"<get_component_type_specifications> part_type_id={part_type_id}")
@@ -421,6 +493,8 @@ def get_component_type_specifications(part_type_id, **kwargs):
     
     resp = _get(url, **kwargs) 
     return resp
+
+#-----------------------------------------------------------------------------
 
 def get_component_types(project_id, system_id, subsystem_id=None, *,
                         full_name=None, comments=None,
@@ -457,13 +531,7 @@ def get_component_types(project_id, system_id, subsystem_id=None, *,
     resp = _get(url, params=params, **kwargs) 
     return resp
 
-def post_component(part_type_id, data, **kwargs):
-    logger.debug(f"<post_component> type_id={part_type_id}")
-    path = f"api/v1/component-types/{sanitize(part_type_id)}/components" 
-    url = f"https://{config.rest_api}/{path}" 
-    
-    resp = _post(url, data=data, **kwargs)
-    return resp
+#-----------------------------------------------------------------------------
 
 def patch_hwitem_subcomp(part_id, data, **kwargs):
     logger.debug(f"<patch_hwitem_subcomp> part_id={part_id}")
@@ -473,24 +541,30 @@ def patch_hwitem_subcomp(part_id, data, **kwargs):
     resp = _patch(url, data=data, **kwargs)
     return resp
 
-def post_bulk_add(part_type_id, data, **kwargs):
-    logger.debug(f"<post_bulk_add> type_id={part_type_id}")
+#-----------------------------------------------------------------------------
+
+def post_hwitems_bulk(part_type_id, data, **kwargs):
+    logger.debug(f"<post_hwitems_bulk> type_id={part_type_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}/bulk-add" 
     url = f"https://{config.rest_api}/{path}" 
     
     resp = _post(url, data=data, **kwargs)
     return resp
 
-def patch_bulk_update(part_type_id, data, **kwargs):
-    logger.debug(f"<patch_bulk_update> type_id={part_type_id}")
+#-----------------------------------------------------------------------------
+
+def patch_hwitems_bulk(part_type_id, data, **kwargs):
+    logger.debug(f"<patch_hwitems_bulk> type_id={part_type_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}/bulk-update" 
     url = f"https://{config.rest_api}/{path}" 
     
     resp = _patch(url, data=data, **kwargs)
     return resp
 
-def patch_bulk_enable(part_id, data, **kwargs):
-    logger.debug(f"<patch_bulk_enable> part_id={part_id}")
+#-----------------------------------------------------------------------------
+
+def patch_hwitems_enable_bulk(data, **kwargs):
+    logger.debug(f"<patch_hwitems_enable_bulk>")
     path = f"api/v1/components/bulk-enable" 
     url = f"https://{config.rest_api}/{path}" 
     
@@ -504,6 +578,15 @@ def patch_bulk_enable(part_id, data, **kwargs):
 ##############################################################################
 
 def get_test_types(part_type_id, **kwargs):
+    """Get a list of test types for a given part type
+
+    Implements /api/v1/component-types/{part-type-id}/test-types
+    
+    The list returned only contains summary information about each
+    test types. Use "get_test_type" to get details, including the
+    specification.
+    """
+
     logger.debug(f"<get_test_types> part_type_id={part_type_id}")
     path = f"api/v1/component-types/{part_type_id}/test-types"
     url = f"https://{config.rest_api}/{path}"
@@ -511,22 +594,95 @@ def get_test_types(part_type_id, **kwargs):
     resp = _get(url, **kwargs)
     return resp
 
-def get_test_type(part_type_id, test_type_id, **kwargs):
+#-----------------------------------------------------------------------------
+
+def get_test_type(part_type_id, test_type_id, history=False, **kwargs):
+    """Get information about a specific test type for a given part type id
+
+    Implements /api/v1/component-types/{part_type_id}/test-types/{test_type_id}
+
+    Use "get_test_types" to obtain the test_type_id needed for this
+    function.
+
+    If history is True, the entire specification history is returned, instead
+    of just the most recent entry.
+    """
+
     logger.debug(f"<get_test_type> part_type_id={part_type_id}, "
                 f"test_type_id={test_type_id}")
     path = f"api/v1/component-types/{part_type_id}/test-types/{test_type_id}"
     url = f"https://{config.rest_api}/{path}"
 
-    resp = _get(url, **kwargs)
+    params = [("history", str(history).lower())]
+
+    resp = _get(url, params=params, **kwargs)
     return resp
 
+#-----------------------------------------------------------------------------
+
 def get_test_type_by_oid(oid, **kwargs):
+    """Get a test type with a given oid
+
+    Implements /api/v1/component-test-types/{oid}
+
+    This function is provided for completeness, but there's no consistent way
+    to obtain the oid to use here.
+    """
+
     logger.debug(f"<get_test_type_by_oid> oid={oid}")
     path = f"api/v1/component-test-types/{oid}"
     url = f"https://{config.rest_api}/{path}"
 
     resp = _get(url, **kwargs)
     return resp
+
+#-----------------------------------------------------------------------------
+
+def get_hwitem_tests(part_id, history=False, **kwargs):
+    """Get a list of tests for a given part_id
+
+    Implements /api/v1/components/{part_id}/tests
+
+    Returns the last instance of each test type for the given part_id.
+    Only test types that have actual tests will be shown in the list. To get
+    available test types, use get_test_types.
+
+    If history is True, all instances of all test types will be returned,
+    instead of the most recent.
+    """
+
+    logger.debug(f"<get_hwitem_tests> part_id={part_id}")
+    path = f"api/v1/components/{part_id}/tests"
+    url = f"https://{config.rest_api}/{path}"
+
+    params = [("history", str(history).lower())]
+    
+    resp = _get(url, params=params, **kwargs)
+    return resp
+
+#-----------------------------------------------------------------------------
+
+def get_hwitem_test(part_id, test_type_id, history=False, **kwargs):
+    """Get a list of tests for a given part_id and test_type_id
+
+    Implements /api/v1/components/{part_id}/tests/{test_type_id}
+
+    Returns only the last instance of the test_type_id for the given part_id,
+    unless history is True.
+
+    This appears to be the only way to get the images for a test.
+    """
+
+    logger.debug(f"<get_hwitem_test> part_id={part_id}, test_type_id={test_type_id}")
+    path = f"api/v1/components/{part_id}/tests/{test_type_id}"
+    url = f"https://{config.rest_api}/{path}"
+
+    params = [("history", str(history).lower())]
+    
+    resp = _get(url, params=params, **kwargs)
+    return resp
+
+#-----------------------------------------------------------------------------
 
 def post_test_type(part_type_id, data, **kwargs):
     logger.debug(f"<post_test_types> part_type_id={part_type_id}")
@@ -535,6 +691,8 @@ def post_test_type(part_type_id, data, **kwargs):
 
     resp = _post(url, data=data, **kwargs)
     return resp
+
+#-----------------------------------------------------------------------------
 
 def post_test(part_id, data, **kwargs):
     logger.debug(f"<post_test> part_id={part_id}")
@@ -559,6 +717,7 @@ def whoami(**kwargs):
     resp = _get(url, **kwargs)
     return resp 
 
+#-----------------------------------------------------------------------------
 
 def get_countries(**kwargs):
     logger.debug(f"<get_countries>")
@@ -568,6 +727,8 @@ def get_countries(**kwargs):
     resp = _get(url, **kwargs)
     return resp 
 
+#-----------------------------------------------------------------------------
+
 def get_institutions(**kwargs):
     logger.debug(f"<get_institutions>")
     path = "api/v1/institutions"
@@ -575,6 +736,8 @@ def get_institutions(**kwargs):
     
     resp = _get(url, **kwargs)
     return resp 
+
+#-----------------------------------------------------------------------------
 
 def get_manufacturers(**kwargs):
     logger.debug(f"<get_manufacturers>")
@@ -584,6 +747,8 @@ def get_manufacturers(**kwargs):
     resp = _get(url, **kwargs)
     return resp 
 
+#-----------------------------------------------------------------------------
+
 def get_projects(**kwargs):
     logger.debug(f"<get_projects>")
     path = "api/v1/projects"
@@ -591,6 +756,8 @@ def get_projects(**kwargs):
     
     resp = _get(url, **kwargs)
     return resp 
+
+#-----------------------------------------------------------------------------
 
 def get_roles(**kwargs):
     logger.debug(f"<get_roles>")
@@ -600,6 +767,8 @@ def get_roles(**kwargs):
     resp = _get(url, **kwargs)
     return resp 
 
+#-----------------------------------------------------------------------------
+
 def get_users(**kwargs):
     logger.debug(f"<get_users>")
     path = "api/v1/users"
@@ -608,6 +777,7 @@ def get_users(**kwargs):
     resp = _get(url, **kwargs)
     return resp 
 
+#-----------------------------------------------------------------------------
 
 def get_user(user_id, **kwargs):
     logger.debug(f"<get_user> user_id={user_id}")
@@ -617,6 +787,8 @@ def get_user(user_id, **kwargs):
     resp = _get(url, **kwargs)
     return resp 
 
+#-----------------------------------------------------------------------------
+
 def get_role(role_id, **kwargs):
     logger.debug(f"<get_role> role_id={role_id}")
     path = f"api/v1/roles/{role_id}"
@@ -625,6 +797,8 @@ def get_role(role_id, **kwargs):
     resp = _get(url, **kwargs)
     return resp 
 
+#-----------------------------------------------------------------------------
+
 def get_subsystems(project_id, system_id, **kwargs):
     logger.debug(f"<get_subsystems> project_id={project_id}, system_id={system_id}")
     path = f"api/v1/subsystems/{project_id}/{system_id}"
@@ -632,6 +806,8 @@ def get_subsystems(project_id, system_id, **kwargs):
     
     resp = _get(url, **kwargs)
     return resp
+
+#-----------------------------------------------------------------------------
 
 def get_subsystem(project_id, system_id, subsystem_id, **kwargs): 
     logger.debug(f"<get_subsystem> project_id={project_id}, "
@@ -642,6 +818,8 @@ def get_subsystem(project_id, system_id, subsystem_id, **kwargs):
     resp = _get(url, **kwargs)
     return resp
 
+#-----------------------------------------------------------------------------
+
 def get_systems(project_id, **kwargs):
     logger.debug(f"<get_systems> project_id={project_id}")
     path = f"api/v1/systems/{project_id}"
@@ -649,6 +827,7 @@ def get_systems(project_id, **kwargs):
     
     resp = _get(url, **kwargs)
     return resp 
+#-----------------------------------------------------------------------------
 
 def get_system(project_id, system_id, **kwargs):
     logger.debug(f"<get_system> project_id={project_id}, system_id={system_id}")
@@ -658,14 +837,7 @@ def get_system(project_id, system_id, **kwargs):
     resp = _get(url, **kwargs)
     return resp 
 
-
-
 ##############################################################################
 
-
-#######################################################################
-#######################################################################
-
-    
 if __name__ == "__main__":
     pass

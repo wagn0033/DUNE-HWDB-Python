@@ -10,7 +10,7 @@ Test 'miscellaneous' RestApiV1 functions
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 from Sisyphus.Utils.UnitTest import LoggedTestCase
 

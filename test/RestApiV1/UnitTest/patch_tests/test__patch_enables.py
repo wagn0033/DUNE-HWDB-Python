@@ -8,21 +8,25 @@ Tests setting "enabled" status in item
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 import os
 import json
 import unittest
 import random
 
-from Sisyphus.RestApiV1 import post_hwitem, get_hwitem, patch_enable_item, post_bulk_add, patch_bulk_enable
+from Sisyphus.RestApiV1 import post_hwitem
+from Sisyphus.RestApiV1 import get_hwitem
+from Sisyphus.RestApiV1 import patch_hwitem_enable
+from Sisyphus.RestApiV1 import post_hwitems_bulk
+from Sisyphus.RestApiV1 import patch_hwitems_enable_bulk
 
 class Test__patch_enables(unittest.TestCase):
     """Tests setting "enabled" status in item"""
 
     #post a new item, patch it to be enabled, check if it was enabled. 
     # Patch it again to disable it, check it was disabled
-    def test_patch_enable_item(self):
+    def test__patch_hwitem_enable(self):
         """Tests setting "enabled" status in item"""
 
         try:
@@ -80,7 +84,7 @@ class Test__patch_enables(unittest.TestCase):
                 }
             }
 
-            resp = patch_enable_item(part_id, data)
+            resp = patch_hwitem_enable(part_id, data)
             logger.info(f"Response from patch: {resp}")
             self.assertEqual(resp["status"], "OK")
             #self.assertTrue(resp["enabled"])
@@ -106,7 +110,7 @@ class Test__patch_enables(unittest.TestCase):
                 }
             }
 
-            resp = patch_enable_item(part_id, data)
+            resp = patch_hwitem_enable(part_id, data)
             logger.info(f"Response from patch: {resp}")
             self.assertEqual(resp["status"], "OK")
 
@@ -149,7 +153,7 @@ class Test__patch_enables(unittest.TestCase):
             }
 
             logger.info(f"Posting bulk components: part_type_id={part_type_id}, ")
-            resp = post_bulk_add(part_type_id, data)
+            resp = post_hwitems_bulk(part_type_id, data)
             logger.info(f"Response from post: {resp}") 
             self.assertEqual(resp["status"], "OK")
 
@@ -173,8 +177,7 @@ class Test__patch_enables(unittest.TestCase):
                     }
                 ]}
             
-            resp = patch_bulk_enable(part_id1, data)
-            resp = patch_bulk_enable(part_id2, data)
+            resp = patch_hwitems_enable_bulk(data)
             logger.info(f"Response from post: {resp}")
             
             
@@ -202,8 +205,7 @@ class Test__patch_enables(unittest.TestCase):
                     }
                 ]}
             
-            resp = patch_bulk_enable(part_id1, data)
-            resp = patch_bulk_enable(part_id2, data)
+            resp = patch_hwitems_enable_bulk(data)
             logger.info(f"Response from post: {resp}")
 
             #GET/CHECK

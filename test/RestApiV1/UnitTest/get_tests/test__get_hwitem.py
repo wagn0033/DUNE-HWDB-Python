@@ -19,14 +19,11 @@ import json
 import unittest
 
 from Sisyphus.RestApiV1 import get_hwitem
-from Sisyphus.RestApiV1 import get_hwitem_image_list
-from Sisyphus.RestApiV1 import exceptions as raex
+from Sisyphus import RestApiV1 as ra
 
-class Test__get_hwitem(LoggedTestCase):
-   
-    #gets normal item
-    #tests by checking the structure: checks if component id is expected, 
-    #and if part type id is expected
+class Test__get_hwitems(LoggedTestCase):
+    """Test RestApiV1 functions related to Items"""
+ 
     def test_normal_item(self):
         """Get an item"""
 
@@ -80,7 +77,7 @@ class Test__get_hwitem(LoggedTestCase):
         """Attempt to get an invalid item"""        
 
         try:
-            with self.assertRaises(raex.DatabaseError):
+            with self.assertRaises(ra.exceptions.DatabaseError):
                 logger.warning("NOTE: The following subtest raises an exception. This is normal.")
                 resp = get_hwitem("Z99999999999-99999")
         
@@ -89,32 +86,6 @@ class Test__get_hwitem(LoggedTestCase):
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
     
-    #----------------------------------------------------------------------------- 
-    
-    def test_item_image_list(self):
-        """Get a list of images stored for an item
-
-        Tests that a particular item in the database has at least one image,
-        and that the entries representing each image has the correct fields.
-        """
-
-        try:
-            expected_fields = {
-                "comments", "created", "creator", "image_id", "image_name",
-                "library", "link"
-            }
-
-            resp = get_hwitem_image_list("Z00100300006-00001")
-            
-            self.assertEqual(resp["status"], "OK")
-            self.assertGreater(len(resp["data"]), 0)
-            for image_node in resp["data"]:
-                self.assertSetEqual(set(image_node.keys()), expected_fields)
-
-        except AssertionError as err:
-            logger.error(f"Assertion Error: {repr(err)}")
-            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
-            raise err 
     
     ##############################################################################                                
 if __name__ == "__main__":

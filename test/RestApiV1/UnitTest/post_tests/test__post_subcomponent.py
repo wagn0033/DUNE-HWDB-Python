@@ -10,7 +10,7 @@ Tests adding subcomponents to an item
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 from Sisyphus.Utils.UnitTest import LoggedTestCase
 
@@ -19,7 +19,9 @@ import json
 import unittest
 import random
 
-from Sisyphus.RestApiV1 import post_component, post_hwitem, patch_enable_item, patch_hwitem_subcomp
+from Sisyphus.RestApiV1 import post_hwitem
+from Sisyphus.RestApiV1 import patch_hwitem_enable
+from Sisyphus.RestApiV1 import patch_hwitem_subcomp
 
 class Test__post_subcomponent(LoggedTestCase):
     """Tests adding subcomponents to an item"""
@@ -75,7 +77,7 @@ class Test__post_subcomponent(LoggedTestCase):
                 }
             }
 
-            resp = patch_enable_item(part_id_subcomp, data)
+            resp = patch_hwitem_enable(part_id_subcomp, data)
             logger.info(f"Response from patch: {resp}")
             self.assertEqual(resp["status"], "OK")
 
@@ -103,7 +105,7 @@ class Test__post_subcomponent(LoggedTestCase):
                 },
                 "subcomponents": {"Subcomp 1" : part_id_subcomp}
             }
-            resp = post_component(part_type_id, data)
+            resp = post_hwitem(part_type_id, data)
             logger.info(f"response was {resp}")
             self.assertEqual(resp["status"], "OK")
 

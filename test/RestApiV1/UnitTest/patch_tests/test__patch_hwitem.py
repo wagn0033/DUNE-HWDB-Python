@@ -19,7 +19,11 @@ import json
 import unittest
 import random
 
-from Sisyphus.RestApiV1 import post_hwitem, patch_hwitem, get_hwitem, patch_hwitem_subcomp, patch_enable_item
+from Sisyphus.RestApiV1 import post_hwitem
+from Sisyphus.RestApiV1 import patch_hwitem
+from Sisyphus.RestApiV1 import get_hwitem
+from Sisyphus.RestApiV1 import patch_hwitem_subcomp
+from Sisyphus.RestApiV1 import patch_hwitem_enable
 
 class Test__patch_hwitem(LoggedTestCase):
     """Tests updating an item"""
@@ -176,7 +180,7 @@ class Test__patch_hwitem(LoggedTestCase):
                 }
             }
 
-            resp = patch_enable_item(part_id_subcomp, data)
+            resp = patch_hwitem_enable(part_id_subcomp, data)
             logger.info(f"Response from patch: {resp}")
             self.assertEqual(resp["status"], "OK")
 

@@ -10,7 +10,7 @@ Test bulk update of items
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 from Sisyphus.Utils.UnitTest import LoggedTestCase
 
@@ -19,14 +19,14 @@ import json
 import unittest
 import random
 
-from Sisyphus.RestApiV1 import post_bulk_add
-from Sisyphus.RestApiV1 import patch_bulk_update
+from Sisyphus.RestApiV1 import post_hwitems_bulk
+from Sisyphus.RestApiV1 import patch_hwitems_bulk
 from Sisyphus.RestApiV1 import get_hwitem
 
-class Test__patch_bulk_update(LoggedTestCase):
+class Test__patch_hwitems_bulk(LoggedTestCase):
     """Test bulk update of items"""
 
-    def test_patch_bulk_update(self):
+    def test_patch_hwitems_bulk(self):
         """Test bulk update of items
 
         Posts a bulk-add of items, changes them through bulk-update,
@@ -53,7 +53,7 @@ class Test__patch_bulk_update(LoggedTestCase):
             }
 
             logger.info(f"Posting bulk components: part_type_id={part_type_id}, ")
-            resp = post_bulk_add(part_type_id, data)
+            resp = post_hwitems_bulk(part_type_id, data)
             logger.info(f"Response from post: {resp}") 
             self.assertEqual(resp["status"], "OK")
 
@@ -103,7 +103,7 @@ class Test__patch_bulk_update(LoggedTestCase):
             }
             
             logger.info(f"Patching bulk components: {part_id1}, {part_id2}")
-            resp = patch_bulk_update(part_type_id, data)
+            resp = patch_hwitems_bulk(part_type_id, data)
         
             logger.info(f"Response from patch: {resp}")
             self.assertEqual(resp["status"], "OK")
