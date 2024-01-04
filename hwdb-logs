@@ -8,7 +8,7 @@ CRITICAL="\x1b[37;41m\x1b[K"
 
 TEST="\x1b[1;49;35m"
 PASS="\x1b[1;49;32m"
-FAIL="\x1b[1;49;31m"
+FAIL="\x1b[1;49;38;2;255;102;68m"
 
 LOG_INIT="\x1b[44;37;1m\x1b[K"
 
@@ -41,21 +41,3 @@ tail -n 1000 -f ~/.sisyphus/log.txt | sed \
     -e "s/^\(${WARNING_MATCH}.*\)/${WARNING}\1${NORMAL}/" \
     -e "s/^\(${ERROR_MATCH}.*\)/${ERROR}\1${NORMAL}/" \
     -e "s/^\(${CRITICAL_MATCH}.*\)/${CRITICAL}\1${NORMAL}/" \
-#    -e "s/\[TEST\]/${TEST}&${NORMAL}/" \
-#    -e "s/${TIMESTAMP}/${DEBUG}&${NORMAL}/g" \
-#    -e "s/^${DEBUG_MATCH}.*/${DEBUG}&${NORMAL}/" \
-#tail -n 1000 -f ~/.sisyphus/log.txt | sed \
-#    -e "s/.*\[LOG INIT\].*/${LOG_INIT}&${NORMAL}/g" \
-#    -e "s/\[TEST[^]]*\]/${TEST}&${NORMAL_SENTINEL}/g" \
-#    -e "s/\[PASS[^]]*\]/${PASS}&${NORMAL_SENTINEL}/g" \
-#    -e "s/\[FAIL[^]]*\]/${FAIL}&${NORMAL_SENTINEL}/g" \
-#    -e ":label1;s/^\(${DEBUG_MATCH}.*\)${NORMAL_SENTINEL}/\1${DEBUG}/g;t label1;" \
-#    -e ":label2;s/^\(${INFO_MATCH}.*\)${NORMAL_SENTINEL}/\1${INFO}/g;t label2;" \
-#    -e ":label3;s/^\(${WARNING_MATCH}.*\)${NORMAL_SENTINEL}/\1${WARNING}/g;t label3;" \
-#    -e ":label4;s/^\(${ERROR_MATCH}.*\)${NORMAL_SENTINEL}/\1${ERROR}/g;t label4;" \
-#    -e ":label5;s/^\(${CRITICAL_MATCH}.*\)${NORMAL_SENTINEL}/\1${CRITICAL}/g;t label5;" \
-#    -e "s/^\(${DEBUG_MATCH}.*\)/${DEBUG}\1${NORMAL}/" \
-#    -e "s/^\(${INFO_MATCH}.*\)/${INFO}\1${NORMAL}/" \
-#    -e "s/^\(${WARNING_MATCH}.*\)/${WARNING}\1${NORMAL}/" \
-#    -e "s/^\(${ERROR_MATCH}.*\)/${ERROR}\1${NORMAL}/" \
-#    -e "s/^\(${CRITICAL_MATCH}.*\)/${CRITICAL}\1${NORMAL}/" \

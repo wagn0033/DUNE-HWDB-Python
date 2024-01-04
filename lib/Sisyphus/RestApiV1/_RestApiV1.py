@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Sisyphus/RestApiV1/_RestApiV1.py
-Copyright (c) 2023 Regents of the University of Minnesota
+Copyright (c) 2024 Regents of the University of Minnesota
 Author: 
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
     Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
@@ -53,6 +53,11 @@ session = None
 start_session()
 
 log_lock = threading.Lock()
+
+#import logging
+#requests_log = config.getLogger("requests.packages.urllib3")
+#requests_log.setLevel(logging.DEBUG)
+#requests_log.propagate = True
 
 #-----------------------------------------------------------------------------
 
@@ -116,6 +121,17 @@ def _request(method, url, *args, return_type="json", **kwargs):
     DatabaseError
             The server returned a valid response, but returned a
             status other than "OK"
+
+    CertificateError
+            The certificate was invalid or expired.
+
+    BadSpecificationFormat
+            The data provided for the Item Specification or Test Results
+            does not conform to the specification or test definition.
+
+    InsufficientPermissions
+            The user does not have adequate authority for this request.
+
     '''
     threadname = threading.current_thread().name
     msg = (f"<_request> thread='{threadname}' "
@@ -139,15 +155,31 @@ def _request(method, url, *args, return_type="json", **kwargs):
         
     extra_info = \
     [
-        "Additional Information about the error:",
+        "Additional Information:",
         f"| thread: {threadname}",
         f"| url: {url}",
         f"| method: {method}",
         f"| args: {args}, kwargs: {augmented_kwargs}",
     ]
     
+    log_headers = augmented_kwargs.pop("log_headers", False)
+    
     try:
-        resp = session.request(method, url, *args, **augmented_kwargs)
+        if log_headers:
+            req = requests.Request(method, url, *args, **augmented_kwargs)
+            prepped = req.prepare()
+
+            logger.info(f"prepped.headers: {prepped.headers}")
+
+            if prepped.body is not None and len(prepped.body) > 1000:
+                logger.info(f"prepped.body (beginning): {prepped.body[:800]}")
+                logger.info(f"prepped.body (end): {prepped.body[-200:]}")
+            else:
+                logger.info(f"prepped.body: {prepped.body}")
+
+            resp = session.send(prepped)
+        else:
+            resp = session.request(method, url, *args, **augmented_kwargs)
 
     except requests.exceptions.ConnectionError as conn_err:
         extra_info.append(f"| exception: {repr(conn_err)}")
@@ -179,13 +211,17 @@ def _request(method, url, *args, return_type="json", **kwargs):
             logger.info('\n'.join(extra_info))
         raise ConnectionFailed(msg) from None
 
+    #extra_info.append(f"| request headers: {resp.request.headers}")
     extra_info.append(f"| status code: {resp.status_code}")
     extra_info.append(f"| elapsed: {resp.elapsed}")
-    extra_info.append(f"| headers: {resp.headers}")
+    if log_headers:
+        extra_info.append(f"| response headers: {resp.headers}")
     if resp.encoding == "utf-8":
         extra_info.append(f"| response: {resp.text}")
     else:
         extra_info.append(f"| response: [binary]")
+    #logger.debug('\n'.join(extra_info))
+
 
     if return_type.lower() == "json":
         #  Convert the response to JSON and return.
@@ -236,6 +272,20 @@ def _request(method, url, *args, return_type="json", **kwargs):
                     "ex_type": BadSpecificationFormat,
                 },
                 {
+                    "signature": "A 'specifications' object matching the "
+                                    "ComponentType difinition is required!",
+                    "message": "The specifications format does not match the "
+                                 "definition for the component type",
+                    "ex_type": BadSpecificationFormat,
+                },
+                {
+                    "signature": "The input specifications do not match the "
+                                    "component type definition",
+                    "message": "The specifications format does not match the "
+                                 "definition for the component type",
+                    "ex_type": BadSpecificationFormat,
+                },
+                {
                     "signature": "Not authorized",
                     "message": "The user does not have the authority for this request",
                     "ex_type": InsufficientPermissions,
@@ -249,6 +299,21 @@ def _request(method, url, *args, return_type="json", **kwargs):
                         logger.error(msg)
                         logger.info('\n'.join(extra_info))
                     raise database_error["ex_type"](msg)
+
+        if KW_ERRORS in resp_json and type(resp_json[KW_ERRORS]) is list:
+            msg_parts = []
+            for error in resp_json[KW_ERRORS]:
+                if ("loc" in error 
+                        and type(error["loc"]) is list 
+                        and len(error["loc"]) > 0
+                        and "msg" in error):
+                    msg_parts.append(f"{error['loc'][0]} -> {error['msg']}")
+            msg = f"Bad request format: {', '.join(msg_parts)}"
+            with log_lock:
+                logger.error(msg)
+                logger.info('\n'.join(extra_info))
+            raise BadDataFormat(msg)
+
 
         # Fallthrough if no other conditions raised an error
         msg = "The server returned an error. Check logs for details."
@@ -292,7 +357,7 @@ def get_hwitem_image_list(part_id, **kwargs):
 
 #-----------------------------------------------------------------------------
 
-def post_hwitem_image(part_id, header, filename, **kwargs):
+def post_hwitem_image(part_id, data, filename, **kwargs):
     """Add an image for an Item"""
     
     logger.debug(f"<post_hwitem_image> part_id={part_id}, filename={filename}")
@@ -300,8 +365,13 @@ def post_hwitem_image(part_id, header, filename, **kwargs):
     url = f"https://{config.rest_api}/{path}"
 
     with open(filename, 'rb') as fp:
-        files = {"image": fp}
-        resp = _post(url, data=header, files=files)
+        files = {
+                **{key: (None, value) for key, value in data.items()},
+                "image": fp
+        }
+        resp = _request("post", url, 
+                json=data, files=files, 
+                **kwargs)
 
     return resp
 
@@ -404,6 +474,23 @@ def get_hwitems(part_type_id, *,
 #-----------------------------------------------------------------------------
 
 def post_hwitem(part_type_id, data, **kwargs):
+    """Create a new Item in the HWDB
+
+    data = {
+        "comments": "string",
+        "component_type": {"part_type_id": "string"},
+        "country_code": "st",
+        "institution": {"id": 0},
+        "manufacturer": {"id": 0},
+        "serial_number": "string",
+        "specifications": {},
+        "subcomponents": {"func_pos_name": "string"}
+    }
+
+
+    """
+
+
     logger.debug(f"<post_hwitem> part_type_id={part_type_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}/components" 
     url = f"https://{config.rest_api}/{path}" 

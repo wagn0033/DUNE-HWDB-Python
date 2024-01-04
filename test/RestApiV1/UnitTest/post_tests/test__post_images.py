@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Copyright (c) 2023 Regents of the University of Minnesota
+Copyright (c) 2024 Regents of the University of Minnesota
 Authors: 
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
     Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
@@ -18,7 +18,9 @@ import os, shutil
 import json
 import unittest
 import random
+import matplotlib as mpl
 from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
+import datetime
 
 from Sisyphus.RestApiV1 import get_hwitem
 #from Sisyphus.RestApiV1 import get_hwitem_image_list
@@ -30,7 +32,7 @@ from Sisyphus.Utils.Terminal.Image import image2text
 
 #from generate_image import generate_image
 
-class Test__get_images(LoggedTestCase):
+class Test__post_images(LoggedTestCase):
     """Test RestApiV1 functions related to getting images"""
 
     @classmethod
@@ -40,7 +42,7 @@ class Test__get_images(LoggedTestCase):
         cls.images_path = os.path.join(
                 os.path.dirname(__file__),
                 "images")
-        cls.templates_path = os.path.join(cls.images_path, "templates")
+        cls.template_path = os.path.join(cls.images_path, "templates")
         cls.download_path = os.path.join(cls.images_path, "download")
         cls.upload_path = os.path.join(cls.images_path, "upload")
         shutil.rmtree(cls.download_path, ignore_errors=True)
@@ -61,17 +63,17 @@ class Test__get_images(LoggedTestCase):
     
         try:
             part_id = "Z00100300006-00001"
-            number = random.randint(0, 99999999)
-            filename = os.path.join(self.upload_path, f"image-{number:08d}.jpg")
-            comments = f"comment {number:08d}"
 
-            header = {
-                "comments": comments
+            upload_file = generate_image(self.template_path, self.upload_path)
+            upload_file_short = upload_file.split("/")[-1]
+
+            data = {
+                "comments": f"uploading {upload_file_short}",
             }            
 
-            generate_image(filename)    
+            logger.info(data)
 
-            resp = post_hwitem_image(part_id, header, filename)
+            resp = post_hwitem_image(part_id, data, upload_file)
         
             logger.info(f"response: {resp}")
 
@@ -82,52 +84,91 @@ class Test__get_images(LoggedTestCase):
             raise err
         #}}} 
 
-    ##############################################################################
+##################################################################################
 
-def generate_image(filename, seed=None):
+def generate_image(template_path, destination_path, seed=None):
 
     if seed is not None:
         random.seed(seed)
 
-    template_path = os.path.join(os.path.dirname(__file__), "images", "templates")
-
     template = os.path.join(template_path, random.choice(os.listdir(template_path)))
     quote_top, quote_bottom = random.choice(quotes)
 
+    dest_ext = template.split(".")[-1]
+    dest_file = os.path.join(destination_path, 
+                    f"image-{random.randint(0, 999999999):09d}.{dest_ext}")
+    
     image = Image.open(template)
     w, h = image.size
 
+    if w < 500:
+        image = image.resize((500, 500 * h // w))
+        w, h = image.size
+
     draw = ImageDraw.Draw(image)
 
-
     fontsize = w // 25 + 1
-    shadow_offset = min(1, fontsize // 20)
+    shadow_offset = max(1, fontsize // 10)
+
+    logger.info(f"fontsize: {fontsize}, shadow: {shadow_offset}")
 
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fontsize)
-    except:
-        font = ImageFont.default_font()
+        # Borrow a font from matplotlib, which should be on the system
+        # if Python was installed via Anaconda.
+        fontdir = os.path.join(os.path.dirname(mpl.__file__), "mpl-data", "fonts", "ttf")
+        fontfile1 = os.path.join(fontdir, "DejaVuSans-BoldOblique.ttf")
+        fontfile2 = os.path.join(fontdir, "DejaVuSans.ttf")
+        
+        #fontdir = os.path.join(os.path.dirname(__file__), "fonts")
+        #fontfile1 = os.path.join(fontdir, "impact.ttf")
+        #fontfile2 = os.path.join(fontdir, "impact.ttf")
+        
+        font1 = ImageFont.truetype(fontfile1, fontsize)
+        font2 = ImageFont.truetype(fontfile2, fontsize//2)
+    except Exception as err:
+        logger.warning(f"error when trying to set font: {repr(err)}")    
+        font1 = ImageFont.load_default()
+        font2 = ImageFont.load_default()
+
+    def shadow_text(text_offset, shadow_offset, text, anchor, align, font, fill):
+        x_offset, y_offset = text_offset
+        draw.multiline_text(
+                (x_offset-shadow_offset, y_offset-shadow_offset),
+                text,
+                anchor=anchor, align=align, font=font,
+                fill=0x00000000)
+        draw.multiline_text(
+                (x_offset+1, y_offset+1),
+                text,
+                anchor=anchor, align=align, font=font,
+                fill=0x00000000)
+        draw.multiline_text(
+                (x_offset, y_offset),
+                text,
+                anchor=anchor, align=align, font=font,
+                fill=fill)
+
 
     if quote_top is not None:
-        draw.multiline_text( (w//2-shadow_offset, fontsize-shadow_offset),
+        shadow_text( (w//2, fontsize), shadow_offset,
                 quote_top.upper(),
-                anchor="ma", align="center", font=font,
-                fill=0x00000000)
-        draw.multiline_text( (w//2+shadow_offset, fontsize+shadow_offset),
-                quote_top.upper(),
-                anchor="ma", align="center", font=font,
-                fill=0xffffffff)
+                anchor="ma", align="center", font=font1,
+                fill=0xff77ffff)
     if quote_bottom is not None:
-        draw.multiline_text( (w//2-shadow_offset, h-fontsize-shadow_offset),
+        shadow_text( (w//2, h-2*fontsize), shadow_offset,
                 quote_bottom.upper(),
-                anchor="md", align="center", font=font,
-                fill=0x00000000)
-        draw.multiline_text( (w//2+shadow_offset, h-fontsize+shadow_offset),
-                quote_bottom.upper(),
-                anchor="md", align="center", font=font,
-                fill=0xffffffff)
+                anchor="md", align="center", font=font1,
+                fill=0xff77ffff)
 
-    image.save(filename)
+        timestr = datetime.datetime.now().astimezone().strftime("%Y-%b-%d %I:%M:%S%p (%z)")
+        shadow_text( (w-fontsize//2, h-fontsize//4), 1,
+                    f"generated {timestr}",
+                    anchor="rd", align="right", font=font2,
+                    fill=0xff777777)
+
+    image.save(dest_file)
+    return dest_file
+
 
 quotes = \
 [

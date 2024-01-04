@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Sisyphus/RestApiV1/exceptions.py
-Copyright (c) 2023 Regents of the University of Minnesota
+Copyright (c) 2024 Regents of the University of Minnesota
 Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
@@ -81,6 +81,13 @@ class DatabaseError(RestApiException):
 
 class BadSpecificationFormat(DatabaseError):
     """The Specification or Test Result data did not match the definition."""
+
+class BadDataFormat(DatabaseError):
+    """The data being submitted via POST/PATCH was rejected by the server
+
+    Typically, this means there are missing or extra fields.
+    """
+
 
 class NameResolutionFailure(RestApiException):
     """The URL of the server could not be resolved"""

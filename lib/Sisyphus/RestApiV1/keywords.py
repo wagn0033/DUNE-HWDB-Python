@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Sisyphus/RestApiV1/keywords.py
-Copyright (c) 2023 Regents of the University of Minnesota
+Copyright (c) 2024 Regents of the University of Minnesota
 Author: 
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
     Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
@@ -22,6 +22,7 @@ KW_STATUS = "status"
 KW_STATUS_OK = "OK"
 KW_STATUS_ERROR = "ERROR"
 KW_DATA = "data"
+KW_ERRORS = "errors"
 KW_SERIAL_NUMBER = "serial_number"
 KW_COMPONENT_TYPE = "component_type"
 KW_COUNTRY = "country"
