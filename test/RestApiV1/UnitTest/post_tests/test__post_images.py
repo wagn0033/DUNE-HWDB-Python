@@ -11,8 +11,7 @@ Test RestApiV1 functions related to getting images
 
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
-
-from Sisyphus.Utils.UnitTest import LoggedTestCase
+from Sisyphus.Utils import UnitTest as unittest
 
 import os, shutil
 import json
@@ -32,7 +31,7 @@ from Sisyphus.Utils.Terminal.Image import image2text
 
 #from generate_image import generate_image
 
-class Test__post_images(LoggedTestCase):
+class Test__post_images(unittest.TestCase):
     """Test RestApiV1 functions related to getting images"""
 
     @classmethod
@@ -50,7 +49,6 @@ class Test__post_images(LoggedTestCase):
         os.mkdir(cls.download_path)
         os.mkdir(cls.upload_path)
 
-
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()   
@@ -61,27 +59,23 @@ class Test__post_images(LoggedTestCase):
         #{{{
         """Post an image for an item"""
     
-        try:
-            part_id = "Z00100300006-00001"
+        part_id = "Z00100300006-00001"
 
-            upload_file = generate_image(self.template_path, self.upload_path)
-            upload_file_short = upload_file.split("/")[-1]
+        upload_file = generate_image(self.template_path, self.upload_path)
+        upload_file_short = upload_file.split("/")[-1]
 
-            data = {
-                "comments": f"uploading {upload_file_short}",
-            }            
+        data = {
+            "comments": f"uploading {upload_file_short}",
+        }            
 
-            logger.info(data)
+        logger.info(data)
 
-            resp = post_hwitem_image(part_id, data, upload_file)
-        
-            logger.info(f"response: {resp}")
+        resp = post_hwitem_image(part_id, data, upload_file)
+    
+        logger.info(f"response: {resp}")
 
-            #TODO: Maybe go get it again and compare? See if comments appear?
+        #TODO: Maybe go get it again and compare? See if comments appear?
 
-        except AssertionError as err:
-            logger.error(f"Assertion Error: {repr(err)}")
-            raise err
         #}}} 
 
 ##################################################################################

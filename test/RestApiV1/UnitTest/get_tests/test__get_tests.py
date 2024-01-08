@@ -11,8 +11,7 @@ Test RestApi functions related to Item Tests
 
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
-
-from Sisyphus.Utils.UnitTest import LoggedTestCase
+from Sisyphus.Utils import UnitTest as unittest
 
 import unittest
 import os
@@ -25,7 +24,7 @@ from Sisyphus.RestApiV1 import get_test_type_by_oid
 #from Sisyphus.RestApiV1._RestApiV1 import _get
 
 
-class Test__get_tests(LoggedTestCase):
+class Test__get_tests(unittest.TestCase):
     """Test RestApi functions related to Item Tests"""
 
     #-----------------------------------------------------------------------------

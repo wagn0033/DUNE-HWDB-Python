@@ -11,8 +11,7 @@ Test 'miscellaneous' RestApiV1 functions
 
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
-
-from Sisyphus.Utils.UnitTest import LoggedTestCase
+from Sisyphus.Utils import UnitTest as unittest
 
 import unittest
 import os
@@ -36,7 +35,7 @@ import Sisyphus.RestApiV1 as ra
 
 #from Sisyphus.RestApiV1._RestApiV1 import _get
 
-class Test__get_misc(LoggedTestCase):
+class Test__get_misc(unittest.TestCase):
     """Test 'miscellaneous' RestApiV1 functions"""
 
     #-----------------------------------------------------------------------------

@@ -7,7 +7,8 @@ Authors:
     Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
 """
 
-import unittest
+from Sisyphus.Utils import UnitTest as unittest
+
 from get_tests.test__get_hwitem import *
 from get_tests.test__get_misc import *
 from get_tests.test__get_component_types import *

@@ -11,8 +11,7 @@ Test RestApiV1 functions related to Items
 
 from Sisyphus.Configuration import config
 logger = config.getLogger()
-
-from Sisyphus.Utils.UnitTest import LoggedTestCase
+from Sisyphus.Utils import UnitTest as unittest
 
 import os
 import json
@@ -21,7 +20,7 @@ import unittest
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus import RestApiV1 as ra
 
-class Test__get_hwitems(LoggedTestCase):
+class Test__get_hwitems(unittest.TestCase):
     """Test RestApiV1 functions related to Items"""
  
     def test_normal_item(self):
