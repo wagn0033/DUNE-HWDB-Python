@@ -74,16 +74,31 @@ import pandas as pd
 import os
 from copy import deepcopy
 import re
-
-from collections import namedtuple
 import math
 import numpy as np
 
-from Sisyphus.HWDBUploader.Sheet import Cell
+from dataclasses import dataclass, field
+from collections import namedtuple
+
+#from Sisyphus.HWDBUploader.Sheet import Cell
 
 
 CastWarning = namedtuple("CastResult", ["dtype", "reason"])
 CastResult = namedtuple("CastResult", ["warnings", "original_value", "value"])
+
+
+CellLocation = namedtuple("CellLocation", ["column", "row"])
+
+@dataclass
+class Cell:
+    """Class for holding a cell's contents, plus tracking information"""
+    source: str
+    location: CellLocation = None
+    warnings: list = field(default_factory=list)
+    datatype: str = None
+    value: 'typing.Any' = None
+
+
 
 # list of string to interpret a an empty/null/nan when asked explicity to
 # convert to one of those types.

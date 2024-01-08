@@ -27,6 +27,9 @@ import Sisyphus.RestApiV1.Utilities as ut
 from Sisyphus.RestApiV1.keywords import *
 from Sisyphus.HWDBUploader.keywords import *
 
+from Sisyphus.HWDBUploader import TypeCheck as tc
+from Sisyphus.HWDBUploader.TypeCheck import Cell, CellLocation
+
 import json
 import sys
 import numpy as np
@@ -104,15 +107,15 @@ class Sheet:
         self._read_data()
         #}}}
 
-    def create_cell(self, location, value):
+    def create_cell(self, location, value, datatype):
         return Cell(
                 source=self.sheet_source, 
                 location=location, 
                 warnings=[],
-                datatype="any",
+                datatype=datatype,
                 value=value)
     
-    def coalesce(self, column, row_index=None):
+    def coalesce(self, column, row_index, datatype):
         #{{{
         '''
         Returns the value of a cell, or a set default value.
@@ -122,29 +125,34 @@ class Sheet:
         of them exist, returns None.
         '''
     
-        if row_index is not None and (row_index >= self.rows or row_index < 0):
-            msg = f"{self.sheet_source}: row index {row_index} out of range"
-            logger.error(msg)
-            raise IndexError(msg)
+        def inner_coalesce(self, column, row_index, datatype):
+            if row_index is not None and (row_index >= self.rows or row_index < 0):
+                msg = f"{self.sheet_source}: row index {row_index} out of range"
+                logger.error(msg)
+                raise IndexError(msg)
 
-        if row_index is not None and column in self.dataframe:
-            return self.create_cell(
-                    CellLocation(column, self.row_offset+row_index),
-                    self.dataframe[column][row_index])
-                    #self.dictionary[row_index][column])
+            if row_index is not None and column in self.dataframe:
+                return self.create_cell(
+                        CellLocation(column, self.row_offset+row_index),
+                        self.dataframe[column][row_index],
+                        datatype)
+                        #self.dictionary[row_index][column])
 
-        if column in self.local_values:
-            return self.create_cell(
-                    "header",
-                    self.local_values[column])
+            if column in self.local_values:
+                return self.create_cell(
+                        "header",
+                        self.local_values[column],
+                        datatype)
 
-        if column in self.global_values:
-            return self.create_cell(
-                    "inherited",
-                    self.global_values[column])
+            if column in self.global_values:
+                return self.create_cell(
+                        "inherited",
+                        self.global_values[column],
+                        datatype)
 
-        return self.create_cell("not found", None)
+            return self.create_cell("not found", None, "any")
 
+        return tc.cast(inner_coalesce(self, column, row_index, datatype))
         #}}}        
 
     def _read_data(self): 
