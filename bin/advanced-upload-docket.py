@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 """
 bin/advanced-upload-docket.py
-Copyright (c) 2023 Regents of the University of Minnesota
+Copyright (c) 2024 Regents of the University of Minnesota
 Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 
 import sys
 import argparse
 import json, json5
-from Sisyphus.HWDBUploader import Docket
+from Sisyphus.HWDBEncoder import Docket
 
 def parse_args(argv):
 

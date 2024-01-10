@@ -9,14 +9,13 @@ Authors:
 Test RestApiV1 functions related to Items
 """
 
-from Sisyphus.Configuration import config
-logger = config.getLogger()
-from Sisyphus.Utils import UnitTest as unittest
+#from Sisyphus.Configuration import config
+#logger = config.getLogger()
 
 import os
 import json
-import unittest
 
+from Sisyphus.Utils import UnitTest as unittest
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus import RestApiV1 as ra
 
@@ -33,7 +32,7 @@ class Test__get_hwitems(unittest.TestCase):
                 expected_resp = json.load(file)
 
             resp = get_hwitem("Z00100300001-00021")
-            logger.info(f"Response from post: {resp}")
+            self.logger.info(f"Response from post: {resp}")
         
             self.assertEqual(resp["status"], "OK")
             self.assertEqual(resp['data']['component_id'],44801)
@@ -41,8 +40,8 @@ class Test__get_hwitems(unittest.TestCase):
             #self.assertEqual(resp, expected_resp)
         
         except AssertionError as err:
-            logger.error(f"Assertion Error: {repr(err)}")
-            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
+            self.logger.error(f"Assertion Error: {repr(err)}")
+            self.logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
 
 
@@ -64,8 +63,8 @@ class Test__get_hwitems(unittest.TestCase):
             self.assertIsNone(resp['data']['institution'])
         
         except AssertionError as err:
-            logger.error(f"Assertion Error: {repr(err)}")
-            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
+            self.logger.error(f"Assertion Error: {repr(err)}")
+            self.logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
 
 
@@ -77,16 +76,15 @@ class Test__get_hwitems(unittest.TestCase):
 
         try:
             with self.assertRaises(ra.exceptions.DatabaseError):
-                logger.warning("NOTE: The following subtest raises an exception. This is normal.")
                 resp = get_hwitem("Z99999999999-99999")
         
         except AssertionError as err:
-            logger.error(f"Assertion Error: {repr(err)}")
-            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
+            self.logger.error(f"Assertion Error: {repr(err)}")
+            self.logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
     
     
     ##############################################################################                                
 if __name__ == "__main__":
-    unittest.main(argv=config.remaining_args)
+    unittest.main()
 

@@ -8,7 +8,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 import PIL.Image
 import shutil
 import io
-
+from Sisyphus.Utils.Terminal.Colors import color
 
 def image2text(source, 
             columns=None, lines=None,
@@ -42,7 +42,9 @@ def image2text(source,
     else:
         if max_columns is None:
             max_columns = shutil.get_terminal_size().columns
-        
+        if max_lines is None:
+            max_lines = shutil.get_terminal_size().lines
+ 
         num_columns = min(full_image.width, max_columns)
 
         # Calculate what we need to scale the size to.
@@ -59,16 +61,18 @@ def image2text(source,
             scale = full_image.height / num_lines / 2
             num_columns = int(full_image.width / scale)
 
-    if type(background) is int:
-        background = (background & 0xff0000)>>16, (background & 0xff00)>>8, (background & 0xff)
-
+    # Default: this will make a checkerboard pattern
+    bg_parity_0 = ((0, 0, 0), (64, 64, 64))
+    bg_parity_1 = ((64, 64, 64), (0, 0, 0))
+    
+    # If background is given, change it to that color
     if background is not None:
-        bg_parity_0 = (background, background)
-        bg_parity_1 = (background, background)
-    else:
-        # This will make a checkerboard pattern
-        bg_parity_0 = ((0, 0, 0), (64, 64, 64))
-        bg_parity_1 = ((64, 64, 64), (0, 0, 0))
+        try:
+            bg = color(background)
+            bg_parity_0 = (bg, bg)
+            bg_parity_1 = (bg, bg)
+        except:
+            pass
     
     image = full_image.resize((num_columns*2, num_lines*2))
     mode = image.mode
@@ -171,11 +175,13 @@ def image2text(source,
 
 def run_tests():
     import sys, os
+    import Sisyphus
 
     if len(sys.argv) > 1:
         filename = sys.argv[1]
     else:
-        filename = os.path.join(os.path.dirname(__file__), "DUNE-short.png")
+        filename = os.path.join(Sisyphus.project_root, 
+                "resources/images/DUNE-short.png")
 
     imagetext = image2text(filename, background=0x000000)
     print(imagetext)

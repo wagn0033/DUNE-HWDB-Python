@@ -9,14 +9,10 @@ Authors:
 Test RestApiV1 functions related to getting images
 """
 
-from Sisyphus.Configuration import config
-logger = config.getLogger(__name__)
-
 from Sisyphus.Utils import UnitTest as unittest
 
 import os, shutil
 import json
-import unittest
 
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus.RestApiV1 import get_hwitem_image_list
@@ -43,11 +39,6 @@ class Test__get_images(unittest.TestCase):
     def tearDownClass(cls):
         super().tearDownClass()   
        
-        # Uncomment the next line if you want it to delete the directory
-        # after it's done. 
-        
-        # shutil.rmtree(cls.download_path)
-
     #----------------------------------------------------------------------------- 
     
     def test__get_component_type_image_list(self):
@@ -58,31 +49,25 @@ class Test__get_images(unittest.TestCase):
          correct fields.
         """
 
-        try:
-            expected_fields = {
-                "comments", "created", "creator", "image_id", "image_name",
-                "library", "link"
-            }
+        expected_fields = {
+            "comments", "created", "creator", "image_id", "image_name",
+            "library", "link"
+        }
 
-            resp = get_component_type_image_list("Z00100300006")
+        resp = get_component_type_image_list("Z00100300006")
 
-            # We'll only test that there's at least one image, and that
-            # we don't raise an exception when we fetch it.             
-            self.assertEqual(resp["status"], "OK")
-            self.assertGreater(len(resp["data"]), 0)
-            for image_node in resp["data"]:
-                self.assertSetEqual(set(image_node.keys()), expected_fields)
-                image_name = os.path.join(self.download_path, image_node["image_name"])
-                resp = get_image(image_node["image_id"], write_to_file=image_name)
-                textimage = image2text(resp.content, columns=40)
-                logger.info("\n" + textimage)
-                break
+        # We'll only test that there's at least one image, and that
+        # we don't raise an exception when we fetch it.             
+        self.assertEqual(resp["status"], "OK")
+        self.assertGreater(len(resp["data"]), 0)
+        for image_node in resp["data"]:
+            self.assertSetEqual(set(image_node.keys()), expected_fields)
+            image_name = os.path.join(self.download_path, image_node["image_name"])
+            resp = get_image(image_node["image_id"], write_to_file=image_name)
+            textimage = image2text(resp.content, columns=40)
+            self.logger.info("\n" + textimage)
+            break
 
-        except AssertionError as err:
-            logger.error(f"Assertion Error: {repr(err)}")
-            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
-            raise err 
-    
     #----------------------------------------------------------------------------- 
     
     def test__get_hwitem_image_list(self):
@@ -92,32 +77,26 @@ class Test__get_images(unittest.TestCase):
         and that the entries representing each image has the correct fields.
         """
 
-        try:
-            expected_fields = {
-                "comments", "created", "creator", "image_id", "image_name",
-                "library", "link"
-            }
+        expected_fields = {
+            "comments", "created", "creator", "image_id", "image_name",
+            "library", "link"
+        }
 
-            resp = get_hwitem_image_list("Z00100300006-00001")
+        resp = get_hwitem_image_list("Z00100300006-00001")
 
-            # We'll only test that there's at least one image, and that
-            # we don't raise an exception when we fetch it.             
-            self.assertEqual(resp["status"], "OK")
-            self.assertGreater(len(resp["data"]), 0)
-            for image_node in resp["data"]:
-                self.assertSetEqual(set(image_node.keys()), expected_fields)
-                image_name = os.path.join(self.download_path, image_node["image_name"])
-                resp = get_image(image_node["image_id"], write_to_file=image_name)
-                textimage = image2text(resp.content, columns=40)
-                logger.info("\n" + textimage)
-                break
+        # We'll only test that there's at least one image, and that
+        # we don't raise an exception when we fetch it.             
+        self.assertEqual(resp["status"], "OK")
+        self.assertGreater(len(resp["data"]), 0)
+        for image_node in resp["data"]:
+            self.assertSetEqual(set(image_node.keys()), expected_fields)
+            image_name = os.path.join(self.download_path, image_node["image_name"])
+            resp = get_image(image_node["image_id"], write_to_file=image_name)
+            textimage = image2text(resp.content, columns=40)
+            self.logger.info("\n" + textimage)
+            break
 
-        except AssertionError as err:
-            logger.error(f"Assertion Error: {repr(err)}")
-            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
-            raise err 
-    
     ##############################################################################                                
 if __name__ == "__main__":
-    unittest.main(argv=config.remaining_args)
+    unittest.main()
 

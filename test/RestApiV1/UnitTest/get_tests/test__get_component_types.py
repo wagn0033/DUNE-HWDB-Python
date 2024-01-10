@@ -9,9 +9,6 @@ Authors:
 Test RestApiV1 functions related to Component Types
 """
 
-from Sisyphus.Configuration import config
-logger = config.getLogger(__name__)
-
 from Sisyphus.Utils import UnitTest as unittest
 
 import os
@@ -34,7 +31,7 @@ class Test__get_component_type(unittest.TestCase):
         part_type_id = 'Z00100300001'
         
         resp = get_component_type(part_type_id)
-        logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
+        self.logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
 
         self.assertEqual(resp['status'], "OK")
         self.assertEqual(resp['data']['connectors']['Subcomp 1'], 'Z00100300002')
@@ -48,7 +45,7 @@ class Test__get_component_type(unittest.TestCase):
         page, size = 1, 20
 
         resp = get_hwitems(part_type_id, page=page, size=size)            
-        logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
+        self.logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
         
         self.assertEqual(resp['status'], "OK")
         self.assertIsInstance(resp['data'][0]['component_id'], int)
@@ -62,7 +59,7 @@ class Test__get_component_type(unittest.TestCase):
         part_type_id = 'Z00100300001' 
         
         resp = get_component_type_connectors(part_type_id)
-        logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
+        self.logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
         
         self.assertEqual(resp['status'], "OK")
         self.assertEqual(resp['data']['Subcomp 1'], 'Z00100300002')
@@ -75,7 +72,7 @@ class Test__get_component_type(unittest.TestCase):
         part_type_id = 'Z00100300001'
         
         resp = get_component_type_specifications(part_type_id)
-        logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
+        self.logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
         
         self.assertEqual(resp['status'], "OK")
         self.assertEqual(resp['data'][0]['creator'], "Alex Wagner")
@@ -93,7 +90,7 @@ class Test__get_component_type(unittest.TestCase):
         fields = [] 
 
         resp = get_component_types(proj_id, sys_id, page=page, size=size)
-        logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
+        self.logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
 
         self.assertEqual(resp['status'], "OK")
         self.assertIsInstance(resp['data'][0]['category'], str)
@@ -112,7 +109,7 @@ class Test__get_component_type(unittest.TestCase):
         fields = []
 
         resp = get_component_types(proj_id, sys_id, subsys_id, page=page, size=size)
-        logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
+        self.logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
 
         self.assertEqual(resp['status'], "OK")
         self.assertIsInstance(resp['data'][0]['category'], str)
@@ -121,4 +118,4 @@ class Test__get_component_type(unittest.TestCase):
 #=================================================================================
 
 if __name__ == "__main__":
-    unittest.main(argv=config.remaining_args)
+    unittest.main()
