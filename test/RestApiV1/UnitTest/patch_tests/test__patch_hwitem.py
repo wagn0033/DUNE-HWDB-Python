@@ -15,7 +15,6 @@ from Sisyphus.Utils import UnitTest as unittest
 
 import os
 import json
-import unittest
 import random
 
 from Sisyphus.RestApiV1 import post_hwitem
@@ -210,4 +209,4 @@ class Test__patch_hwitem(unittest.TestCase):
 #=================================================================================
 
 if __name__ == "__main__":
-    unittest.main(argv=config.remaining_args)
+    unittest.main()

@@ -236,16 +236,20 @@ def _request(method, url, *args, return_type="json", **kwargs):
             if "The SSL certificate error" in resp.text:
                 msg = "The certificate was not accepted by the server."
                 with log_lock:
+                    exc_type = CertificateError
                     logger.error(msg)
+                    extra_info.append(f"| exc_type: {exc_type.__name__}")
                     logger.info('\n'.join(extra_info))
-                raise CertificateError(msg) from None    
+                raise exc_type(msg) from None    
         
             else:
                 msg = "The server response was not valid JSON. Check logs for details."
                 with log_lock:
+                    exc_type = InvalidResponse
                     logger.error(msg)
+                    extra_info.append(f"| exc_type: {exc_type.__name__}")
                     logger.info('\n'.join(extra_info))
-                raise InvalidResponse(msg) from None
+                raise exc_type(msg) from None
 
         #  Look at the response and make sure it complies with the expected
         #  data format and does not indicate an error.
@@ -256,10 +260,12 @@ def _request(method, url, *args, return_type="json", **kwargs):
         #  try to be more specific.
         if type(resp_json) != dict or KW_STATUS not in resp_json:
             msg = "The server response was not valid. Check logs for details."
+            exc_type = InvalidResponse
             with log_lock:
                 logger.error(msg)
+                extra_info.append(f"| exc_type: {exc_type.__name__}")
                 logger.info('\n'.join(extra_info))
-            raise InvalidResponse(msg) from None
+            raise exc_type(msg) from None
 
         if KW_DATA in resp_json:
             database_errors = \
@@ -269,36 +275,38 @@ def _request(method, url, *args, return_type="json", **kwargs):
                                    "test type definition!",
                     "message": "The Test Results format does not match the "
                                  "test type definition",
-                    "ex_type": BadSpecificationFormat,
+                    "exc_type": BadSpecificationFormat,
                 },
                 {
                     "signature": "A 'specifications' object matching the "
                                     "ComponentType difinition is required!",
                     "message": "The specifications format does not match the "
                                  "definition for the component type",
-                    "ex_type": BadSpecificationFormat,
+                    "exc_type": BadSpecificationFormat,
                 },
                 {
                     "signature": "The input specifications do not match the "
                                     "component type definition",
                     "message": "The specifications format does not match the "
                                  "definition for the component type",
-                    "ex_type": BadSpecificationFormat,
+                    "exc_type": BadSpecificationFormat,
                 },
                 {
                     "signature": "Not authorized",
                     "message": "The user does not have the authority for this request",
-                    "ex_type": InsufficientPermissions,
+                    "exc_type": InsufficientPermissions,
                 },
             ]
             
             for database_error in database_errors:
                 if (database_error["signature"] in resp_json['data']):
                     msg = database_error["message"]
+                    exc_type = database_error["exc_type"]
                     with log_lock:
                         logger.error(msg)
+                        extra_info.append(f"| exc_type: {exc_type.__name__}")
                         logger.info('\n'.join(extra_info))
-                    raise database_error["ex_type"](msg)
+                    raise exc_type(msg)
 
         if KW_ERRORS in resp_json and type(resp_json[KW_ERRORS]) is list:
             msg_parts = []
@@ -310,17 +318,20 @@ def _request(method, url, *args, return_type="json", **kwargs):
                     msg_parts.append(f"{error['loc'][0]} -> {error['msg']}")
             msg = f"Bad request format: {', '.join(msg_parts)}"
             with log_lock:
+                exc_type = BadDataFormat
                 logger.error(msg)
+                extra_info.append(f"| exc_type: {exc_type.__name__}")
                 logger.info('\n'.join(extra_info))
-            raise BadDataFormat(msg)
+            raise exc_type(msg)
 
 
         # Fallthrough if no other conditions raised an error
         msg = "The server returned an error. Check logs for details."
         with log_lock:
+            exc_type = DatabaseError
             logger.error(msg)
             logger.info('\n'.join(extra_info))
-        raise DatabaseError(msg, resp_json) from None
+        raise exc_type(msg, resp_json) from None
     else:
         logger.debug("returning raw response object")
         return resp
@@ -474,22 +485,24 @@ def get_hwitems(part_type_id, *,
 #-----------------------------------------------------------------------------
 
 def post_hwitem(part_type_id, data, **kwargs):
+    #{{{
     """Create a new Item in the HWDB
 
-    data = {
-        "comments": "string",
-        "component_type": {"part_type_id": "string"},
-        "country_code": "st",
-        "institution": {"id": 0},
-        "manufacturer": {"id": 0},
-        "serial_number": "string",
-        "specifications": {},
-        "subcomponents": {"func_pos_name": "string"}
-    }
+    Structure for "data":
+        {
+            "comments": <str>,
+            "component_type": {"part_type_id": <str>},
+            "country_code": <str>,
+            "institution": {"id": <int>},
+            "manufacturer": {"id": <int>},
+            "serial_number": <str>,
+            "specifications": {...},
+            "subcomponents": {<str:func_pos>: <str:part_id>}
+        }
 
-
+    Structure of returned data:
+        TBD
     """
-
 
     logger.debug(f"<post_hwitem> part_type_id={part_type_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}/components" 
@@ -497,6 +510,7 @@ def post_hwitem(part_type_id, data, **kwargs):
     
     resp = _post(url, data=data, **kwargs)
     return resp
+    #}}}
 
 #-----------------------------------------------------------------------------
 
@@ -797,12 +811,40 @@ def post_test(part_id, data, **kwargs):
 ##############################################################################
 
 def whoami(**kwargs):
+    #{{{
+    """Gets information about the current user
+
+    Return structure:
+        {
+            "data": {
+                "active": <bool>,
+                "administrator": <bool>,
+                "affiliation": <str>,
+                "architect": <bool>,
+                "email": <str>,
+                "full_name": <str>,
+                "roles": [
+                    {
+                        "id": <int>,
+                        "name": <str>
+                    },
+                    ...
+                ],
+                "user_id": <int>,
+                "username": <str>
+            },
+            "link": {...},
+            "status": "OK"
+        }
+    """
+
     logger.debug(f"<whoami>")
     path = "api/v1/users/whoami"
     url = f"https://{config.rest_api}/{path}"
     
     resp = _get(url, **kwargs)
     return resp 
+    #}}}
 
 #-----------------------------------------------------------------------------
 

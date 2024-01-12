@@ -20,9 +20,9 @@ unknown_style = Style.fg(0xff99ff)
 
 teststatus_styles = \
 {
-    'TEST': Style.fg(0xb4009e).bold(),
-    'PASS': Style.fg(0x16c60c).bold(),
-    'FAIL': Style.fg(0xff6644).bold()
+    'TEST': Style.fg(0xffffff).bg(0x881798).bold(),
+    'PASS': Style.fg(0xffffff).bg(0x13a10e).bold(),
+    'FAIL': Style.fg(0xffffff).bg(0xc50f1f).bold()
 }
 
 loginit_style = Style.fg(0xffffff).bg(0x0037da).bold()

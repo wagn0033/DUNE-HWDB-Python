@@ -24,6 +24,22 @@ PartType = namedtuple('PartType', ['id', 'name'])
 
 #######################################################################
 
+def user_role_check(part_type_id=None, part_type_name=None):
+    #{{{
+    """Checks if the user is permitted to work with this ComponentType"""
+    
+    part_type = fetch_component_type(part_type_id, part_type_name)
+    roles_allowed = {role['id'] for role in part_type["ComponentType"]["roles"]}
+
+    user_info = ra.whoami()
+    user_roles = {role['id'] for role in user_info["data"]["roles"]}
+
+    satisfying_roles = roles_allowed.intersection(user_roles)
+
+    return len(satisfying_roles) > 0
+    #}}}
+
+
 def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True):
     #{{{
     '''Returns component type info for a part_type_id or a part_type_name.
@@ -94,7 +110,7 @@ def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True)
             # that it's somewhere in the matches.
             if part_type_id not in matches:
                 msg = (f"part_type_name '{part_type_name}' is not consistent "
-                        "with part_type_id '{part_type_id}")
+                        f"with part_type_id '{part_type_id}")
                 logger.error(msg)
                 raise ra.IncompatibleArguments(msg)
         else:
@@ -633,9 +649,34 @@ SN_Lookup = _SN_Lookup()
 
 
 
+_country_cache = None
+_institution_cache = None
+_manufacturer_cache = None
+
+def initialize_country_cache():
+    global _country_cache
+    if _country_cache is None:
+        countries = ra.get_countries()["data"]
+        _country_cache= {}
+        _country_cache["by_code"] = {c["code"]: c["name"] for c in countries}
+        _country_cache["by_name"] = {c["name"]: c["code"] for c in countries}
+        _country_cache["by_str"] = {f"({c['code']}) {c['name']}": c for c in countries}
+
+    #import json
+    #print(json.dumps(_country_cache, indent=4))
 
 
 
 
+
+
+def lookup_country_name_by_country_code(country_code):
+    global _country_cache
+    initialize_country_cache()
+    
+    if country_code in _country_cache["by_code"]:
+        return _country_cache["by_code"][country_code]
+    else:
+        raise ra.NotFound(f"Could not find country_code '{country_code}'")
 
 

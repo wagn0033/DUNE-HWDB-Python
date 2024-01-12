@@ -71,15 +71,6 @@ default_schema_fields_by_record_type = \
         #       very specific name in the schema (e.g., "Item Comments") but
         #       indicate that it will be found under a more generic name in
         #       the spreadsheet (e.g., "Comments). But, it's configurable!
-
-        # for record type 'Test':
-        "Test Comments": {KW_TYPE:"string,null", KW_COLUMN:"Comments", KW_DEFAULT:None},
-        "Test Results": {KW_TYPE:"special"},
-
-        # for record_type 'Item Image" or "Test Image":
-        "Image Comments": {KW_TYPE:"string,null", KW_COLUMN:"Comments", KW_DEFAULT:None},
-        "Source File": {KW_TYPE:"string,null", KW_COLUMN:"File", KW_DEFAULT:None},
-        "File Name": {KW_TYPE:"string,null", KW_COLUMN:"Rename", KW_DEFAULT:None},
     },
     "Test":
     {
