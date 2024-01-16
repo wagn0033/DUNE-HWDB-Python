@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Feb  9 11:18:30 2023
+This module is in development and currently does nothing. Do not use.
 
-@author: alexwagner
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 from Sisyphus import RestApiV1 as ra
 

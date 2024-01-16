@@ -478,7 +478,8 @@ def preview_image(image_file, max_width=None, padding=0, background=None):
         (br1, bg1, bb1) = (0, 0, 0)
         (br2, bg2, bb2) = (64, 64, 64)
     
-    method = PIL.Image.ANTIALIAS
+    #method = PIL.Image.ANTIALIAS
+    method = PIL.Image.LANCZOS
     img2 = img.resize((term_width, num_rows), method)
    
     alternate_blocks = False

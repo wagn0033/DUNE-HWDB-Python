@@ -2,29 +2,30 @@
 # -*- coding: utf-8 -*-
 """
 Sisyphus/RestApiV1/keywords.py
-Copyright (c) 2023 Regents of the University of Minnesota
+Copyright (c) 2024 Regents of the University of Minnesota
 Author: 
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
     Urbas Ekka <ekka0002@umn.edu>, Dept. of Physics and Astronomy
 """
 
 # Dictionary keys for REST API
-RA_INSTITUTION = "institution"
-RA_COUNTRY_CODE = "country_code"
-RA_MANUFACTURER = "manufacturer"
-RA_ENABLED = "enabled"
-RA_COMMENTS = "comments"
-RA_SPECIFICATIONS = "specifications"
-RA_SUBCOMPONENTS = "subcomponents"
-RA_PART_ID = "part_id"
-RA_PART_TYPE_ID = "part_type_id"
-RA_STATUS = "status"
-RA_STATUS_OK = "OK"
-RA_STATUS_ERROR = "ERROR"
-RA_DATA = "data"
-RA_SERIAL_NUMBER = "serial_number"
-RA_COMPONENT_TYPE = "component_type"
-RA_COUNTRY = "country"
-RA_CODE = "code"
-RA_ID = "id"
-RA_FUNCTIONAL_POSITION = "functional_position"
+KW_INSTITUTION = "institution"
+KW_COUNTRY_CODE = "country_code"
+KW_MANUFACTURER = "manufacturer"
+KW_ENABLED = "enabled"
+KW_COMMENTS = "comments"
+KW_SPECIFICATIONS = "specifications"
+KW_SUBCOMPONENTS = "subcomponents"
+KW_PART_ID = "part_id"
+KW_PART_TYPE_ID = "part_type_id"
+KW_STATUS = "status"
+KW_STATUS_OK = "OK"
+KW_STATUS_ERROR = "ERROR"
+KW_DATA = "data"
+KW_ERRORS = "errors"
+KW_SERIAL_NUMBER = "serial_number"
+KW_COMPONENT_TYPE = "component_type"
+KW_COUNTRY = "country"
+KW_CODE = "code"
+KW_ID = "id"
+KW_FUNCTIONAL_POSITION = "functional_position"

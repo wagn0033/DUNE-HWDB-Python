@@ -7,7 +7,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger()
+logger = config.getLogger(__name__)
 
 from Sisyphus.RestApiV1 import get_institutions
 from Sisyphus.Utils.Terminal import Style
@@ -59,6 +59,7 @@ def main():
         inst_name = inst['name']
 
         country_display_name = f"{country_name} ({country_code})"
+        country_display_name = f"({country_code}) {country_name}"
 
         if args.country is not None:
             if args.country.upper() not in country_display_name.upper():
@@ -101,10 +102,11 @@ def main():
 
             print("="*len(country_display_name))
             for inst_id, inst_name in institutions:
+                inst_id_str = f"({inst_id})".rjust(5)
                 if args.name is None:
-                    print(f"{inst_id:3d} {inst_name}")
+                    print(f"{inst_id_str} {inst_name}")
                 else:
-                    print(f"{inst_id:3d} {Style.highlight(inst_name, args.name)}")
+                    print(f"{inst_id_str} {Style.highlight(inst_name, args.name)}")
             print()
 
 

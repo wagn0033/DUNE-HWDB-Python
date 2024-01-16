@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # """
-# test/HWDBUploader/001/docket.py
-# Copyright (c) 2023 Regents of the University of Minnesota
+# Copyright (c) 2024 Regents of the University of Minnesota
 # Author: 
 #     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 # """
@@ -15,22 +14,26 @@ contents = \
         {
             "Source Name": "Bongos and Biffs",
             "Files": "Upload_SN.xlsx",
+            #"Part Type Name": "Z.Sandbox.HWDBUnitTest.snork",
             "Sheets": 
             [   
                 {
                     "Sheet Name": "Bongo-Items",
-                    "Sheet Type": "Item",
+                    #"Sheet Type": "Item",
+                    #"Part Type ID": "Z00100300023",
                     "Values":
                     {
-                        "Type ID": "Z00100300023"
-                    }
+                        "Manufacturer ID": 7,
+                    },
+                    "Encoder": "@auto",
                 },
                 {
                     "Sheet Name": "Biff-Items",
                     "Sheet Type": "Item",
+                    "Part Type Name": "Z.Sandbox.HWDBUnitTest.biff",
                     "Values":
                     {
-                        "Type Name": "Z.Sandbox.HWDBUnitTest.biff"
+                        "Institution ID": 186,
                     }
                 }
             ]
@@ -38,3 +41,5 @@ contents = \
     ],
     "Encoders": []
 }
+
+

@@ -9,6 +9,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 import sys
 import argparse
 import Sisyphus.Configuration as Config
+import Sisyphus.RestApiV1 as ra
 
 def parse(command_line_args=sys.argv):
     parser = argparse.ArgumentParser(
@@ -46,10 +47,16 @@ def check_server(config):
         msg = "Server check not attempted"
         config.logger.info(msg)
     else:
-        resp = whoami(timeout=10)
-        if resp['status'] != "OK":
+        try:
+            resp = whoami(timeout=10)
+        except ra.CertificateError as err:
+            msg = "The server does not recognize the certificate"
+            config.logger.error(msg)
+            config.logger.info(f"The exception was: {err}")
+        except Exception as err:
             msg = "Failed to contact server to validate certificate"
-            config.logger.warning(msg)
+            config.logger.error(msg)
+            config.logger.info(f"The exception was: {err}")
         else:
             user = f"{(resp['data']['full_name'])} ({resp['data']['username']})"
             msg = f"REST API 'whoami' returned {user}"
