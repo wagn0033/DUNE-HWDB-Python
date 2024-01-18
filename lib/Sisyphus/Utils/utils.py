@@ -13,6 +13,7 @@ from functools import wraps
 
 
 class objectmethod(classmethod):
+    #{{{
     '''Permits a method to be used in both the class and instances of the class
 
     It behaves essentially like classmethod, except the first argument
@@ -34,23 +35,34 @@ class objectmethod(classmethod):
     called from instance
 
     '''
+    # I needed this sort of wrapper for some things I was doing with
+    # the "Style" class, where I wanted to be able to chain properties,
+    # e.g., Style.fg(0xFFFFFF).underline().bold(), where each method
+    # call would return a new instance with the new property added to
+    # the current instance, but I wanted the "classmethod" version to
+    # make an empty instance to start with. Maybe someday, I'll rewrite
+    # it better and we won't need this anymore.
 
     def __get__(self, instance, owner):
         if instance is None:
             return super().__get__(instance, owner)
         else:
             return self.__func__.__get__(instance, owner)
-
+    #}}}
 
 def process_list(fn):
+    #{{{
+    # TODO: probably obsolete
     def wrap(seq):
         print(seq)
         return list(map(fn, seq))
     setattr(wrap, "__name__", f"list<{fn.__name__}>")
     return wrap 
-
+    #}}}
 
 def traverse_dict(path):
+    #{{{
+    # TODO: probably obsolete
     def wrap(fn):
         def wrap(mp):
             print(mp, path)
@@ -61,9 +73,10 @@ def traverse_dict(path):
         return wrap 
     
     return wrap 
-
+    #}}}
 
 def normalize_path(path):
+    #{{{
     """
     Resolve the path to a uniform standard. 
     Essentially the same as os.path.normpath, except, it also makes
@@ -80,10 +93,10 @@ def normalize_path(path):
         newpath = "".join([newpath[0].upper(), newpath[1:]])
     
     return newpath
-    
-
+    #}}}
 
 def safe_add_to_path(*paths):
+    #{{{
     """
     Checks sys.path for paths, and only inserts those that are not
     already there. Both paths and sys.path are normalized first, so
@@ -100,11 +113,11 @@ def safe_add_to_path(*paths):
     for norm, orig in normalized_paths.items():
         if norm not in normalized_sys_paths.keys():
             sys.path.append(orig)
+    #}}}
 
-
-# TBD: should BaseObject use this one? I found it useful elsewhere, so I don't want it
-# only in BaseObject anymore
 def class_initializer(class_init=None):
+    #{{{
+    # TODO: I think this is obsolete now
     #@wraps(cls)
     def decorator_wrapper(cls):
         #setattr(cls, "_priv", [a, b, c])
@@ -122,8 +135,10 @@ def class_initializer(class_init=None):
             init_fn()
         return cls
     return decorator_wrapper
+    #}}}
 
 def traverse(container, path):
+    #{{{
     """
     Traverses through a nested container of dicts and lists. (Or compatible
     mapping and sequence types.)
@@ -152,6 +167,7 @@ def traverse(container, path):
         return 'bad'
         #print(path, container)
         raise TypeError(f"path '{path}' was not valid")
+    #}}}
 
 
 if __name__ == '__main__':

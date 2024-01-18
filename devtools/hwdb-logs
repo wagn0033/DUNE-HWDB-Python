@@ -10,19 +10,20 @@ from Sisyphus.Utils.Terminal.Style import Style
 
 loglevel_styles = \
 {
-    'DEBUG': Style.fg(0x666666),
-    'INFO': Style.fg(0x3b78ff).bold(),
-    'WARNING': Style.fg(0xffaa22),
-    'ERROR': Style.fg(0xe74856).bold(),
-    'CRITICAL': Style.fg(0xcccccc).bg(0xe74856),
+    #'DEBUG': Style.fg(0x666666),
+    'DEBUG': Style.debug,
+    'INFO': Style.info,
+    'WARNING': Style.warning,
+    'ERROR': Style.error,
+    'CRITICAL': Style.critical,
 }
 unknown_style = Style.fg(0xff99ff)
 
 teststatus_styles = \
 {
-    'TEST': Style.fg(0xffffff).bg(0x881798).bold(),
-    'PASS': Style.fg(0xffffff).bg(0x13a10e).bold(),
-    'FAIL': Style.fg(0xffffff).bg(0xc50f1f).bold()
+    'TEST': Style.test,
+    'PASS': Style.success,
+    'FAIL': Style.fail,
 }
 
 loginit_style = Style.fg(0xffffff).bg(0x0037da).bold()
