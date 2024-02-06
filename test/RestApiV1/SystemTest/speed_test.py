@@ -14,7 +14,7 @@ def main(argv):
     kwargs = \
     {
         "part_type_id": "Z00100300016",
-        "serial_number": "FF%",
+        "serial_number": "%F%F%F%F%",
         "count": 100000,
     }
     outfile = "out.txt"

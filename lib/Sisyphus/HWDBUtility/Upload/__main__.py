@@ -13,22 +13,19 @@ logger = config.getLogger(__name__)
 
 from Sisyphus.HWDBUtility.Upload import Uploader
 
+from Sisyphus.Utils.Terminal.Style import Style
+
+from Sisyphus import RestApiV1 as ra
+ra.session_kwargs["timeout"] = 10
 
 
 def main(argv=None):
     uploader = Uploader.fromCommandLine(argv or sys.argv)
 
     docket = uploader.docket
-    
-    combined = \
-    {
-        "Docket Name": docket.docket_name,
-        "Values": docket.values,
-        "Sources": docket.sources,
-        "Encoders": docket.encoders,
-    }
-
-    print(json.dumps(combined, indent=4))
+   
+    #Style.notice.print("Combined Docket:") 
+    #Style.info.print(docket)
 
 if __name__ == "__main__":
     main(argv=config.remaining_args)

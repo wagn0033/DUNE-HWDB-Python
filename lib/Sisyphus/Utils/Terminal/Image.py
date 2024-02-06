@@ -13,7 +13,7 @@ from Sisyphus.Utils.Terminal.Colors import color
 def image2text(source, 
             columns=None, lines=None,
             max_columns=None, max_lines=None,
-            background=None):
+            background=None, get_frames=False):
     #{{{
     
     # PIL.Image.open() will recognize if source is a filename that it needs
@@ -25,8 +25,6 @@ def image2text(source,
 
     full_image = PIL.Image.open(source) 
     
-    if full_image.mode == 'P':
-        full_image = full_image.convert("RGB")
 
     aspect_ratio = full_image.width / full_image.height * 2 
     
@@ -74,10 +72,7 @@ def image2text(source,
         except:
             pass
     
-    image = full_image.resize((num_columns*2, num_lines*2))
-    mode = image.mode
    
-    output = []
  
     def resolve_alpha(rgba, color):
         # Take a color with an alpha channel and blend it with the
@@ -115,61 +110,80 @@ def image2text(source,
         # with a lower index first if there's a tie.
         trials = [ (x[0], i, *x[1:]) for i, x in enumerate(trials) ]
 
-        #print( "\n".join([str(trial) for trial in sorted(trials)]))
-        #exit()
-
+        # Return the best trial, but we don't need the score or index anymore
         return min(trials)[2:]
 
     use_alternate_block_types = False
     use_bw_text = True
 
-    for line_index in range(0, num_lines):
-        img_row = 2 * line_index
-        line_content = []
-        for column_index in range(num_columns):
-            img_col = 2 * column_index            
-            block_parity = (column_index + img_row) % 2
+    frames = []
+    num_frames = full_image.n_frames if get_frames else 1
 
-            TL = image.getpixel((img_col, img_row))
-            TR = image.getpixel((img_col+1, img_row))
-            BL = image.getpixel((img_col, img_row+1))
-            BR = image.getpixel((img_col+1, img_row+1))
+    for frame_num in range(num_frames):
 
-            if mode == 'RGBA':
-                TL = resolve_alpha(TL, bg_parity_0[block_parity])
-                TR = resolve_alpha(TR, bg_parity_0[block_parity])
-                BL = resolve_alpha(BL, bg_parity_1[block_parity])
-                BR = resolve_alpha(BR, bg_parity_1[block_parity])
+        full_image.seek(frame_num)
+        image = full_image.convert("RGBA").resize((num_columns*2, num_lines*2))
+        mode = image.mode
 
-            fore, back, char1, char2 = best_fit(TL, TR, BL, BR)
+        output = []
+        for line_index in range(0, num_lines):
+            img_row = 2 * line_index
+            line_content = []
+            for column_index in range(num_columns):
+                img_col = 2 * column_index            
+                block_parity = (column_index + img_row) % 2
 
-            if use_alternate_block_types:
-                if block_parity:
-                    fore, back, char = fore, back, char1
+                TL = image.getpixel((img_col, img_row))
+                TR = image.getpixel((img_col+1, img_row))
+                BL = image.getpixel((img_col, img_row+1))
+                BR = image.getpixel((img_col+1, img_row+1))
+
+                if mode == 'RGBA':
+                    TL = resolve_alpha(TL, bg_parity_0[block_parity])
+                    TR = resolve_alpha(TR, bg_parity_0[block_parity])
+                    BL = resolve_alpha(BL, bg_parity_1[block_parity])
+                    BR = resolve_alpha(BR, bg_parity_1[block_parity])
+
+                fore, back, char1, char2 = best_fit(TL, TR, BL, BR)
+
+                if use_alternate_block_types:
+                    if block_parity:
+                        fore, back, char = fore, back, char1
+                    else:
+                        fore, back, char = back, fore, char2
+                elif use_bw_text:
+                    if char2 == " ":
+                        if sum(fore) > 128:
+                            fore, back, char = fore, back, char1
+                        else:
+                            fore, back, char = back, fore, char2
+                    else:
+                        if sum(fore) > sum(back):
+                            fore, back, char = fore, back, char1
+                        else:
+                            fore, back, char = back, fore, char2
                 else:
+                    #fore, back, char = fore, back, char1
                     fore, back, char = back, fore, char2
-            elif use_bw_text:
-                if char2 == " ":
-                    if sum(fore) > 128:
-                        fore, back, char = fore, back, char1
-                    else:
-                        fore, back, char = back, fore, char2
-                else:
-                    if sum(fore) > sum(back):
-                        fore, back, char = fore, back, char1
-                    else:
-                        fore, back, char = back, fore, char2
-            else:
-                #fore, back, char = fore, back, char1
-                fore, back, char = back, fore, char2
 
- 
-            line_content.append(f"\033[48;2;{back[0]};{back[1]};{back[2]}"
-                          f";38;2;{fore[0]};{fore[1]};{fore[2]}m{char}")
+     
+                line_content.append(f"\033[48;2;{back[0]};{back[1]};{back[2]}"
+                              f";38;2;{fore[0]};{fore[1]};{fore[2]}m{char}")
 
-        line_content.append("\033[0m")
-        output.append(str.join('', line_content))
-    return str.join('\n', output)
+            line_content.append("\033[0m")
+            output.append(str.join('', line_content))
+        frames.append(
+            {
+                "loop": full_image.info.get("loop", 1),
+                "duration": full_image.info.get("duration", 40),
+                "image": str.join('\n', output)
+            })
+        
+    if get_frames:
+        return frames
+    else:
+        return frames[0]["image"]
+
     #}}}
 
 
@@ -188,5 +202,4 @@ def run_tests():
 
 if __name__ == "__main__":
     run_tests()
-
 

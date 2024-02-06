@@ -60,6 +60,7 @@ re_loginit = re.compile(r"""
 clear_to_end = "\x1b[K"
 
 def main(argv):
+    sys.stdout.write("\033]0;HWDB Logs\007")
     logfile = os.path.normpath(os.path.expanduser("~/.sisyphus/log.txt"))
 
     f = subprocess.Popen(['tail', '-F', '-n', '1000', logfile],

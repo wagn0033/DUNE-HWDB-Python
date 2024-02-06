@@ -17,7 +17,6 @@ from Sisyphus.HWDBUtility.SheetReader import Sheet
 from Sisyphus.HWDBUtility.Source import Source
 
 import Sisyphus.RestApiV1 as ra
-#ra.session_kwargs = {'timeout': 10}
 from Sisyphus.RestApiV1.keywords import *
 import Sisyphus.RestApiV1.Utilities as ut
 
@@ -31,7 +30,6 @@ from glob import glob
 import os
 from copy import deepcopy
 import re
-
 
 class Docket:
     #{{{
@@ -47,7 +45,7 @@ class Docket:
             raise ValueError("Must provide a definition or a filename")
 
         if filename:
-            Style.info.print(f"Creating from filename '{filename}'")
+            Style.info.print(f"Creating Docket from filename '{filename}'")
 
             suffix = filename.split('.')[-1].casefold()
             with open(filename, "r") as fp:
@@ -73,7 +71,7 @@ class Docket:
             else:
                 raise ValueError(f"Unrecognized docket file type: '{suffix}'")
         else:
-            Style.info.print(f"Creating from definition")
+            Style.info.print(f"Creating Docket from definition")
 
         self._raw = definition
         self.docket_name = casefold_get(self._raw, "Docket Name", (filename or "unnamed"))
@@ -88,26 +86,130 @@ class Docket:
 
     def load_sheets(self):
         #{{{
+        Style.notice.print("(Docket) Loading Sheets...")
+
         self.sheets = []
         
+        # Load all sheets
         for source in self.sources:
-            Style.info.print(json.dumps(source, indent=4))
+            #Style.info.print(json.dumps(source, indent=4))
             trace = (f"Docket '{source['_docket_name']}', "
                     f"Source '{source['Source Name']}', "
                     f"File '{source['Files'][0]}'")
             if 'Sheet Name' in source:
                 trace += f", Sheet '{source['Sheet Name']}'"
-            
+
+            #msg = [f"Loading '{source['Files'][0]}'"]
+            #if 'Sheet Name' in source:
+            #    msg.append(f"'{source['Sheet Name']}'")
+            #Style.notice.print("|".join(msg))
+
+            Style.notice.print("Loading", trace)
+            #Style.warning.print(json.dumps(source, indent=4))
+            aggregate, conflicts = merge_dict(self.values, source.get('Values', {}))
+
+            try:
+                sheet_obj = Sheet(
+                            filename=source['Files'][0],
+                            sheet=source.get('Sheet Name', None),
+                            values=aggregate,
+                            trace=trace)
+            except ValueError:
+                raise ValueError(f"Sheet not found: {trace}") from None
+
             self.sheets.append(
             {
                 "Source": source,
-                "Sheet": Sheet(
-                        filename=source['Files'][0],
-                        sheet=source.get('Sheet Name', None),
-                        values=source['Values'],
-                        trace=trace)
+                "Sheet": sheet_obj
             })
         #}}}
+    
+    #--------------------------------------------------------------------------
+
+    def verify_encoders(self):
+        #{{{
+        # Check if each sheet's encoder can be found (or created if _AUTO_)
+        #Style.debug.print("Checking sheets for encoders")
+        
+        for sheet_node in self.sheets:
+            sheet = sheet_node["Sheet"]
+            source = sheet_node["Source"]
+            #filename = source["Files"][0]
+            #values = source["Values"]
+            encoder_name = source["Encoder"]
+            #sheet_name = source.get("Sheet Name", None)
+
+            # The encoder could have been specified in the sheet itself, so
+            # check for that. TODO: if the encoder in the Source is not _AUTO_,
+            # having an encoder in the sheet is an error.
+
+            if encoder_name == '_AUTO_':
+                if (tmp:=sheet.coalesce("Encoder").value) is not None:
+                    encoder_name = tmp
+
+            if encoder_name == '_AUTO_':
+                params = \
+                {
+                    "record_type": sheet.coalesce("Record Type").value,
+                    "part_type_id": sheet.coalesce("Part Type ID").value,
+                    "part_type_name": sheet.coalesce("Part Type Name").value,
+                    "test_name": sheet.coalesce("Test Name").value,
+                }
+                #Style.error.print("We will generate an encoder")
+                #Style.error.print(params)
+
+                auto_encoder = Encoder.create_auto_encoder(**params)
+            
+                encoder_name = auto_encoder["Encoder Name"]    
+                source["Encoder"] = encoder_name
+    
+                self.encoders[encoder_name] = auto_encoder
+
+
+                #Style.error.print(json.dumps(auto_encoder, indent=4))
+            else:
+                #Style.error.print(f"We will use {encoder_name}")
+                if encoder_name not in self.encoders:
+                    raise ValueError(f"Cannot find encoder '{encoder_name}'")
+
+            sheet_node["Encoder"] = Encoder(encoder_def=self.encoders[source["Encoder"]])
+            #Style.warning.print(sheet_node)
+        #}}}
+
+    #--------------------------------------------------------------------------
+    
+    def apply_encoders(self):
+        #{{{
+        jobs = []
+        for sheet_node in self.sheets:
+            #Style.info.print("applying encoder to sheet")
+            
+            encoder = sheet_node["Encoder"]
+            sheet = sheet_node["Sheet"]
+
+            job_template = \
+            {
+                "Record Type": encoder.record_type,
+                "Part Type ID": encoder.part_type_id,
+                "Part Type Name": encoder.part_type_name,
+            }
+            if encoder.record_type in ("Test", "Test Image"):
+                job_template["Test Name"] = encoder.test_name
+
+
+            #Style.notice.print(json.dumps(encoder.schema, indent=4))
+
+            job_list, uuid = encoder.encode(sheet)
+
+            for job_unit in job_list:
+                job = deepcopy(job_template)
+                job["Data"] = job_unit
+                jobs.append(job)
+                #Style.error.print(json.dumps(job, indent=4))
+        
+        return jobs
+        #}}}
+
 
     #--------------------------------------------------------------------------
  
@@ -157,12 +259,15 @@ class Docket:
             # if it's an XLSX file.
 
             # Make the list (possibly) bigger by globbing each item in the list
-            Style.debug.print(f"before globbing: {src_node['Files']}")
+            #Style.debug.print(f"before globbing: {src_node['Files']}")
             files = []
             for pattern in src_node["Files"]:
                 files.extend(glob(os.path.expanduser(os.path.expandvars(pattern))))   
             src_node["Files"] = files
-            Style.debug.print(f"after globbing: {files}")
+            #Style.debug.print(f"after globbing: {files}")
+            if len(files) == 0:
+                Style.warning.print(f"Warning: No matching files for source '{src_node['Source Name']}'")
+                return
             if len(files) > 1:
                 for filename in files:
                     src_copy = deepcopy(src_node)
@@ -173,7 +278,7 @@ class Docket:
             # We still need to split by "sheets," if there are any, but because
             # there could be "values" at both the "source" and "sheet" level, 
             # we should resolve "values" first.
-            if (values := casefold_get(src_node, "Values", None)) is None:
+            if (values := casefold_get(src_node, "Values",{})) is None:
                 src_node["Values"] = {}
             if not (encoder := casefold_get(src_node, "Encoder", None)):
                 src_node["Encoder"] = encoder = "_AUTO_"
@@ -192,8 +297,12 @@ class Docket:
                 src_copy = deepcopy(src_node)
 
                 for sheet in sheets:
+                    # If it's just a string, turn it into a dict
+                    if isinstance(sheet, str):
+                        sheet = {"Sheet Name": sheet}
+
                     # TODO: a lot more error checking here.
-                    sheet_values, conflicts = merge_dict(values, casefold_get(sheet, "Values"))
+                    sheet_values, conflicts = merge_dict(values, casefold_get(sheet, "Values", {}))
                     if conflicts:
                         raise ValueError(f"Values for sheet conflict with Values for file")
                     sheet_name = casefold_get(sheet, "Sheet Name")
@@ -256,25 +365,32 @@ class Docket:
             for raw_encoder in raw_encoders:
                 err_msg_prepend = f"In Docket '{self.docket_name}'"
                 encoder = deepcopy(raw_encoder)
+                
                 encoder['_docket_name'] = self.docket_name
+                
                 if not (encoder_name := casefold_get(encoder, "Encoder Name", None)):
                     raise ValueError(f"{err_msg_prepend}: Encoders must have 'Encoder Name'")
+                
                 if encoder_name in self.encoders:
                     raise ValueError(f"{err_msg_prepend}: Duplicate Encoder Name '{encoder_name}'")
+                
                 err_msg_prepend += f", Encoder '{encoder_name}'"
+                
                 if not (encoder_rectype := casefold_get(encoder, "Record Type", None)):
                     raise ValueError(f"{err_msg_prepend}: Encoders must specify 'Record Type'")
+                
                 encoder_part_type_name = casefold_get(encoder, "Part Type Name", None)
                 encoder_part_type_id = casefold_get(encoder, "Part Type ID", None)
                 if not (encoder_part_type_name or encoder_part_type_id):
                     raise ValueError(f"{err_msg_prepend}: Encoders must specify "
                                 "'Part Type Name' or 'Part Type ID'")
-                if encoder_rectype.casefold() in ('test',):
+                
+                if encoder_rectype.casefold() in ('test', 'test image'):
                     if not (encoder_test_name := casefold_get(encoder, "Test Name", None)):
                         raise ValueError(f"{err_msg_prepend}: Encoders for 'Record Type' = 'Test' "
                                 "must have 'Test Name'")
+
                 if (encoder_schema := casefold_get(encoder, "Schema", None)) is None:
-                    Style.error.print(encoder)
                     raise ValueError(f"{err_msg_prepend}: Encoders must specify 'Schema'")
 
                 self.encoders[encoder_name] = encoder
@@ -286,13 +402,15 @@ class Docket:
         #{{{
         # TODO: Think about if there's anything here that needs to be checked
         self.values = deepcopy(casefold_get(self._raw, "Values", {}))
+
+
         #}}}
 
     #--------------------------------------------------------------------------
     
     def _preprocess_includes(self):
         #{{{
-        Style.debug.print("processing includes")
+        #Style.debug.print("processing includes")
         self.includes = []
 
         for include in casefold_get(self._raw, ("Include", "Includes"), []):
@@ -303,6 +421,9 @@ class Docket:
         # Merge the new dockets into this one
 
         for include in self.includes:
+            #Style.info.print(f"Merging docket '{include.docket_name}' "
+            #            "into docket '{}'")
+
             # Merge Values (pretty straightforward)
             self.values, conflicts = merge_dict(self.values, include.values) 
             if conflicts:
@@ -329,6 +450,17 @@ class Docket:
 
     #--------------------------------------------------------------------------
 
+    def __str__(self):
+        #{{{
+        combined = \
+        {
+            "Docket Name": self.docket_name,
+            "Values": self.values,
+            "Sources": self.sources,
+            "Encoders": self.encoders,
+        }
+        #}}}
+        return json.dumps(combined, indent=4)
  
     #--------------------------------------------------------------------------
     #}}} 
@@ -341,7 +473,6 @@ def merge_dict(augend, addend):
 
     aggregate = deepcopy(augend)
     conflicts = {}
-
     for key, value in addend.items():
         if key in aggregate and aggregate[key] != value:
             conflicts[key] = (aggregate[key], value)
@@ -406,14 +537,4 @@ def casefold_get(dct, key, default=None, *, pop=False):
 
 if __name__ == "__main__":
     pass
-
-
-
-
-
-
-
-
-
-
 

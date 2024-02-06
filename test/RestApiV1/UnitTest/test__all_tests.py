@@ -26,4 +26,5 @@ from patch_tests.test__patch_enables import *
 from patch_tests.test__patch_hwitem import *
 
 if __name__ == "__main__":
-    unittest.main(argv=config.remaining_args)
+    unittest.main()
+

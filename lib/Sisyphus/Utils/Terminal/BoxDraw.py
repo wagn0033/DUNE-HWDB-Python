@@ -5,6 +5,7 @@ Copyright (c) 2024 Regents of the University of Minnesota
 Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 
+from Sisyphus.Utils.Terminal.Style import Style
 from collections import abc
 import shutil
 
@@ -269,7 +270,7 @@ class Table:
     def print(self, **kwargs):
         print(self.generate(), **kwargs)
     
-    def generate(self):
+    def generate(self, trunc_char=None, trunc_style=None):
         #{{{ 
         if self._linestyle == STRONG_MEANS_DOUBLE:
             STYLE = [
@@ -291,7 +292,7 @@ class Table:
             HORIZ, VERT = ["─","━"], ["│","┃"]
  
         output = []       
-
+        
         for row_index in range(self._rows+1):
             
             
@@ -314,7 +315,11 @@ class Table:
                 for col_index, cell in enumerate(cells):
                     col_width = self._column_widths[col_index]
                     halign = self._halign[row_index][col_index]
-                    justified = fit_image_to_width(cell, col_width, halign).split('\n')
+                    justified = fit_image_to_width(
+                            cell, 
+                            col_width, 
+                            halign,
+                            trunc_char, trunc_style).split('\n')
                     
                     if self._auto_height:
                         row_height = max(row_height, len(justified))
@@ -408,7 +413,7 @@ class Table:
                     for line_no in range(self._row_heights[row_index]):
                     
                         ch = VERT[col_border_emph_index]
-                        content_lines[line_no].append(ch)
+                        content_lines[line_no].append(Style.fg(0x777777)(ch))
                         
                         if col_index < self._columns:
                             if self._source is not None:
@@ -439,7 +444,7 @@ class Table:
             
             #border_line.append("\n")
             #stdout.write(str.join("", border_line))
-            output.append(str.join("", border_line))
+            output.append(Style.fg(0x777777)(str.join("", border_line)))
             
             
             if row_index < self._rows:
@@ -476,31 +481,53 @@ def MessageBox(message, /, **kwargs):
     return box.generate()
     #}}}
 
-def fit_image_to_width(img_str, width, halign=HALIGN_LEFT):
-    i, w = _image_dimension_workhorse(img_str, width, halign)
+def fit_image_to_width(img_str, width, halign=HALIGN_LEFT, trunc_char=None, trunc_style=None):
+    i, w = _image_dimension_workhorse(img_str, width, halign, trunc_char, trunc_style)
     return i
 
 def get_image_size(img_str):
     i, w = _image_dimension_workhorse(img_str, None, None)
     return w
     
-def _image_dimension_workhorse(img_str, trim_to_width=None, halign=None):
-    
+def _image_dimension_workhorse(img_str, trim_to_width=None, halign=None, trunc_char=None, trunc_style=None):
+ 
     lines = str(img_str).split('\n')
     fixed_lines = []
     image_width = 0
     
+    trunc_char = trunc_char or ''
+    trunc_char_len = len(trunc_char)
+    if trunc_style:
+        trunc_char = trunc_style(trunc_char)
+
     for line in lines:
         char_count, width_count = 0, 0
         in_esc = False
         in_bracket = False
         esc_has_been_used = False
-        
+
+        add_trunc_char = False        
+
         for ch in line:
             
-            if trim_to_width is not None and width_count == trim_to_width:
-                break
+            #if trim_to_width is not None and width_count == trim_to_width:
+            #    break
             
+            if trim_to_width:
+                # when the width reaches the point where the trunc_char would
+                # be displayed, remember where we are now, but wait until we
+                # actually exceed trim_to_width to break out, because if we
+                # don't, we don't want to display the trunc_char, either.
+                if width_count == trim_to_width - trunc_char_len:
+                    state = char_count, width_count, in_esc, in_bracket, esc_has_been_used
+                    #print(f"save state: {state}")
+                elif width_count == trim_to_width:
+                    char_count, width_count, in_esc, in_bracket, esc_has_been_used = state
+                    #print(f"restore state: {state}")
+                    add_trunc_char = True
+                    break
+
+
             char_count += 1
             
             if not in_esc:
@@ -528,7 +555,13 @@ def _image_dimension_workhorse(img_str, trim_to_width=None, halign=None):
             else:
                 # inside escape sequence
                 continue
-        newline = [line[:char_count]]
+       
+        if add_trunc_char:
+            newline = [line[:char_count] + trunc_char]
+            width_count += trunc_char_len
+        else:        
+            newline = [line[:char_count]]
+
         if esc_has_been_used:
             newline.append('\033[m')
         if trim_to_width is not None and width_count < trim_to_width:

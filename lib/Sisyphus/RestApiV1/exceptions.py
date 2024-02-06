@@ -6,22 +6,27 @@ Copyright (c) 2024 Regents of the University of Minnesota
 Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
-from Sisyphus.Configuration import config
-logger = config.getLogger(__name__)
+
+LOG_ON_CREATION = False
+
+if LOG_ON_CREATION:
+    from Sisyphus.Configuration import config
+    logger = config.getLogger(__name__)
 
 
 class RestApiException(Exception):
     def __init__(self, *args, **kwargs):
-        msg = [f"'{type(self).__name__}' exception was created."]
-        if len(args) > 0:
-            msg.append(f"args: {args}")
-        if len(kwargs) > 0:
-            msg.append(f"kwargs: {kwargs}")
-        msg.append("This message is a courtesy in case the code that "
-                "triggered this exception does not catch and log it. "
-                "Note that the exception log entry (if present) may appear "
-                "before this message.")
-        logger.warning(" ".join(msg))
+        if LOG_ON_CREATION:
+            msg = [f"'{type(self).__name__}' exception was created."]
+            if len(args) > 0:
+                msg.append(f"args: {args}")
+            if len(kwargs) > 0:
+                msg.append(f"kwargs: {kwargs}")
+            msg.append("This message is a courtesy in case the code that "
+                    "triggered this exception does not catch and log it. "
+                    "Note that the exception log entry (if present) may appear "
+                    "before this message.")
+            logger.warning(" ".join(msg))
         super().__init__(*args, **kwargs)
 
     """Base class for RestApi exceptions."""

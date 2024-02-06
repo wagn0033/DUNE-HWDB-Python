@@ -57,7 +57,10 @@ class Test__post_hwitem(unittest.TestCase):
 
         resp = post_hwitem(part_type_id, data)
 
+
         logger.info(f"The response was: {resp}")
+
+        logger.info(f"Created: {resp['part_id']}")
         
         self.assertEqual(resp["status"], "OK")
         
@@ -217,7 +220,7 @@ class Test__post_hwitem(unittest.TestCase):
     #@unittest.skip("fails")
     def test__post_hwitem__extra_spec(self):
         #{{{
-        """Tests posting an item with extra fields in the spec, which should be allowed"""
+        """Tests posting an item with extra fields in the spec, which should not be allowed"""
 
         part_type_id = "Z00100300001"
         serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
@@ -245,11 +248,12 @@ class Test__post_hwitem(unittest.TestCase):
             "subcomponents": {}
         }
 
-        resp = post_hwitem(part_type_id, data)
+        with self.assertRaises(ra.BadSpecificationFormat):
+            resp = post_hwitem(part_type_id, data)
 
-        logger.info(f"The response was: {resp}")
+        #logger.info(f"The response was: {resp}")
         
-        self.assertEqual(resp["status"], "OK")
+        #self.assertEqual(resp["status"], "OK")
         #}}}
 
     #-------------------------------------------------------------------------

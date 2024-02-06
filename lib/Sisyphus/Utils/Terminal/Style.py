@@ -248,11 +248,12 @@ Style.warning = Style.fg(0xffaa22)
 Style.error = Style.fg(0xe74856).bold()
 Style.critical = Style.fg(0xcccccc).bg(0xe74856)
 
-Style.test = Style.fg(0xffffff).bg(0x13a10e).bold()
+Style.test = Style.fg(0xffffff).bg(0x881798).bold()
 Style.success = Style.fg(0xffffff).bg(0x13a10e).bold()
 Style.fail = Style.fg(0xffffff).bg(0xc50f1f).bold()
 
 Style.notice = Style.fg(0xccaa00).italic()
+Style.link = Style.fg(0x6699ff).bold().italic().underline()
 
 ###############################################################################
 

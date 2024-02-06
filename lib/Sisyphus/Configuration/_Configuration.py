@@ -20,6 +20,7 @@ import subprocess
 import tempfile
 import re
 import OpenSSL
+import requests
 from datetime import datetime
 
 import logging
@@ -257,7 +258,7 @@ class Config:
         except Exception:
             msg = "The configuration file could not be created."
             raise RuntimeError(msg)
-     
+        #}}}
                 
     def load(self):
         #{{{
@@ -455,6 +456,23 @@ class Config:
             self.config_data = json5.loads(raw_data)
         except Exception as ex:
             raise RuntimeError(f"'{filename}' was not a valid JSON/JSON5 file --> {ex}")
+
+        # Let's check for a new version, but don't do it more than once per day
+        today = datetime.now().date().strftime("%Y-%m-%d")
+        if self.config_data.get("version", None) is not None:
+            if self.config_data["version"].get("last checked", None) >= today:
+                self.latest_release_version = self.config_data["version"]["latest release version"]
+        if getattr(self, "latest_release_version", None) is None:
+            self.config_data["version"] = \
+            {
+                "current version": Sisyphus.version,
+                "latest release version": self.get_latest_release_version(),
+                "last checked": today,
+            }                
+            with open(filename, "w") as f:
+                f.write(json.dumps(self.config_data, indent=4))
+
+
         #}}}
 
     def _parse_args(self, args=None):
@@ -542,7 +560,25 @@ class Config:
             msg = "The logging config file could not be created."
             raise RuntimeError(msg)
         #}}}
-    
+
+    def get_latest_release_version(self):
+        if getattr(self, "tag_name", None) is None:
+            resp = requests.get("https://api.github.com/repos/DUNE/DUNE-HWDB-Python/releases/latest")   
+            self.latest_release_version = resp.json()["tag_name"]
+        return self.latest_release_version
+
+    def newer_version_exists(self):
+        re_version = re.compile(r"""
+                ^[v]{0,1}(?P<version>.*)$
+            """, re.VERBOSE)
+        current_version = tuple(re_version.match(Sisyphus.version)["version"].split("."))
+
+        latest_version = tuple(
+                re_version.match(self.get_latest_release_version())["version"].split("."))
+
+        return latest_version > current_version
+
+ 
 def run_tests():
     print("Tests have been moved to a separate directory")
     

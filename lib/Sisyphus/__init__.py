@@ -7,7 +7,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 import os
 
-version = '1.2.0.dev.2024.01.10c'
+version = 'v1.2.0.dev.2024.02.06c'
 
 project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), "../.."))
 

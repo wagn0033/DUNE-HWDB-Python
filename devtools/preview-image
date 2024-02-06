@@ -7,7 +7,8 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
 from Sisyphus.Utils.Terminal import Image
 import argparse
-import sys
+import sys, os, termios
+import time
 
 def parse_args(argv):
 
@@ -49,6 +50,11 @@ def parse_args(argv):
                         "background. Color can be a named color, a hex value (e.g., "
                         "'#ffffff'), or a triplet of values from 0-255 with no spaces "
                         "(e.g., '255,255,255')."}),
+        (('--static', '-s'),
+                {"dest": "animate", "action": "store_false",
+                    "help": "If the image is animated, display the first frame only."}),
+        (('--top', '-t'), {"dest": "top", "action": "store_true"})    
+
     ]
 
     parser = argparse.ArgumentParser(description=description, add_help=True)
@@ -60,16 +66,70 @@ def parse_args(argv):
     
     return args
 
+class NoScreenEcho:
+    #{{{
+    def __init__(self, disable_echo=True):
+        self.disable_echo = disable_echo
+
+    def __enter__(self):
+        if self.disable_echo:
+            sys.stdout.write("\033[?25l")
+            self.terminal_fd = os.open('/dev/tty', os.O_RDWR|os.O_NOCTTY)
+            self.old_attr = termios.tcgetattr(self.terminal_fd)
+            self.new_attr = self.old_attr[:]
+            self.new_attr[3] &= ~termios.ECHO
+            self.tcsetattr_flags = termios.TCSAFLUSH
+            termios.tcsetattr(self.terminal_fd, self.tcsetattr_flags, self.new_attr)
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.disable_echo:
+            termios.tcsetattr(self.terminal_fd, self.tcsetattr_flags, self.old_attr)
+            sys.stdout.write("\033[?25h")
+        return False # let the exception be raised after done
+    #}}}
+
+def display(args):
+    #print(args)
+ 
+    frames = (Image.image2text(source=args.filename, columns=args.columns, lines=args.lines,
+                            max_columns=args.maxcols, max_lines=args.maxlines,
+                            background=args.background, get_frames=args.animate))
+
+    if args.animate:
+        if len(frames) > 1:
+            num_lines = len(frames[0]["image"].split("\n"))
+            sys.stdout.write("\n" * num_lines)
+            loop = (frames[0]["loop"] or ...)
+
+            nextframe = time.time()
+
+            while (loop is ... or (loop := loop - 1)):
+                for frame in frames:
+                    if args.top:
+                        sys.stdout.write(f"\033[s\033[0;0H")
+                    else:
+                        sys.stdout.write(f"\033[{num_lines}F")
+                    print(frame["image"])
+                    if args.top:
+                        sys.stdout.write("\033[u")
+
+                    nextframe += 0.001 * frame["duration"]
+                    #time.sleep(frame["duration"]*0.001)
+                    time.sleep(max(nextframe-time.time(), 0.0))
+        else:
+            print(frames[0]["image"])
+    else:
+        print(frames)
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv
     args = parse_args(argv)
-   
-    print(args)
- 
-    print(Image.image2text(source=args.filename, columns=args.columns, lines=args.lines,
-                            max_columns=args.maxcols, max_lines=args.maxlines,
-                            background=args.background))
+    try:
+        with NoScreenEcho(not args.top):
+            display(args)
+    except KeyboardInterrupt:
+        pass
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))

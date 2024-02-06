@@ -16,6 +16,8 @@ from Sisyphus.HWDBUtility.SheetReader import Sheet, Cell
 from Sisyphus.HWDBUtility import TypeCheck as tc
 from Sisyphus.Utils.Terminal.Style import Style
 
+from Sisyphus.Utils import utils
+
 import json
 import sys
 import numpy as np
@@ -25,7 +27,7 @@ from copy import deepcopy
 import re
 import time
 import random
-
+import uuid
 
 KW_TYPE = "type"
 KW_KEY = "key"
@@ -44,25 +46,32 @@ printcolor = lambda c, s: print(Style.fg(c)(s))
 # doesn't need to specify these unless they need some special handling
 # that's different than the defaults.
 
+default_universal_fields = \
+{
+    "Part Type ID": {KW_TYPE:"null,string", KW_COLUMN:"Part Type ID", KW_DEFAULT:None},
+    "Part Type Name": {KW_TYPE:"null,string", KW_COLUMN:"Part Type Name", KW_DEFAULT:None},
+    "Serial Number": {KW_TYPE:"null,string", KW_COLUMN:"Serial Number", KW_DEFAULT:None},
+    "External ID": {KW_TYPE:"null,string", KW_COLUMN:"External ID", KW_DEFAULT:None},
+}
+
 default_schema_fields_by_record_type = \
 {
     "Item":
     {
         # for all record types:
-        "Serial Number": {KW_TYPE:"string,null", KW_COLUMN:"Serial Number", KW_DEFAULT:None},
-        "External ID": {KW_TYPE:"string,null", KW_COLUMN:"External ID", KW_DEFAULT:None},
+        **default_universal_fields,
 
         # for record type 'Item':
-        "Institution": {KW_TYPE:"string,null", KW_COLUMN:"Institution", KW_DEFAULT:None},
-        "Institution ID": {KW_TYPE:"integer,null", KW_COLUMN:"Institution ID", KW_DEFAULT:None},
-        "Institution Name": {KW_TYPE:"string,null", KW_COLUMN:"Institution Name", KW_DEFAULT:None},
-        "Country": {KW_TYPE:"string,null", KW_COLUMN:"Country", KW_DEFAULT:None},
-        "Country Code": {KW_TYPE:"string,null", KW_COLUMN:"Country Code", KW_DEFAULT:None},
-        "Country Name": {KW_TYPE:"string,null", KW_COLUMN:"Country Name", KW_DEFAULT:None},
-        "Manufacturer": {KW_TYPE:"string,null", KW_COLUMN:"Manufacturer", KW_DEFAULT:None},
-        "Manufacturer ID": {KW_TYPE:"integer,null", KW_COLUMN:"Manufacturer ID", KW_DEFAULT:None},
-        "Manufacturer Name": {KW_TYPE:"string,null", KW_COLUMN:"Manufacturer Name", KW_DEFAULT:None},
-        "Item Comments": {KW_TYPE:"string,null", KW_COLUMN:"Comments", KW_DEFAULT:None}, # SEE NOTE!
+        "Institution": {KW_TYPE:"null,string", KW_COLUMN:"Institution", KW_DEFAULT:None},
+        "Institution ID": {KW_TYPE:"null,integer", KW_COLUMN:"Institution ID", KW_DEFAULT:None},
+        "Institution Name": {KW_TYPE:"null,string", KW_COLUMN:"Institution Name", KW_DEFAULT:None},
+        "Country": {KW_TYPE:"null,string", KW_COLUMN:"Country", KW_DEFAULT:None},
+        "Country Code": {KW_TYPE:"null,string", KW_COLUMN:"Country Code", KW_DEFAULT:None},
+        "Country Name": {KW_TYPE:"null,string", KW_COLUMN:"Country Name", KW_DEFAULT:None},
+        "Manufacturer": {KW_TYPE:"null,string", KW_COLUMN:"Manufacturer", KW_DEFAULT:None},
+        "Manufacturer ID": {KW_TYPE:"null,integer", KW_COLUMN:"Manufacturer ID", KW_DEFAULT:None},
+        "Manufacturer Name": {KW_TYPE:"null,string", KW_COLUMN:"Manufacturer Name", KW_DEFAULT:None},
+        "Item Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None}, # SEE NOTE!
         "Subcomponents": {KW_TYPE:"special"},
         "Specifications": {KW_TYPE:"special"},
         "Enabled": {KW_TYPE:"boolean", KW_COLUMN:"Enabled", KW_DEFAULT:True},
@@ -75,39 +84,45 @@ default_schema_fields_by_record_type = \
     "Test":
     {
         # for all record types:
-        "Serial Number": {KW_TYPE:"string,null", KW_COLUMN:"Serial Number", KW_DEFAULT:None},
-        "External ID": {KW_TYPE:"string,null", KW_COLUMN:"External ID", KW_DEFAULT:None},
+        **default_universal_fields,
+
+        # for record_type 'Test' or 'Test Image':
+        "Test Name": {KW_TYPE:"null,string", KW_COLUMN:"Test Name", KW_DEFAULT:None},
 
         # for record type 'Test':
-        "Test Comments": {KW_TYPE:"string,null", KW_COLUMN:"Comments", KW_DEFAULT:None},
+        "Test Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
         "Test Results": {KW_TYPE:"special"},
     },
     "Item Image":
     {
         # for all record types:
-        "Serial Number": {KW_TYPE:"string,null", KW_COLUMN:"Serial Number", KW_DEFAULT:None},
-        "External ID": {KW_TYPE:"string,null", KW_COLUMN:"External ID", KW_DEFAULT:None},
+        **default_universal_fields,
 
-        # for record_type 'Item Image" or "Test Image":
-        "Image Comments": {KW_TYPE:"string,null", KW_COLUMN:"Comments", KW_DEFAULT:None},
-        "Source File": {KW_TYPE:"string,null", KW_COLUMN:"File", KW_DEFAULT:None},
-        "File Name": {KW_TYPE:"string,null", KW_COLUMN:"Rename", KW_DEFAULT:None},
+        # for record_type 'Item Image' or 'Test Image':
+        "Image Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
+        "Source File": {KW_TYPE:"null,string", KW_COLUMN:"File", KW_DEFAULT:None},
+        "File Name": {KW_TYPE:"null,string", KW_COLUMN:"Rename", KW_DEFAULT:None},
     },
     "Test Image":
     {
         # for all record types:
-        "Serial Number": {KW_TYPE:"string,null", KW_COLUMN:"Serial Number", KW_DEFAULT:None},
-        "External ID": {KW_TYPE:"string,null", KW_COLUMN:"External ID", KW_DEFAULT:None},
+        **default_universal_fields,
 
-        # for record_type 'Item Image" or "Test Image":
-        "Image Comments": {KW_TYPE:"string,null", KW_COLUMN:"Comments", KW_DEFAULT:None},
-        "Source File": {KW_TYPE:"string,null", KW_COLUMN:"File", KW_DEFAULT:None},
-        "File Name": {KW_TYPE:"string,null", KW_COLUMN:"Rename", KW_DEFAULT:None},
+        # for record_type 'Test' or 'Test Image':
+        "Test Name": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
+
+        # for record_type 'Item Image" or 'Test Image':
+        "Image Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
+        "Source File": {KW_TYPE:"null,string", KW_COLUMN:"File", KW_DEFAULT:None},
+        "File Name": {KW_TYPE:"null,string", KW_COLUMN:"Rename", KW_DEFAULT:None},
     }
 }
 #}}}
 
+
+
 class Encoder:
+    _encoder_cache = {}
     def __init__(self, encoder_def):
         #{{{
         self._encoder_def = deepcopy(encoder_def)
@@ -122,7 +137,10 @@ class Encoder:
             self.default_schema_fields = default_schema_fields_by_record_type[self.record_type] 
         else:
             raise ValueError("Record Type is required.")
-        
+        #Style.fg(0xff00cc).print(f"'{self.name}', '{self.record_type}'") 
+        #Style.fg(0xffcc00).print( json.dumps(self.default_schema_fields , indent=4))
+
+
         self.part_type_name = enc.pop("Part Type Name", None)
         self.part_type_id = enc.pop("Part Type ID", None)
         self.test_name = enc.pop("Test Name", None)
@@ -131,6 +149,10 @@ class Encoder:
         
         self.raw_schema = enc.pop("Schema", {})
         self.schema = self._preprocess_schema(self.raw_schema)
+
+
+        self.uuid = str(uuid.uuid4()).upper()
+        self.__class__._encoder_cache[self.uuid] = self    
 
         # TODO: more fields
 
@@ -150,10 +172,12 @@ class Encoder:
         #{{{
         typedef_default = \
         {
-            KW_TYPE: "any", 
+            KW_TYPE: "null,any", 
             KW_COLUMN: None, 
             KW_DEFAULT: None,
         }
+        
+        #......................................................................
 
         def preprocess_group(sch_in):
             #{{{
@@ -162,8 +186,11 @@ class Encoder:
             sch_out = {}
 
             for schema_key, field_def in sch_in.items():
+                #if schema_key == "Length":
+                #    breakpoint()
                 #print(schema_key, field_def)
                 field_def = deepcopy(field_def)
+                #Style.info.print(schema_key, field_def)
 
                 if type(field_def) is str:
                     sch_out[schema_key] = \
@@ -176,9 +203,13 @@ class Encoder:
 
                 # From here forward, "field_def" is assumed to be a dict
 
-                node = sch_out[schema_key] = {KW_TYPE: field_def.pop(KW_TYPE, "any")}
-                
+                #node = sch_out[schema_key] = {KW_TYPE: field_def.pop(KW_TYPE, "any")}
+                node = sch_out[schema_key] = {KW_TYPE: field_def.get(KW_TYPE, "null,any")}
+               
+                # If this has a "value", then this is just a constant that doesn't
+                # actually depend on what's in the sheet. 
                 if KW_VALUE in field_def:
+
                     node[KW_VALUE] = field_def.pop(KW_VALUE)
                     # TODO: check if there are any leftover keys
                     continue
@@ -201,12 +232,20 @@ class Encoder:
                     # TODO: check if there are any leftover keys
                     continue
 
-                sch_out[schema_key] = "TBD"
+                #member_def = {**typedef_default, KW_COLUMN: schema_key}
+                member_def = {**typedef_default, **field_def}
+
+                sch_out[schema_key] = member_def
+
             return sch_out
             #}}}
+        
+        #......................................................................
 
         sch_in = deepcopy(schema)
         sch_out = {}
+
+        #Style.fg(0xcc00ff).print(json.dumps(schema, indent=4))
 
         for schema_key, default_field_def in self.default_schema_fields.items():
         
@@ -244,13 +283,20 @@ class Encoder:
 
         #print(json.dumps(sch_out, indent=4)); exit()
         #return sch_out
-        return \
+        preprocessed_schema = \
         {
             KW_TYPE: "group",
             KW_KEY: ["External ID", "Serial Number"],
             KW_MEMBERS: sch_out,
         }
 
+        #Style.fg(0x33ff33).print(json.dumps(preprocessed_schema, indent=4))
+
+        #logger.warning(f"schema in:\n{json.dumps(schema, indent=4)}")
+        #logger.warning(f"schema out:\n{json.dumps(preprocessed_schema, indent=4)}")
+
+
+        return preprocessed_schema
         #}}}
     
     #-----------------------------------------------------------------------------        
@@ -341,13 +387,17 @@ class Encoder:
     def encode_indexed(self, sheet):
         #{{{
         """Encode a spreadsheet using the stored schema using indexed rows"""
+        
+        #......................................................................
 
         def encode_group(sheet, row_index, parent_field_def):
            
             group_value = {} 
  
             for schema_key, field_def in parent_field_def[KW_MEMBERS].items():
-                
+                #if schema_key == "Test Name":
+                #    breakpoint()
+                #print(schema_key)
                 if field_def[KW_TYPE] == "group":
                     k, v = encode_group(sheet, row_index, field_def)
                     group_value[schema_key] = {k: v} 
@@ -364,19 +414,27 @@ class Encoder:
                             datatype=field_def[KW_TYPE],
                             value=field_def[KW_VALUE])
                 
-                cast_value = tc.cast(field_contents)
+                #cast_value = tc.cast(field_contents)
+
+                #logger.info(f"schema_key: {schema_key}")
+                #logger.info(f"field_def: {field_def}")
+                #logger.debug(f"cell value: {field_contents}")
+                #logger.debug(f"after casting:  {cast_value}")
+
                 # TODO: handle warnings
-                group_value[schema_key] = cast_value.value
+                group_value[schema_key] = field_contents.value
 
             key = tuple( group_value[key] for key in parent_field_def[KW_KEY])
             
             return key, group_value
-
+        
+        #......................................................................
+        sheet.local_values["Test Name"] = self.test_name
 
         result = {}
 
         for row_index in range(sheet.rows):
- 
+
             key, group_value = encode_group(sheet, row_index, self.schema)
 
             if key not in result:
@@ -384,6 +442,7 @@ class Encoder:
             else:
                 result[key] = self.merge_indexed_records(result[key], group_value)
 
+        #result.setdefault("_meta", {})["encoder_uuid"] = self.uuid
         return result
         #}}}    
 
@@ -393,7 +452,10 @@ class Encoder:
         #{{{
         """Encode a spreadsheet using the stored schema"""
 
-        return self.deindex(self.encode_indexed(sheet))
+        encoded_data = self.encode_indexed(sheet)
+        deindexed = self.deindex(encoded_data)
+        #print(deindexed)
+        return deindexed, self.uuid
         #}}}
     #-----------------------------------------------------------------------------        
 
@@ -445,136 +507,174 @@ class Encoder:
         make_rows(record, self.schema, current_row)
             
 
-        printcolor(0xffff00, json.dumps(rows, indent=4))
+        #printcolor(0xffff00, json.dumps(rows, indent=4))
 
         #}}}
 
     #-----------------------------------------------------------------------------
 
     @staticmethod
-    def preserve_order(obj):
+    def create_auto_encoder(part_type_id, part_type_name, record_type, test_name=None):
         #{{{
-        '''Recursively store the key order of any dictionaries found
+        record_types = \
+        {
+            "item": "Item",
+            "test": "Test",
+            "item image": "Item Image",
+            "test image": "Test Image",
+        }
 
-        As of Python 3.6, dictionaries already preserve the order of their
-        keys, but when uploading to the HWDB and downloading again, the 
-        order of the keys is not guaranteed to stay the same. So, add an
-        extra "_meta" tag that contains the correct order. 
 
-        Lists always preserve order, so leave them alone (but still recurse
-        through them). 
+        if str(record_type).casefold() not in record_types.keys():
+            raise ValueError("'Record Type' should be one of these: "
+                            f"{list(record_types.values())}")
+        else:
+            record_type = record_types[record_type.casefold()]
 
-        Use 'restore_order' after downloading from the HWDB to get the 
-        dictionaries back into the correct order.
+        try:
+            part_type_data = ut.fetch_component_type(part_type_id, part_type_name)
+        except ra.MissingArguments:
+            raise ValueError("Must identify Part Type in order to create auto-encoder") from None
+        part_type_id = part_type_data["ComponentType"]['part_type_id']
+        part_type_name = part_type_data["ComponentType"]['full_name']
 
-        NOTE: this adds the _meta tags in-place, so 'obj' is actually 
-        changed. Make a copy if this is not desired!
-        '''
+        if record_type == 'Test':
+            if test_name is None:
+                raise ValueError("Must identify 'Test Name' when 'Record Type' is 'Test'.")
+            elif test_name not in part_type_data["TestTypeDefs"]:
+                raise ValueError(f"Part Type does not have a test '{test_name}'")  
 
-        if type(obj) is list:
-            for item in obj:
-                Encoder.preserve_order(item)
-        elif type(obj) is dict:
-            order = list(obj.keys())
-            if "_meta" not in obj:
-                obj["_meta"] = {}
-            obj["_meta"]["keys"] = order
-            
-            # We have to make sure to skip the '_meta' tag, so we don't
-            # recurse forever. Note that if there was already a '_meta' tag
-            # before we added one, the order of its contents will not be
-            # preserved.
-            for key, item in obj.items():
-                if key != '_meta':
-                    Encoder.preserve_order(item) 
+        #......................................................................
+
+        def create_item_encoder():
+            encoder_def = \
+            {
+                "Encoder Name": f"_AUTO_{part_type_id}",
+                "Record Type": "Item",
+                "Part Type ID": part_type_id,
+                "Part Type Name": part_type_name,
+                "Schema": {"Specifications": {}, "Subcomponents": {}}
+            }
+            spec = part_type_data["ComponentType"]["properties"]["specifications"][0]["datasheet"]
+            meta = spec.get('_meta', {})
+            spec = utils.restore_order(deepcopy(spec))
+            connectors = part_type_data["ComponentType"]["connectors"]
+
+            for k, v in spec.items():
+                encoder_def["Schema"]["Specifications"][k] = \
+                        {
+                            "type": "null,any",
+                            "default": v,
+                            "column": f"S:{k}" 
+                        }
+            for k, v in connectors.items():
+                encoder_def["Schema"]["Subcomponents"][k] = \
+                        {
+                            "type": "null,str",
+                            "column": f"C:{k}",
+                            "default": "<null>" 
+                        }
+
+            #logger.warning(json.dumps(encoder_def, indent=4))
+
+            return encoder_def
+
+        #......................................................................
         
-        # Even though the change was made in-place, return the object anyway.
-        # It simplifies the syntax when one wants to make a copy:
-        #     mycopy = Encoder.preserve_order(deepcopy(original))
-        return obj
+        def create_test_encoder():
+            encoder_def = \
+            {
+                "Encoder Name": f"_AUTO_{part_type_id}_{test_name}",
+                "Record Type": "Test",
+                "Part Type ID": part_type_id,
+                "Part Type Name": part_type_name,
+                "Test Name": test_name,
+                "Schema": {"Test Results": {}}
+            }
+            test_node = part_type_data["TestTypeDefs"][test_name]["data"]
+            spec = test_node["properties"]["specifications"][0]["datasheet"]
+            for k, v in spec.items():
+                # the value v normally means the default value, but if it's 
+                # a list, it's supposed to mean that the value is supposed
+                # to be chosen from the list, not the list itself. So if we
+                # see a list, make it a default value of null
+                if isinstance(v, list):
+                    v = None
+                encoder_def["Schema"]["Test Results"][k] = \
+                    {
+                        "default": v,
+                        "column": f"T:{k}"
+                    }
+
+            return encoder_def
+        
+        #......................................................................
+
+        def create_item_image_encoder():
+            
+            encoder_def = \
+            {
+                "Encoder Name": f"_AUTO_{part_type_id}_Item_Image",
+                "Record Type": "Item Image",
+                "Part Type ID": part_type_id,
+                "Part Type Name": part_type_name,
+                "Schema": {}
+            }
+
+            return encoder_def
+        
+        #......................................................................
+        
+        def create_test_image_encoder():
+           
+            if test_name is None:
+                raise ValueError("Cannot generate 'Test Image' encoder because "
+                            "'Test Name' was not provided.")
+ 
+            encoder_def = \
+            {
+                "Encoder Name": f"_AUTO_{part_type_id}_Test_Image",
+                "Record Type": "Test Image",
+                "Part Type ID": part_type_id,
+                "Part Type Name": part_type_name,
+                "Test Name": test_name,
+                "Schema": {}
+            }
+
+            return encoder_def
+        
+        #......................................................................
+
+        if record_type == 'Item':
+            return create_item_encoder()
+        if record_type == 'Test':
+            return create_test_encoder()
+        if record_type == 'Item Image':
+            return create_item_image_encoder()
+        if record_type == 'Test Image':
+            return create_test_image_encoder()
+
+
+
+
+        #......................................................................
+
+        #Style.warning.print(json.dumps(part_type_data, indent=4))   
+
         #}}}
+
+    @staticmethod
+    def preserve_order(obj):
+        return utils.preserve_order(obj)
 
     @staticmethod
     def restore_order(obj):
-        #{{{
-        """Re-order the keys in dictionaries to saved order
-
-        If the "_meta" tag only contains "keys", the entire "_meta" tag
-        will be removed. Otherwise, only the "keys" will be removed.
-
-        NOTE: this does the reordering 
-        """
-
-        if type(obj) is list:
-            for item in obj:
-                Encoder.restore_order(item)
-        elif type(obj) is dict:
-            if "_meta" in obj and "keys" in obj["_meta"]:
-                # Get the preserved ordering, but then look for any extra
-                # keys that might have been added and add those to the list
-                # at the end. At the time this comment was written, this 
-                # shouldn't happen, but I'd like it to go smoothly and not
-                # drop data if this should happen in the future.
-                order = obj["_meta"]["keys"]
-
-                for key in order:
-                    if key not in obj:
-                        order.remove(key)
-                for key in obj.keys():
-                    if key not in order:
-                        order.append(key)
-                
-                # Re-order the dictionary by popping each item and re-adding
-                # it, which will place it at the end.
-                for key in order:
-                    obj[key] = obj.pop(key)
-            
-                obj['_meta'].pop("keys")
-                if len(obj['_meta']) == 0:
-                    obj.pop('_meta')
-
-
-            for key, item in obj.items():
-                Encoder.restore_order(item)
-        
-        # Even though the change was made in-place, return the object anyway.
-        # It simplifies the syntax when one wants to make a copy:
-        #     mycopy = Encoder.restore_order(deepcopy(original))
-        return obj
-        #}}}
+        return utils.restore_order(obj)
 
     @staticmethod
     def scramble_order(obj):
-        #{{{
-        '''Scramble the order of keys in dictionaries
+        return utils.scramble_order(obj)
 
-        This function serves only as a test to simulate what might happen
-        to an object that was uploaded to the HWDB and downloaded again.
-        '''
-
-        if type(obj) is list:
-            for item in obj:
-                Encoder.scramble_order(item)
-        elif type(obj) is dict:
-            keys = list(obj.keys())
-
-            # Shuffle the keys
-            # if there are at least two keys, make sure the shuffle
-            # actually changes the order. Redo if it doesn't.
-            if len(keys) > 1:
-                original_order = keys[:]
-                while keys == original_order:
-                    random.shuffle(keys)
-            for key in keys:
-                obj[key] = obj.pop(key)
-            for key, item in obj.items():
-                Encoder.scramble_order(item)
-        
-        # Even though the change was made in-place, return the object anyway.
-        # It simplifies the syntax when one wants to make a copy:
-        #     mycopy = Encoder.scramble_order(deepcopy(original))
-        return obj
-        #}}}
 
 if __name__ == "__main__":
     pass

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Sisyphus/HWDBUtility/HWDBItem.py
+Sisyphus/HWDBUtility/HWItem.py
 Copyright (c) 2024 Regents of the University of Minnesota
 Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
@@ -13,7 +13,10 @@ logger = config.getLogger(__name__)
 import Sisyphus.RestApiV1 as ra
 import Sisyphus.RestApiV1.Utilities as ut
 from Sisyphus.Utils.Terminal.Style import Style
-
+from Sisyphus.Utils.Terminal.BoxDraw import Table
+from Sisyphus.Utils.Terminal import BoxDraw
+from Sisyphus.Utils import utils
+import io
 import json
 import sys
 import os
@@ -57,7 +60,7 @@ class HWItem:
 
     #--------------------------------------------------------------------------
 
-    def __init__(self, *, AreYouSure=False):
+    def __init__(self, *, part_type_id=None, part_type_name=None, AreYouSure=False):
         #{{{
         """Do not create new HWItem instances directly!
 
@@ -70,6 +73,7 @@ class HWItem:
             raise ValueError("Don't create new HWItems this way "
                             "unless you know what you're doing!")
 
+        self._part_type = ut.fetch_component_type(part_type_id, part_type_name)
         self._last_commit = {k: None for k in self._property_to_column.keys()}
         self._current = deepcopy(self._last_commit)
         self._is_new = False    
@@ -82,6 +86,7 @@ class HWItem:
         return user_record
 
     #--------------------------------------------------------------------------
+
     @classmethod
     def fromUserData(cls, user_record):
         #{{{
@@ -127,18 +132,47 @@ class HWItem:
                     "Width": 85.56
                 }
             ],
-            "Subcomponents": {
-                "Left Bongo": "Z00100300023-00104",
-                "Right Bongo": "Z00100300023-00105"
-            },
+            "Subcomponents": [
+                {
+                    "Left Bongo": "Z00100300023-00104",
+                    "Right Bongo": "Z00100300023-00105"
+                }
+            ],
             "Country": "(US) United States",
             "Institution": "(186) University of Minnesota Twin Cities",
             "Manufacturer": "(7) Hajime Inc"
         }
+
+        It is not necessary to provide both "Country" fields or all three
+        "Institution" or "Manufacturer" fields. Just enough to look it up
+        and identify it uniquely. 
+        
+        "Manufacturer" is entirely optional, but if you intend to leave it 
+        blank, none of the fields should be given or should be given as None.
+
+        If "Country" is not provided, it will be inferred from "Institution".
+
+        Specifications and Subcomponents are expected to be lists containing
+        a single dictionary, because it will come out of the Encoder that way,
+        but the dictionary can also be supplied directly without being 
+        enclosed in a list. Either way, it will be stored internally without
+        the enclosing list.
         """
         #}}}
-        new_hwitem = HWItem(AreYouSure=True)
+        new_hwitem = HWItem(
+                part_type_id=user_record.get("Part Type ID", None),
+                part_type_name=user_record.get("Part Type Name", None),
+                AreYouSure=True)
+
         user_record = deepcopy(user_record)
+
+        #print(json.dumps(user_record, indent=4))
+
+        if isinstance(spec := user_record.get("Specifications", None), list):
+            user_record["Specifications"] = spec[0]
+
+        if isinstance(subcomp := user_record.get("Subcomponents", None), list):
+            user_record["Subcomponents"] = subcomp[0]
 
         try:
             hwdb_record = cls._get_from_hwdb(
@@ -148,7 +182,7 @@ class HWItem:
                     serial_number=user_record.get("Serial Number", None))
             new_hwitem._is_new = False
             new_hwitem._last_commit = hwdb_record
-        #except ra.AmbiguousParameters as exc:        
+
         except ra.NotFound:
             # This is fine. It just means that it's new!
             new_hwitem._is_new = True
@@ -159,8 +193,14 @@ class HWItem:
                 logger.warning(f"{col_name} not in user_record")
             else:
                 new_hwitem._current[prop_name] = user_record.pop(col_name)
+
         if len(user_record) > 0:
             logger.warning(f"extra columns in user_record: {tuple(user_record.keys())}")
+
+        new_hwitem.normalize()
+
+        new_hwitem.validate()
+
         return new_hwitem
         #}}}
 
@@ -176,7 +216,10 @@ class HWItem:
         """
 
         hwdb_record = cls._get_from_hwdb(part_type_id, part_type_name, part_id, serial_number)
-        new_hwitem = HWItem(AreYouSure=True)
+        new_hwitem = HWItem(
+                part_type_id=user_record.get("Part Type ID", None),
+                part_type_name=user_record.get("Part Type Name", None),
+                AreYouSure=True)
 
         new_hwitem._last_commit = deepcopy(hwdb_record)
         new_hwitem._current = deepcopy(hwdb_record)
@@ -189,16 +232,31 @@ class HWItem:
         #{{{
         """(internal method) Load HWItem data from the HWDB"""
 
-        hwitem_raw = ut.fetch_hwitems(
-                part_type_id, part_type_name, part_id, serial_number, count=2)
+        kwargs = {
+            "part_type_id": part_type_id,
+            "part_type_name": part_type_name,
+            "part_id": part_id,
+            "serial_number": serial_number,
+            "count": 2
+        }
+        #Style(fg="orange").print(json.dumps(kwargs, indent=4))
 
-        Style(fg="magenta").print(json.dumps(hwitem_raw, indent=4))
+        if part_id is not None:
+            kwargs["serial_number"] = None
+
+        #hwitem_raw = ut.fetch_hwitems(
+        #            part_type_id, part_type_name, part_id, serial_number=None, count=2)
+        hwitem_raw = ut.fetch_hwitems(**kwargs)
+
+        #Style(fg="brown").print(json.dumps(kwargs, indent=4))
+        #Style(fg="magenta").print('HWDB existing items:', json.dumps(hwitem_raw, indent=4))
 
         # Raise an exception if no records are found, or more than one is found.
         if len(hwitem_raw) == 0:
-            raise ra.NotFound("The arguments provided did not matchy any HWItems.")
+            raise ra.NotFound("The arguments provided did not match any HWItems.")
         elif len(hwitem_raw) > 1:
             # TODO: we could still cache it for later.
+            logger.warning(json.dumps(hwitem_raw, indent=4))
             raise ra.AmbiguousParameters("The arguments provided matched more than one HWItem.")
 
       
@@ -219,22 +277,41 @@ class HWItem:
             "institution_name": it["institution"]["name"],
             "country_name": ut.lookup_country_name_by_country_code(it["country_code"]),
             "country_code": it["country_code"],
-            "manufacturer_id": it["manufacturer"]["id"],
-            "manufacturer_name": it["manufacturer"]["name"],
             "comments": it["comments"],
             "enabled": it["enabled"],
-            "specifications": it["specifications"],
-            "subcomponents": {k:v for k, v in sorted
-                            ([(x["functional_position"], x["part_id"]) for x in sc])},
         })
         hwdb_record["country"] = (f"({hwdb_record['country_code']}) "
                                     f"{hwdb_record['country_name']}")
         hwdb_record["institution"] = (f"({hwdb_record['institution_id']}) "
                                     f"{hwdb_record['institution_name']}")
-        hwdb_record["manufacturer"] = (f"({hwdb_record['manufacturer_id']}) "
+            
+        if it["manufacturer"] is None:
+            hwdb_record["manufacturer_id"] = None
+            hwdb_record["manufacturer_name"] = None
+            hwdb_record["manufacturer"] = None
+        else:
+            hwdb_record["manufacturer_id"] = it["manufacturer"]["id"]
+            hwdb_record["manufacturer_name"] = it["manufacturer"]["name"]
+            hwdb_record["manufacturer"] = (f"({hwdb_record['manufacturer_id']}) "
                                     f"{hwdb_record['manufacturer_name']}")
 
-        Style(fg="darkgoldenrod").print(json.dumps(hwdb_record, indent=4))
+        # Specifications
+        #print(json.dumps(ct_all, indent=4))
+        #spec_def = ct_all["ComponentType"]["properties"]["specifications"][0]["datasheet"]
+        
+
+        hwdb_record["specifications"] = utils.restore_order(deepcopy(it["specifications"][0]))
+        _ = hwdb_record["specifications"].pop("_meta", None)
+        
+        #meta = deepcopy(it["specifications"][0].get("_meta", None))
+        #if meta:
+        #    hwdb_record["specifications"]["_meta"] = meta
+
+        # Subcomponents
+        default_subcomps = {k: None for k in ct_all["ComponentType"]["connectors"].keys()}
+        subcomps = {k:v for k, v in sorted
+                            ([(x["functional_position"], x["part_id"]) for x in sc])}
+        hwdb_record["subcomponents"] = {**default_subcomps, **subcomps}
 
         return hwdb_record
         #}}}
@@ -258,16 +335,93 @@ class HWItem:
     #--------------------------------------------------------------------------
 
     def update_core(self):
+        #{{{
         """Update the 'core' properties of this HWItem in the HWDB
 
         The 'core' properties are those properties that can be updated by the
         main REST API call, and does not include 'enabled' or subcomponents.
-        """
+        """ 
+
+        last_commit = self._last_commit
+        current = self._current
+        
+        if self.is_new():
+            post_data = {
+                "component_type": {"part_type_id": current['part_type_id']},
+                "country_code": current['country_code'],
+                "institution": {"id": current['institution_id']},
+                "serial_number": current['serial_number'],
+                "manufacturer": {"id": current['manufacturer_id']},
+                "specifications": utils.preserve_order(current['specifications']),
+                "comments": current['comments'],
+                #"subcomponents": current['subcomponents']
+            }
+
+            if "_meta" not in post_data['specifications']:
+                post_data['specifications']['_meta'] = {}
+
+            resp = ra.post_hwitem(part_type_id=current['part_type_id'], data=post_data)
+            self._is_new = False
+
+            current["part_id"] = resp["part_id"]
+           
+            # A new item is always disabled until explicitly enabled 
+            last_commit["enabled"] = False
+
+            fields_to_copy = [
+                "part_id", "part_type_name", "part_type_id", "serial_number",
+                "comments", "country", "country_name", "country_code",
+                "institution", "institution_id", "institution_name",
+                "manufacturer", "manufacturer_id", "manufacturer_name",
+                "specifications"
+            ]
+
+            for field in fields_to_copy:
+                last_commit[field] = current[field]
+        else:
+            
+            patch_data = {
+                "part_id": current['part_id'],
+                "serial_number": current['serial_number'],
+                "manufacturer": {"id": current['manufacturer_id']},
+                "specifications": utils.preserve_order(current['specifications']),
+                "comments": current['comments'],
+            }        
+            
+            if "_meta" not in patch_data['specifications']:
+                patch_data['specifications']['_meta'] = {}
+
+            resp = ra.patch_hwitem(part_id=current['part_id'], data=patch_data)
+            
+            # TODO: is the REST API supposed to reset "enabled"? Well, it does,
+            # so we might as well reflect that in our "last_commit"
+            last_commit["enabled"] = False
+            
+            fields_to_copy = [
+                "serial_number", "comments", "manufacturer", "manufacturer_id", 
+                "manufacturer_name", "specifications"
+            ]
+            
+            for field in fields_to_copy:
+                last_commit[field] = current[field]
+
+        self.update_enabled()
+
+
+        #}}}
+
 
     #--------------------------------------------------------------------------
 
     def update_enabled(self):
         """Update the 'enabled' property of this HWItem in the HWDB"""
+
+        if self.enabled_has_changed():
+            current = self._current     
+            resp = ut.enable_hwitem(current['part_id'], 
+                        enable=current['enabled'], 
+                        comments=current['comments'])  
+
 
     #--------------------------------------------------------------------------
     def update_subcomponents(self):
@@ -288,6 +442,141 @@ class HWItem:
                 released first
         """
     #--------------------------------------------------------------------------
+    
+    def normalize(self):
+        #{{{
+        """Fills in fields whose values can be automatically derived
+
+        If only partial information is supplied for Institution, Country,
+        or Manufacturer, but enough information is provided to fill in the
+        rest, do it. (E.g., manufacturer_id is enough to find the name and
+        the combo id/name field.)
+
+        If an existing record exists for the item, fill in null fields with
+        the existing values. If the field is explicitly "<null>", however,
+        use this as an indicator to actually set it to null instead.
+        """
+
+        last_commit = self._last_commit
+        current = self._current
+
+        # Normalize EXTERNAL ID
+        # because this might have been looked up by serial number
+        if not self.is_new():
+            current['part_id'] = last_commit['part_id']
+
+
+        # Normalize INSTITUTION
+        if current["institution"] or current["institution_name"] or current["institution_id"]:
+            inst = ut.lookup_institution(
+                        institution_id=current["institution_id"], 
+                        institution_name=current["institution_name"],
+                        institution=current["institution"])
+            if len(inst) == 1:
+                current["institution_id"] = inst[0]['id']
+                current["institution_name"] = inst[0]['name']
+                current["institution"] = inst[0]['combined']
+            elif len(inst) == 0:
+                raise ra.NotFound("No Institutions match the criteria given.")
+            else:
+                raise ra.AmbiguousParameters("The fields for Institution do not uniquely "
+                            "identify a single Institution")
+            if not self.is_new() and current['institution'] != last_commit['institution']:
+                #logger.error(f"{current['institution']} != {last_commit['institution']}")
+                #logger.info(f"{json.dumps(last_commit, indent=4)}")
+                raise ValueError("The Institution for an Item cannot be edited.")
+       
+        elif not self.is_new():
+            current["institution_id"] = last_commit['institution_id']
+            current["institution_name"] = last_commit['institution_name']
+            current["institution"] = last_commit['institution']
+        else:
+            raise ValueError("Items require an Institution to be specified.")
+
+        # Normalize COUNTRY
+        # if there's no country, default to the institution's country
+        if current["country"] or current["country_name"] or current["country_code"]:
+            countries = ut.lookup_country(
+                    country_code=current["country_code"],
+                    country_name=current["country_name"],
+                    country=current["country"])
+            if len(countries) == 1:
+                current["country_code"] = countries[0]['code']
+                current["country_name"] = countries[0]['name']
+                current["country"] = countries[0]['combined'] 
+            else:
+                valid = False
+        elif not self.is_new():
+            current["country_code"] = last_commit['country_code']
+            current["country_name"] = last_commit['country_name']
+            current["country"] = last_commit['country']
+        else:
+            # we can assume that 'inst' has been assigned because we would
+            # already have thrown an exception if this was a new item that
+            # didn't have an institution.
+            current["country_code"] = inst[0]['country']['code']
+            current["country_name"] = inst[0]['country']['name']
+            current["country"] = inst[0]['country']['combined']
+
+        # Normalize MANUFACTURER
+        if current['manufacturer_id'] or current['manufacturer_name'] or current['manufacturer']:
+            manu = ut.lookup_manufacturer(
+                    manufacturer_id=current['manufacturer_id'],
+                    manufacturer_name=current['manufacturer_name'],
+                    manufacturer=current['manufacturer'])
+            if len(manu) == 0:
+                raise ra.NotFound("No Manufacturers match the criteria given.")
+            elif len(manu) == 1:
+                current['manufacturer_id'] = manu[0]['id']
+                current['manufacturer_name'] = manu[0]['name']
+                current['manufacturer'] = manu[0]['combined']
+            else:
+                raise ra.AmbiguousParameters("The fields for Manufacturer do not uniquely "
+                            "identify a single Manufacturer")
+        elif not self.is_new():
+            current['manufacturer_id'] = last_commit['manufacturer_id'] 
+            current['manufacturer_name'] = last_commit['manufacturer_name']
+            current['manufacturer'] = last_commit['manufacturer'] 
+        else:
+            # Not a problem because Manufacturer is optional
+            pass
+
+        # Normalize SERIAL NUMBER
+        if not self.is_new() and current['serial_number'] is None:
+            current['serial_number'] = last_commit['serial_number']
+        if current['serial_number'] == "<null>":
+            current['serial_number'] = None
+
+        # Normalize COMMENTS
+        if not self.is_new() and current['comments'] is None:
+            current['comments'] = last_commit['comments']
+        if current['comments'] == '<null>':
+            current['comments'] = None
+
+        # Normalize SUBCOMPONENTS
+        if not self.is_new():
+            for k, v in current["subcomponents"].items():
+                if v is None:
+                    current['subcomponents'][k] = last_commit['subcomponents'].get(k, None)
+                if v == "<null>":
+                    current["subcomponents"][k] = None
+
+        # Normalize SPECIFICATIONS
+        if not self.is_new():
+            for k, v in current["specifications"].items():
+                if v is None:
+                    current['specifications'][k] = last_commit['specifications'].get(k, None)
+                if v == "<null>":
+                    current["specifications"][k] = None
+
+        # Normalize ENABLED
+        if not self.is_new() and current['enabled'] is None:
+            current['enabled'] = last_commit['enabled']
+        if current['enabled'] == '<null>':
+            current['enabled'] = False
+        #}}}
+
+    #--------------------------------------------------------------------------
 
     def validate(self):
         """Tests whether this HWItem appears to be valid
@@ -301,6 +590,7 @@ class HWItem:
 
     def update(self):
         """Update the 'core' properties, 'enabled', and subcomponents"""
+    
     #--------------------------------------------------------------------------
 
     def resync(self):
@@ -318,35 +608,203 @@ class HWItem:
     def core_has_changed(self):
         """Tell whether the 'core' properties have changed since downloading"""
     
+        if self.is_new():
+            return True
+
+        current = self._current
+        last_commit = self._last_commit
+
+        if current['serial_number'] != last_commit['serial_number']:
+            return True
+        if current['manufacturer'] != last_commit['manufacturer']:
+            return True
+        if current['comments'] != last_commit['comments']:
+            return True
+        if current['specifications'] != last_commit['specifications']:
+            return True
+        #if current['enabled'] != last_commit['enabled']:
+        #    return True
+
+        return False
+
+
+
     #--------------------------------------------------------------------------
 
     def enabled_has_changed(self):
         """Tell whether the 'enabled' property has changed since downloading"""
+        
+        current = self._current
+        last_commit = self._last_commit
     
+        if self.is_new():
+            return current['enabled']
+
+        if current['enabled'] != last_commit['enabled']:
+            return True
+
+        return False
+
     #--------------------------------------------------------------------------
 
     def subcomponents_have_changed(self):
         """Tell whether the subcomponents have changed since downloading"""
+        
+        current = self._current
+        last_commit = self._last_commit
     
+        if self.is_new():
+            return any(current['subcomponents'].values())
+        
+        if current['subcomponents'] != last_commit['subcomponents']:
+            return True
+
+        return False
+
+
     #--------------------------------------------------------------------------
 
     def has_changed(self):
         """Tell whether anything has changed since downloading"""
     
+        return any([
+            self.core_has_changed(), 
+            self.enabled_has_changed(), 
+            self.subcomponents_have_changed()])
+
     #--------------------------------------------------------------------------
 
 
-class ComponentType:
-    ...
+    def __str__(self):
+        style_bold = Style.bold()
+        style_green = Style.fg(0x33ff33).bold()
+        style_yellow = Style.fg(0xdddd22).bold()
+
+        fp = io.StringIO()
 
 
-class HWTest:
-    ...
+        def display_new_item():
+            #fp.write(style_green("ADD NEW ITEM"))
+            #fp.write("\n")
+            #table_data = [
+            #    ['Property', 'Value']
+
+            #]
+
+            #table = Table(table_data)
+            #table.set_row_border(1, BoxDraw.BORDER_STRONG)
+            #table.set_column_border(1, BoxDraw.BORDER_STRONG)
+            
+            #fp.write(table.generate())
+            
+            current = self._current
+
+            header_data = [
+                ["Operation", style_green("CREATE NEW ITEM")],
+                ["Part Type ID", current['part_type_id']],
+                ["Part Type Name", current['part_type_name']],
+            ]
+            
+            header_table = Table(header_data)
+            header_table.set_column_width(0, 15)
+            header_table.set_column_width(1, 61)
+            fp.write(header_table.generate())
+            fp.write("\n")
+
+            table_data = [
+                [ style_bold(s) for s in 
+                    ['Property',        'Value'] ],
+                ['External ID',     current['part_id']],
+                ['Institution',     current['institution']],
+                ['Country',         current['country']],
+
+                ['Serial Number', current['serial_number']],
+                ['Manufacturer', current['manufacturer']],
+                ['Comments', current['comments']],
+            
+                [ 'Subcomponents',
+                  json.dumps(current['subcomponents'], indent=4)],
+
+                [ 'Specifications',
+                  json.dumps(current['specifications'], indent=4)],
+            
+                ['Enabled', current['enabled']],
+            ]
+
+            table = Table(table_data)
+            table.set_row_border(1, BoxDraw.BORDER_STRONG)
+            table.set_column_border(1, BoxDraw.BORDER_STRONG)
+            table.set_column_width(0, 15)
+            table.set_column_width(1, 81)
+ 
+            #fp.write(table.generate(trunc_char='…'))
+            fp.write(table.generate(trunc_char='▶', trunc_style=Style.fg(0x8888ff)))
 
 
-class HWTestDef:
-    ...
 
+        def display_edited_item():
+            current = self._current
+            latest = self._last_commit
+
+            header_data = [
+                ["Operation", style_yellow("EDIT ITEM")],
+                ["Part Type ID", latest['part_type_id']],
+                ["Part Type Name", latest['part_type_name']],
+            ]            
+            header_table = Table(header_data)
+            header_table.set_column_width(0, 15)
+            header_table.set_column_width(1, 61)
+            fp.write(header_table.generate())
+            fp.write("\n")
+            label_fixed = Style.fg(0x777777).italic()("(fixed)")
+            table_data = [
+                [ style_bold(s) for s in 
+                    ['Property',        'Current Value',            'New Value'] ],
+                ['External ID',     latest['part_id'],          label_fixed],
+                ['Institution',     latest['institution'],      label_fixed],
+                ['Country',         latest['country'],          label_fixed],
+            ]
+
+            def add_row(field_name, last_val, current_val):
+                row = [ field_name, last_val ]
+                if last_val == current_val:
+                    row.append(current_val)
+                else:
+                    stylized = '\n'.join([style_green(line) for line in current_val.split('\n')])
+                    row.append(stylized)
+                    #row.append(Style.fg(0x55ff55)(current_val))
+                return row
+
+            table_data.append(add_row('Serial Number', latest['serial_number'], current['serial_number']))
+            table_data.append(add_row('Manufacturer', latest['manufacturer'], current['manufacturer']))
+            table_data.append(add_row('Comments', latest['comments'], current['comments']))
+            
+            table_data.append(add_row('Subcomponents',
+                    json.dumps(latest['subcomponents'], indent=4),
+                    json.dumps(current['subcomponents'], indent=4)))
+
+            table_data.append(add_row('Specifications',
+                    json.dumps(latest['specifications'], indent=4),
+                    json.dumps(current['specifications'], indent=4)))
+            
+            table_data.append(add_row('Enabled', latest['enabled'], current['enabled']))
+
+            table = Table(table_data)
+            table.set_row_border(1, BoxDraw.BORDER_STRONG)
+            table.set_column_border(1, BoxDraw.BORDER_STRONG)
+            table.set_column_width(0, 15)
+            table.set_column_width(1, 40)
+            table.set_column_width(2, 40)           
+ 
+            #fp.write(table.generate(trunc_char='…'))
+            fp.write(table.generate(trunc_char='▶', trunc_style=Style.fg(0x8888ff)))
+
+        if self.is_new():
+            display_new_item()
+        else:
+            display_edited_item()
+
+        return fp.getvalue()
 
 if __name__ == "__main__":
     pass

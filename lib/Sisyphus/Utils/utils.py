@@ -7,7 +7,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
 Miscellaneous utility functions
 """
-
+import re
 import os, sys
 from functools import wraps
 
@@ -168,6 +168,146 @@ def traverse(container, path):
         #print(path, container)
         raise TypeError(f"path '{path}' was not valid")
     #}}}
+
+def preserve_order(obj):
+    #{{{
+    '''Recursively store the key order of any dictionaries found
+
+    As of Python 3.6, dictionaries already preserve the order of their
+    keys, but when uploading to the HWDB and downloading again, the
+    order of the keys is not guaranteed to stay the same. So, add an
+    extra "_meta" tag that contains the correct order.
+
+    Lists always preserve order, so leave them alone (but still recurse
+    through them).
+
+    Use 'restore_order' after downloading from the HWDB to get the
+    dictionaries back into the correct order.
+
+    NOTE: this adds the _meta tags in-place, so 'obj' is actually
+    changed. Make a copy if this is not desired!
+    '''
+
+    if type(obj) is list:
+        for item in obj:
+            preserve_order(item)
+    elif type(obj) is dict:
+        order = list(obj.keys())
+        if "_meta" in order:
+            order.remove("_meta")
+            #order.append("_meta")
+
+        # We have to make sure to skip the '_meta' tag, so we don't
+        # recurse forever. Note that if there was already a '_meta' tag
+        # before we added one, the order of its contents will not be
+        # preserved.
+        for key, item in obj.items():
+            if key != '_meta':
+                preserve_order(item)
+        
+        if "_meta" in obj:
+            obj["_meta"] = obj.pop("_meta")       
+        
+        if len(order) > 1:
+            obj.setdefault("_meta", {})["keys"] = order
+
+    # Even though the change was made in-place, return the object anyway.
+    # It simplifies the syntax when one wants to make a copy:
+    #     mycopy = preserve_order(deepcopy(original))
+    return obj
+    #}}}
+
+def restore_order(obj):
+    #{{{
+    """Re-order the keys in dictionaries to saved order
+
+    If the "_meta" tag only contains "keys", the entire "_meta" tag
+    will be removed. Otherwise, only the "keys" will be removed.
+
+    NOTE: this does the reordering
+    """
+
+    if type(obj) is list:
+        for item in obj:
+            restore_order(item)
+    elif type(obj) is dict:
+        if "_meta" in obj and isinstance(obj["_meta"], dict) and "keys" in obj["_meta"]:
+            # Get the preserved ordering, but then look for any extra
+            # keys that might have been added and add those to the list
+            # at the end. At the time this comment was written, this
+            # shouldn't happen, but I'd like it to go smoothly and not
+            # drop data if this should happen in the future.
+            order = obj["_meta"]["keys"]
+
+            for key in order:
+                if key not in obj:
+                    order.remove(key)
+            for key in obj.keys():
+                if key not in order:
+                    order.append(key)
+
+            # Re-order the dictionary by popping each item and re-adding
+            # it, which will place it at the end.
+            for key in order:
+                obj[key] = obj.pop(key)
+
+            obj['_meta'].pop("keys")
+            if len(obj['_meta']) == 0:
+                obj.pop('_meta')
+
+
+        for key, item in obj.items():
+            restore_order(item)
+
+    # Even though the change was made in-place, return the object anyway.
+    # It simplifies the syntax when one wants to make a copy:
+    #     mycopy = restore_order(deepcopy(original))
+    return obj
+    #}}}
+
+def scramble_order(obj):
+    #{{{
+    '''Scramble the order of keys in dictionaries
+
+    This function serves only as a test to simulate what might happen
+    to an object that was uploaded to the HWDB and downloaded again.
+    '''
+
+    if type(obj) is list:
+        for item in obj:
+            scramble_order(item)
+    elif type(obj) is dict:
+        keys = list(obj.keys())
+
+        # Shuffle the keys
+        # if there are at least two keys, make sure the shuffle
+        # actually changes the order. Redo if it doesn't.
+        if len(keys) > 1:
+            original_order = keys[:]
+            while keys == original_order:
+                random.shuffle(keys)
+        for key in keys:
+            obj[key] = obj.pop(key)
+        for key, item in obj.items():
+            scramble_order(item)
+
+    # Even though the change was made in-place, return the object anyway.
+    # It simplifies the syntax when one wants to make a copy:
+    #     mycopy = scramble_order(deepcopy(original))
+    return obj
+    #}}}
+
+def postgresql_pattern(expr):
+    '''Create a regular expression pattern object from postgresql wildcards
+
+    This is just a quick-and-dirty substitution. It probably could be
+    fooled on purpose, but it's not likely to happen under normal
+    usage.
+    '''
+
+    new_expr = expr.replace('.', '\.').replace('*', '\*').replace('_', '.').replace('%', '.*')
+
+    return re.compile('^' + new_expr + '$')
 
 
 if __name__ == '__main__':

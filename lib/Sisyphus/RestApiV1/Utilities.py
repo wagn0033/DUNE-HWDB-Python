@@ -12,11 +12,13 @@ logger = config.getLogger(__name__)
 
 import Sisyphus.RestApiV1 as ra
 from Sisyphus.RestApiV1.keywords import *
+from Sisyphus.Utils import utils
 
 import sys
 from copy import deepcopy
 import multiprocessing.dummy as mp # multiprocessing interface, but uses threads instead
 from collections import namedtuple
+import json
 
 #######################################################################
 
@@ -28,7 +30,21 @@ def user_role_check(part_type_id=None, part_type_name=None):
     #{{{
     """Checks if the user is permitted to work with this ComponentType"""
     
+    # Set up the caching
+    def make_cache(fn, name, val):
+        if not hasattr(fn, name):
+            setattr(fn, name, val)
+        return getattr(fn, name)
+    _cache = make_cache(user_role_check, "_cache", {})    
+    
+    if part_type_id is not None:
+        if part_type_id in _cache:
+            return _cache["part_type_id"]    
+
     part_type = fetch_component_type(part_type_id, part_type_name)
+    part_type_id = part_type["ComponentType"]["part_type_id"]
+    part_type_name = part_type["ComponentType"]["full_name"]
+
     roles_allowed = {role['id'] for role in part_type["ComponentType"]["roles"]}
 
     user_info = ra.whoami()
@@ -36,7 +52,9 @@ def user_role_check(part_type_id=None, part_type_name=None):
 
     satisfying_roles = roles_allowed.intersection(user_roles)
 
-    return len(satisfying_roles) > 0
+    retval = len(satisfying_roles) > 0
+    _cache[part_type_id] = retval
+    return retval
     #}}}
 
 
@@ -110,7 +128,7 @@ def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True)
             # that it's somewhere in the matches.
             if part_type_id not in matches:
                 msg = (f"part_type_name '{part_type_name}' is not consistent "
-                        f"with part_type_id '{part_type_id}")
+                        f"with part_type_id '{part_type_id}'")
                 logger.error(msg)
                 raise ra.IncompatibleArguments(msg)
         else:
@@ -119,8 +137,13 @@ def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True)
             # and now we don't have to worry about it anymore.
             if len(matches) == 1:
                 part_type_id = matches[0]
+            elif len(matches) > 1:
+                msg = (f"The part type '{part_type_name}' is ambiguous")
+                logger.error(msg)
+                raise ra.AmbiguousParameters(msg)
+
             else:
-                msg = (f"No component type with part_type_name '{part_type_name}")
+                msg = (f"No component type with part_type_name '{part_type_name}'")
                 logger.error(msg)
                 raise ra.NotFound(msg)
                 
@@ -501,17 +524,18 @@ def lookup_component_type_defs(part_type_id):
     return type_info
     #}}}
 
+
 #######################################################################
-
-def lookup_institution_by_id(inst_id):
-    #{{{
-    if not hasattr(lookup_institution_by_id, "_cache"):
-        inst_list = ra.get_institutions()['data']
-        lookup_institution_by_id._cache = { inst_item['id']: inst_item for inst_item in inst_list }
-
-    return lookup_institution_by_id._cache[inst_id]
-    #}}}
-
+#
+#def lookup_institution_by_id(inst_id):
+#    #{{{
+#    if not hasattr(lookup_institution_by_id, "_cache"):
+#        inst_list = ra.get_institutions()['data']
+#        lookup_institution_by_id._cache = { inst_item['id']: inst_item for inst_item in inst_list }
+#
+#    return lookup_institution_by_id._cache[inst_id]
+#    #}}}
+#
 #######################################################################
 
 def bulk_add_hwitems(part_type_id, count, *, 
@@ -562,7 +586,7 @@ def enable_hwitem(part_id, *,
     if comments is not None:
         data["comments"] = comments
     
-    resp = ra.patch_part_id_enable(part_id, data)
+    resp = ra.patch_hwitem_enable(part_id, data)
 
     if resp["status"] != "OK":
         raise ValueError(f"Enable '{part_id}' failed")
@@ -646,14 +670,165 @@ SN_Lookup = _SN_Lookup()
 
 
 #######################################################################
-
+#######################################################################
+####
+####  LOOKUP FUNCTIONS
+####
+#######################################################################
+#######################################################################
 
 
 _country_cache = None
 _institution_cache = None
 _manufacturer_cache = None
 
+
+def get_institutions(use_cache=True):
+    '''Get a list of institutions
+
+    Behaves the same as RestApiV1.get_institutions(), but performs 
+    caching to speed up subsequent calls.
+    '''
+    # Set up the caching
+    def make_cache(fn, name, val):
+        if not hasattr(fn, name):
+            setattr(fn, name, val)
+        return getattr(fn, name)
+    _cache = make_cache(get_institutions, "_cache", {})
+
+    if not use_cache or len(_cache) == 0:
+        _cache['institutions'] = ra.get_institutions()['data']
+        for node in _cache['institutions']:
+            node['combined'] = f"({node['id']}) {node['name']}"
+            node['country']['combined'] = f"({node['country']['code']}) {node['country']['name']}"
+    return _cache['institutions']
+
+def get_countries(use_cache=True):
+    '''Get a list of countries
+
+    Behaves the same as RestApiV1.get_countries(), but performs
+    caching to speed up subsequent calls.
+    '''
+    # Set up the caching
+    def make_cache(fn, name, val):
+        if not hasattr(fn, name):
+            setattr(fn, name, val)
+        return getattr(fn, name)
+    _cache = make_cache(get_countries, "_cache", {})
+
+    if not use_cache or len(_cache) == 0:
+        _cache['countries'] = ra.get_countries()['data']
+        for node in _cache['countries']:
+            node['combined'] = f"({node['code']}) {node['name']}"
+    return _cache['countries']
+
+def get_manufacturers(use_cache=True):
+    '''Get a list of manufacturers
+
+    Behaves the same as RestApiV1.get_manufacturers(), but performs
+    caching to speed up subsequent calls.
+    '''
+    # Set up the caching
+    def make_cache(fn, name, val):
+        if not hasattr(fn, name):
+            setattr(fn, name, val)
+        return getattr(fn, name)
+    _cache = make_cache(get_manufacturers, "_cache", {})
+
+    if not use_cache or len(_cache) == 0:
+        _cache["manufacturers"] = ra.get_manufacturers()['data']
+        for node in _cache['manufacturers']:
+            node['combined'] = f"({node['id']}) {node['name']}"
+    return _cache['manufacturers']
+    
+
+
+def lookup_institution(institution_id=None, institution_name=None, institution=None):
+
+    #if not (institution_id or institution_name or institution):
+    #    raise ra.MissingArguments("function requires at least one of 'institution_id', "
+    #                    "'institution_name', or 'institution'")
+
+    inst = get_institutions()
+
+    if institution_name is not None:
+        name_pattern = utils.postgresql_pattern(institution_name)
+    if institution is not None:
+        combo_pattern = utils.postgresql_pattern(institution)
+
+    matches = []
+
+    for node in inst:
+        if institution_name and not name_pattern.fullmatch(node['name']):
+            continue
+        if institution and not combo_pattern.fullmatch(node['combined']):
+            continue
+        if institution_id and institution_id != node['id']:
+            continue
+        
+        matches.append(node)
+
+    return matches
+
+def lookup_country(country_code=None, country_name=None, country=None):
+    #if not (country_code or country_name or country):
+    #    raise ra.MissingArguments("function requires at least one of 'country_code', "
+    #                    "'country_name', or 'country'")
+
+    countries = get_countries()
+
+    if country_name is not None:
+        name_pattern = utils.postgresql_pattern(country_name)
+    if country is not None:
+        combo_pattern = utils.postgresql_pattern(country)
+
+    matches = []
+
+    for node in countries:
+        if country_name and not name_pattern.fullmatch(node['name']):
+            continue
+        if country and not combo_pattern.fullmatch(node['combined']):
+            continue
+        if country_code and country_code.casefold() != node['code'].casefold():
+            continue
+
+        matches.append(node)
+
+    return matches
+
+def lookup_manufacturer(manufacturer_id=None, manufacturer_name=None, manufacturer=None):
+    #if not (manufacturer_id or manufacturer_name or manufacturer):
+    #    raise ra.MissingArguments("function requires at least one of 'manufacturer_id', "
+    #                    "'manufacturer_name', or 'manufacturer'")
+
+    manufacturers = get_manufacturers()
+
+    if manufacturer_name is not None:
+        name_pattern = utils.postgresql_pattern(manufacturer_name)
+    if manufacturer is not None:
+        combo_pattern = utils.postgresql_pattern(manufacturer)
+
+    matches = []
+
+    for node in manufacturers:
+        if manufacturer_name and not name_pattern.fullmatch(node['name']):
+            continue
+        if manufacturer and not combo_pattern.fullmatch(node['combined']):
+            continue
+        if manufacturer_id and manufacturer_id != node['id']:
+            continue
+
+        matches.append(node)
+
+    return matches
+
+
+
+
+
+
 def initialize_country_cache():
+    #{{{
     global _country_cache
     if _country_cache is None:
         countries = ra.get_countries()["data"]
@@ -661,16 +836,12 @@ def initialize_country_cache():
         _country_cache["by_code"] = {c["code"]: c["name"] for c in countries}
         _country_cache["by_name"] = {c["name"]: c["code"] for c in countries}
         _country_cache["by_str"] = {f"({c['code']}) {c['name']}": c for c in countries}
+    #}}}
 
-    #import json
-    #print(json.dumps(_country_cache, indent=4))
-
-
-
-
-
+#######################################################################
 
 def lookup_country_name_by_country_code(country_code):
+    #{{{
     global _country_cache
     initialize_country_cache()
     
@@ -678,5 +849,9 @@ def lookup_country_name_by_country_code(country_code):
         return _country_cache["by_code"][country_code]
     else:
         raise ra.NotFound(f"Could not find country_code '{country_code}'")
+    #}}}
+
+#######################################################################
+
 
 

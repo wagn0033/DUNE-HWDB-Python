@@ -58,31 +58,6 @@ class Sheet:
     #{{{
     '''Load a CSV or Excel sheet and provide an interface for Encoders to extract data'''
 
-    #{{{
-    '''
-    def __init__(self, sheet_info):
-        self.sheet_info = deepcopy(sheet_info)
-
-        self.global_values = sheet_info.get("Values", {})
-        self.global_values["HWDB Utility Version"] = version
-        self.local_values = None
-        self.dataframe = None
-        self.rows = None
-
-        sheet_source_info = []
-        if "Docket" in sheet_info:
-            sheet_source_info.append(f"Docket '{sheet_info['Docket']}'")
-        if "Source" in sheet_info:
-            sheet_source_info.append(f"Source '{sheet_info['Source']}'")
-        if "Source" in sheet_info:
-            sheet_source_info.append(f"File '{sheet_info['File']}'")
-        if "Sheet" in sheet_info:
-            sheet_source_info.append(f"Sheet '{sheet_info['Sheet']}'")
-        self.sheet_source = ", ".join(sheet_source_info)
-        
-        self._read_data()
-    '''
-    #}}}
 
     def __init__(self, filename, sheet=None, values=None, trace=None):
         #{{{
@@ -95,14 +70,13 @@ class Sheet:
             else:
                 raise ValueError(f"Unrecognized file type '{filename}'")
             self.sheetname = sheet
-
-            self.global_values = (values or {})
-            self.global_values["HWDB Utility Version"] = version
-            self.local_values = None
+            self.global_values = values or {}
+            #self.global_values["HWDB Utility Version"] = version
+            self.local_values = {}
             self.dataframe = None
             self.rows = None
             self.sheet_source = trace            
-
+            self._read_data()
         #}}}
 
     def create_cell(self, location, value, datatype):
@@ -148,6 +122,11 @@ class Sheet:
                         self.global_values[column],
                         datatype)
 
+            # We didn't find anything, so let's just see if it was prefaced
+            # by "S:", "C:", or "T:" and try again.
+            if column[:2] in ("S:", "C:", "T:"):
+                return inner_coalesce(self, column[2:], row_index, datatype)
+            
             return self.create_cell("not found", None, "any")
 
         return tc.cast(inner_coalesce(self, column, row_index, datatype))
@@ -173,7 +152,7 @@ class Sheet:
                 try:
                     return pd.read_excel(
                                 filename,
-                                self.sheet_info["Sheet"],
+                                sheetname,
                                 keep_default_na=False,
                                 **kwargs)
                 except ValueError as err:
