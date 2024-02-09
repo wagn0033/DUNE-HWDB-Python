@@ -51,7 +51,7 @@ contents = \
             "level": "DEBUG",
             "formatter": "standard",
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/home/alexwagner/.sisyphus/log.txt",
+            "filename": "~/.sisyphus/log.txt",
             "maxBytes": 0x0100_0000,  # About 16MB
             "backupCount": 5
         }

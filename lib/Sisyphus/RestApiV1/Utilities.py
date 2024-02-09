@@ -29,7 +29,8 @@ PartType = namedtuple('PartType', ['id', 'name'])
 def user_role_check(part_type_id=None, part_type_name=None):
     #{{{
     """Checks if the user is permitted to work with this ComponentType"""
-    
+   
+    logger.debug(f"<user_role_check> checking ({part_type_id}, {part_type_name})")
     # Set up the caching
     def make_cache(fn, name, val):
         if not hasattr(fn, name):
@@ -39,7 +40,9 @@ def user_role_check(part_type_id=None, part_type_name=None):
     
     if part_type_id is not None:
         if part_type_id in _cache:
-            return _cache["part_type_id"]    
+            retval = _cache[part_type_id]
+            logger.debug(f"<user_role_check> returning {retval} from cache")
+            return retval  
 
     part_type = fetch_component_type(part_type_id, part_type_name)
     part_type_id = part_type["ComponentType"]["part_type_id"]
@@ -57,6 +60,7 @@ def user_role_check(part_type_id=None, part_type_name=None):
     return retval
     #}}}
 
+#######################################################################
 
 def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True):
     #{{{
@@ -214,7 +218,6 @@ def lookup_part_type_by_name(part_type_name, max_records=100):
     '''
 
     logger.debug(f"looking up part_type: part_type_name='{part_type_name}'")
-    
     # Set up the caching
     # Caching cannot be turned off for this function because since users cannot
     # change the name or ID via the REST API, there's no reason to specifically
@@ -228,6 +231,7 @@ def lookup_part_type_by_name(part_type_name, max_records=100):
     # Check cache for the result
     part_type_name = part_type_name.upper()
     if part_type_name in _cache:
+        logger.debug(f"returning info from cache")
         return _cache[part_type_name]
 
     # Validate formatting of fullname
@@ -415,7 +419,7 @@ def fetch_hwitems(part_type_id = None,
 
 
 #######################################################################
-
+"""
 def lookup_part_type_id_by_fullname(fullname):
     # TODO: this function is obsolete. Refactor to eliminate calls.
     #{{{
@@ -523,7 +527,7 @@ def lookup_component_type_defs(part_type_id):
 
     return type_info
     #}}}
-
+"""
 
 #######################################################################
 #

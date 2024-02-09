@@ -17,6 +17,7 @@ import unittest
 import random
 
 from Sisyphus.RestApiV1 import post_hwitem
+from Sisyphus.RestApiV1 import patch_hwitem
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus.RestApiV1 import patch_hwitem_enable
 from Sisyphus.RestApiV1 import post_hwitems_bulk
@@ -124,11 +125,122 @@ class Test__patch_enables(unittest.TestCase):
         #}}}
 
     #-------------------------------------------------------------------------
+    
+    def test__patch_hwitem_enable__enabled_persistence(self):
+        #{{{
+        """Tests whether patching an item resets 'enabled'
 
+        When an item is patched, it should stay enabled or disabled, and
+        not be automatically reset to disabled. This test verifies that the
+        bug has been fixed.
+        """
+
+        part_id = "Z00100300001-00001"
+        logger.info(f"Enabling item {part_id}")
+
+        # Get an existing item
+        orig_item = get_hwitem(part_id)
+       
+        def change_enabled(orig_item, enabled=True):
+            new_comment = f"changing enabled to {enabled} ({random.randint(0, 999999):06d})"
+            data = {
+                "comments": new_comment,
+                "component": {"part_id": orig_item['data']['part_id']},
+                "enabled": enabled,
+            }
+            resp = patch_hwitem_enable(orig_item['data']['part_id'], data)
+
+        # Enable it, if disabled
+        if not orig_item['data']['enabled']:
+            change_enabled(orig_item, True)
+            enabled_item = get_hwitem(part_id)
+            self.assertTrue(enabled_item['data']['enabled'], 'The item was not enabled')
+            orig_item = enabled_item
+
+        # Patch it
+        data = {
+            "part_id": part_id,
+            "comments": "editing comment for item",
+            "manufacturer": None,
+            "serial_number": orig_item["data"]["serial_number"],
+            "specifications": orig_item["data"]["specifications"][0],
+        }
+        resp = patch_hwitem(part_id, data)
+
+        # Get the item again
+        changed_item = get_hwitem(part_id)
+        self.assertTrue(changed_item['data']['enabled'], 'The item was disabled after patching')
+
+        #}}}
+    
+    #-------------------------------------------------------------------------
+    
+    def test__patch_hwitem_enable__comment_persistence(self):
+        #{{{
+        """Tests whether enabling alters the item's comment
+
+        Enabling/disabling an item accepts a comment, but that comment
+        should go somewhere else in the database instead of as one of
+        the item properties. This test will verify whether this bug has
+        been fixed.
+        """
+
+        part_id = "Z00100300001-00001"
+        logger.info(f"Enabling item {part_id}")
+
+        # Get an existing item
+        orig_item = get_hwitem(part_id)
+       
+        def change_enabled(orig_item, enabled=True):
+            new_comment = f"changing enabled to {enabled} ({random.randint(0, 999999):06d})"
+            data = {
+                "comments": new_comment,
+                "component": {"part_id": orig_item['data']['part_id']},
+                "enabled": enabled,
+            }
+            resp = patch_hwitem_enable(orig_item['data']['part_id'], data)
+
+        # Disable it, if enabled 
+        errors = []
+        if orig_item['data']['enabled']:
+            change_enabled(orig_item, False)
+            disabled_item = get_hwitem(part_id)
+            comment2, comment1 = disabled_item['data']['comments'], orig_item['data']['comments']
+            #print(comment1, comment2)
+            if comment1 != comment2:
+                errors.append(f"Initial disable: comment changed from '{comment1}' to '{comment2}'")
+            orig_item = disabled_item        
+
+        # Enable it
+        change_enabled(orig_item, True)
+        enabled_item = get_hwitem(part_id)
+        comment2, comment1 = enabled_item['data']['comments'], orig_item['data']['comments']
+        #print(comment1, comment2)
+        if comment1 != comment2:
+            errors.append(f"On enabling, comment changed from '{comment1}' to '{comment2}'")
+        orig_item = enabled_item
+
+        # Disable it
+        change_enabled(orig_item, False)
+        disabled_item = get_hwitem(part_id)
+        #print(comment1, comment2)
+        comment2, comment1 = disabled_item['data']['comments'], orig_item['data']['comments']
+        if comment1 != comment2:
+            errors.append(f"On disabling, comment changed from '{comment1}' to '{comment2}'")
+        orig_item = disabled_item        
+
+        if errors:
+            self.fail("; ".join(errors))
+
+        #}}}
+
+    #-------------------------------------------------------------------------
+    
     #post (2) items in bulk, get part ids from response of post, 
     # use those part ids to enable them, check if they were enabled. 
     # Disable them, check if they were disabled
     def test_patch_enable_bulk(self):
+        #{{{
         """Tests setting "enabled" status in several items at the same time"""
 
         #POST bulk
@@ -210,6 +322,7 @@ class Test__patch_enables(unittest.TestCase):
         self.assertFalse(resp["data"]["enabled"])
         self.assertFalse(resp2["data"]["enabled"])
         logger.info(f"Response from post: {resp}")
+        #}}}
 
 #=================================================================================
 

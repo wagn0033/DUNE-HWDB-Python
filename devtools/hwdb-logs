@@ -26,6 +26,13 @@ teststatus_styles = \
     'FAIL': Style.fail,
 }
 
+requestmethod_styles = \
+{
+    'GET': Style.bg(0x222266),
+    'POST': Style.bg(0x222266),
+    'PATCH': Style.bg(0x222266),
+}
+
 loginit_style = Style.fg(0xffffff).bg(0x0037da).bold()
 big_style = Style.large().fg(0x999999).italic()
 
@@ -56,6 +63,15 @@ re_loginit = re.compile(r"""
     (?P<remainder>.*)
     $
 """, re.VERBOSE)
+
+re_requestmethod = re.compile(r"""
+    ^
+    (?P<before>.*)
+    \[(?P<method>GET|POST|PATCH)\]
+    (?P<after>.*)
+    $
+""", re.VERBOSE)
+
 
 clear_to_end = "\x1b[K"
 
@@ -102,6 +118,7 @@ def main(argv):
 
                 match2 = re_teststatus.fullmatch(match['remainder'])
                 match3 = re_loginit.fullmatch(match['remainder'])
+                match4 = re_requestmethod.match(match['remainder'])
 
                 if match3:
                     style = loginit_style
@@ -120,6 +137,12 @@ def main(argv):
                     style.print(f"{match2['residue']}", clear_to_end, sep='')
                 elif match3:
                     style.print("[LOG INIT]", match3['remainder'], clear_to_end, sep='')
+                elif match4:
+                    method = match4['method']
+                    methodstyle = Style(style, requestmethod_styles.get(method, unknown_style))
+                    style.print(f"{match4['before']}", end='')
+                    methodstyle.print(f"[{match4['method']}]", end='')
+                    style.print(f"{match4['after']}")
                 else:
                     style.print(f"{match['remainder']}", clear_to_end, sep='')
             else:

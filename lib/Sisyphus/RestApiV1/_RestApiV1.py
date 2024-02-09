@@ -134,15 +134,16 @@ def _request(method, url, *args, return_type="json", **kwargs):
 
     '''
     threadname = threading.current_thread().name
-    msg = (f"<_request> " #thread='{threadname}' "
+    msg = (f"<_request> [{method.upper()}] "
             f"url='{url}' method='{method.lower()}'")
-    if method.lower() in ("post", "patch"):
-        # Make it stand out more in the logs if this is actually updating
-        # the database
-        logger.info(msg)
-    else:
-        logger.debug(msg)  
- 
+    #if method.lower() in ("post", "patch"):
+    #    # Make it stand out more in the logs if this is actually updating
+    #    # the database
+    #    logger.info(msg)
+    #else:
+    #    logger.debug(msg)  
+    logger.debug(msg) 
+
     if session is None:
         msg = "No session available"
         logger.error(msg)
@@ -579,24 +580,28 @@ def post_hwitem(part_type_id, data, **kwargs):
 #-----------------------------------------------------------------------------
 
 def patch_hwitem(part_id, data, **kwargs):
+    #{{{
     """Modify an Item in the HWDB
 
     Structure for "data":
         {
+            "part_id": <str>,
             "comments": <str>,
             "manufacturer": {"id": <int>},
-            "part_id": <str>,
             "serial_number": <str>,
             "specifications": {...},
         }
 
     Structure of returned data:
         {
+            "component_id": 44757,
+            "data": "Created",
+            "id": 151635,
+            "part_id": "Z00100300001-00001",
+            "status": "OK"
         }
     """
 
-
-    #{{{
     logger.debug(f"<patch_hwitem> part_id={part_id}")
     path = f"api/v1/components/{sanitize(part_id)}" 
     url = f"https://{config.rest_api}/{path}"
@@ -621,6 +626,27 @@ def post_bulk_hwitems(part_type_id, data, **kwargs):
    
 def patch_hwitem_enable(part_id, data, **kwargs):
     #{{{
+    """Enables/disables an HWItem
+
+    Structure for "data":
+        {
+            "comments": <str>,
+            "component": {"part_id": <str>},
+            "enabled": <bool>,
+        }
+
+    Structure of returned data:
+        {
+            "component_id": 44757,
+            "data": "Created",
+            "operation": "enabled",
+            "part_id": "Z00100300001-00001",
+            "status": "OK"
+        }
+
+    Note: at the time of this writing, "comments" overwrites the comment for
+    the item itself!
+    """
     logger.debug(f"<patch_hwitem_enable> part_id={part_id}")
     path = f"api/v1/components/{sanitize(part_id)}/enable"
     url = f"https://{config.rest_api}/{path}"
@@ -1048,6 +1074,7 @@ def patch_test_type(part_type_id, data, **kwargs):
 #-----------------------------------------------------------------------------
 
 def post_test(part_id, data, **kwargs):
+    #{{{
     '''Post a new test
 
     Structure for data:    
@@ -1065,7 +1092,6 @@ def post_test(part_id, data, **kwargs):
             "test_type_id": 563
         }
     '''
-    #{{{
     logger.debug(f"<post_test> part_id={part_id}")
     path = f"api/v1/components/{part_id}/tests"
     url = f"https://{config.rest_api}/{path}"

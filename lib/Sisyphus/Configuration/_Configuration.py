@@ -117,6 +117,14 @@ class Config:
                 raise ValueError("log config is obsolete")
 
             self.log_config_dict = _locals["contents"]
+
+            # Unfortunately, Python's logging module doesn't do an 
+            # expanduser on the logging handlers, so we have to go into
+            # that part of the configuration and do it ourselves.
+            for handler_name, handler_def in self.log_config_dict["handlers"].items():
+                if "filename" in handler_def:
+                    handler_def["filename"] = os.path.expanduser(handler_def["filename"])
+
             logging.config.dictConfig(self.log_config_dict)
 
         try:

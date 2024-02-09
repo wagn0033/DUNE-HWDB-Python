@@ -25,6 +25,8 @@ from patch_tests.test__patch_hwitems_bulk import *
 from patch_tests.test__patch_enables import *
 from patch_tests.test__patch_hwitem import *
 
+from spec_tests.test__specifications import *
+
 if __name__ == "__main__":
     unittest.main()
 
