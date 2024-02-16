@@ -826,35 +826,6 @@ def lookup_manufacturer(manufacturer_id=None, manufacturer_name=None, manufactur
 
     return matches
 
-
-
-
-
-
-def initialize_country_cache():
-    #{{{
-    global _country_cache
-    if _country_cache is None:
-        countries = ra.get_countries()["data"]
-        _country_cache= {}
-        _country_cache["by_code"] = {c["code"]: c["name"] for c in countries}
-        _country_cache["by_name"] = {c["name"]: c["code"] for c in countries}
-        _country_cache["by_str"] = {f"({c['code']}) {c['name']}": c for c in countries}
-    #}}}
-
-#######################################################################
-
-def lookup_country_name_by_country_code(country_code):
-    #{{{
-    global _country_cache
-    initialize_country_cache()
-    
-    if country_code in _country_cache["by_code"]:
-        return _country_cache["by_code"][country_code]
-    else:
-        raise ra.NotFound(f"Could not find country_code '{country_code}'")
-    #}}}
-
 #######################################################################
 
 

@@ -192,6 +192,7 @@ class Docket:
                 "Record Type": encoder.record_type,
                 "Part Type ID": encoder.part_type_id,
                 "Part Type Name": encoder.part_type_name,
+                "Encoder": encoder,
             }
             if encoder.record_type in ("Test", "Test Image"):
                 job_template["Test Name"] = encoder.test_name
@@ -199,7 +200,7 @@ class Docket:
 
             #Style.notice.print(json.dumps(encoder.schema, indent=4))
 
-            job_list, uuid = encoder.encode(sheet)
+            job_list = encoder.encode(sheet)
 
             for job_unit in job_list:
                 job = deepcopy(job_template)

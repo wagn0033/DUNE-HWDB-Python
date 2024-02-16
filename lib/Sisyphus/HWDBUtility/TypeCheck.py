@@ -76,7 +76,7 @@ from copy import deepcopy
 import re
 import math
 import numpy as np
-
+from datetime import datetime
 from dataclasses import dataclass, field
 from collections import namedtuple
 
@@ -141,7 +141,7 @@ def cast_str(cell):
     # As far as I know, anything can be cast to as string. So just do it.
     cell = deepcopy(cell)
     cell.value = str(cell.value)
-    cell.warning = []
+    cell.warnings = []
     return cell
     #}}}
 
@@ -201,6 +201,23 @@ def cast_int(cell):
     return cell
     #}}}
 
+def cast_unixtime(cell):
+    #{{{
+    
+    cell = deepcopy(cell)
+    cell_original = deepcopy(cell)
+
+    cell.warnings = []
+    cell = cast_number(cell)
+    if len(cell.warnings) > 0:
+        cell_original.warnings.append(f"Cannot interpret '{cell_original.value}' as "
+                "Unix time")
+        return cell
+
+    cell.value = datetime.fromtimestamp(cell.value).isoformat()
+    return cell
+    #}}}
+
 def cast_float(cell):
     #{{{
     # For the purposes of this module, NaN is not considered a valid float,
@@ -254,12 +271,12 @@ def cast_bool(cell):
 
     cell = deepcopy(cell)
     
-    if str(cell).lower() in ("0", "0.0", "false", "f", "no", "n"):
+    if str(cell.value).lower() in ("0", "0.0", "false", "f", "no", "n"):
         cell.value = False
         cell.warnings = []
         return cell
 
-    if str(cell).lower() in ("1", "1.0", "true", "t", "yes", "y"):
+    if str(cell.value).lower() in ("1", "1.0", "true", "t", "yes", "y"):
         cell.value = True
         cell.warnings = []
         return cell
@@ -366,6 +383,8 @@ def cast(cell):
             cell = cast_float(cell)
         elif typedef in ('number', 'numeric'):
             cell = cast_number(cell)
+        elif typedef in ('unixtime',):
+            cell = cast_unixtime(cell)
         elif typedef in ('bool', 'boolean', 'bit'):
             cell = cast_bool(cell)
         elif typedef in ('null', 'none'):

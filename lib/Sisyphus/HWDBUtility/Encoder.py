@@ -18,6 +18,9 @@ from Sisyphus.Utils.Terminal.Style import Style
 
 from Sisyphus.Utils import utils
 
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
+
 import json
 import sys
 import numpy as np
@@ -36,7 +39,7 @@ KW_MEMBERS = "members"
 KW_VALUE = "value"
 KW_DEFAULT = "default"
 
-pp = lambda s: print(json.dumps(s, indent=4))
+#pp = lambda s: print(json.dumps(s, indent=4))
 
 printcolor = lambda c, s: print(Style.fg(c)(s))
 
@@ -50,8 +53,8 @@ default_universal_fields = \
 {
     "Part Type ID": {KW_TYPE:"null,string", KW_COLUMN:"Part Type ID", KW_DEFAULT:None},
     "Part Type Name": {KW_TYPE:"null,string", KW_COLUMN:"Part Type Name", KW_DEFAULT:None},
-    "Serial Number": {KW_TYPE:"null,string", KW_COLUMN:"Serial Number", KW_DEFAULT:None},
     "External ID": {KW_TYPE:"null,string", KW_COLUMN:"External ID", KW_DEFAULT:None},
+    "Serial Number": {KW_TYPE:"null,string", KW_COLUMN:"Serial Number", KW_DEFAULT:None},
 }
 
 default_schema_fields_by_record_type = \
@@ -71,15 +74,10 @@ default_schema_fields_by_record_type = \
         "Manufacturer": {KW_TYPE:"null,string", KW_COLUMN:"Manufacturer", KW_DEFAULT:None},
         "Manufacturer ID": {KW_TYPE:"null,integer", KW_COLUMN:"Manufacturer ID", KW_DEFAULT:None},
         "Manufacturer Name": {KW_TYPE:"null,string", KW_COLUMN:"Manufacturer Name", KW_DEFAULT:None},
-        "Item Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None}, # SEE NOTE!
-        "Subcomponents": {KW_TYPE:"special"},
-        "Specifications": {KW_TYPE:"special"},
+        "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""}, # SEE NOTE!
         "Enabled": {KW_TYPE:"boolean", KW_COLUMN:"Enabled", KW_DEFAULT:True},
-        # NOTE: since "Comments" could belong to multiple record types or even
-        #       in the datasheets for Items or Tests, we have to give it a 
-        #       very specific name in the schema (e.g., "Item Comments") but
-        #       indicate that it will be found under a more generic name in
-        #       the spreadsheet (e.g., "Comments). But, it's configurable!
+        "Subcomponents": {KW_TYPE:"collection", KW_MEMBERS: {}},
+        "Specifications": {KW_TYPE:"datasheet", KW_MEMBERS: {}},
     },
     "Test":
     {
@@ -90,8 +88,8 @@ default_schema_fields_by_record_type = \
         "Test Name": {KW_TYPE:"null,string", KW_COLUMN:"Test Name", KW_DEFAULT:None},
 
         # for record type 'Test':
-        "Test Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
-        "Test Results": {KW_TYPE:"special"},
+        "Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
+        "Test Results": {KW_TYPE:"datasheet"},
     },
     "Item Image":
     {
@@ -99,7 +97,7 @@ default_schema_fields_by_record_type = \
         **default_universal_fields,
 
         # for record_type 'Item Image' or 'Test Image':
-        "Image Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
+        "Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
         "Source File": {KW_TYPE:"null,string", KW_COLUMN:"File", KW_DEFAULT:None},
         "File Name": {KW_TYPE:"null,string", KW_COLUMN:"Rename", KW_DEFAULT:None},
     },
@@ -112,7 +110,7 @@ default_schema_fields_by_record_type = \
         "Test Name": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
 
         # for record_type 'Item Image" or 'Test Image':
-        "Image Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
+        "Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
         "Source File": {KW_TYPE:"null,string", KW_COLUMN:"File", KW_DEFAULT:None},
         "File Name": {KW_TYPE:"null,string", KW_COLUMN:"Rename", KW_DEFAULT:None},
     }
@@ -137,9 +135,6 @@ class Encoder:
             self.default_schema_fields = default_schema_fields_by_record_type[self.record_type] 
         else:
             raise ValueError("Record Type is required.")
-        #Style.fg(0xff00cc).print(f"'{self.name}', '{self.record_type}'") 
-        #Style.fg(0xffcc00).print( json.dumps(self.default_schema_fields , indent=4))
-
 
         self.part_type_name = enc.pop("Part Type Name", None)
         self.part_type_id = enc.pop("Part Type ID", None)
@@ -156,41 +151,40 @@ class Encoder:
 
         # TODO: more fields
 
-        #printcolor("cornflowerblue", "Encoder Def Unused Keys")
-        #printcolor("cornflowerblue", json.dumps(enc, indent=4))
         #}}}
     
-    #-----------------------------------------------------------------------------        
+    #--------------------------------------------------------------------------
     
     def add_warning(self, warning):
         printcolor(0xffaa33, f"WARNING: {warning}")
         self.warnings.append(warning)
     
-    #-----------------------------------------------------------------------------        
+    #--------------------------------------------------------------------------
 
     def _preprocess_schema(self, schema):
         #{{{
-        typedef_default = \
-        {
-            KW_TYPE: "null,any", 
-            KW_COLUMN: None, 
-            KW_DEFAULT: None,
-        }
-        
+        """'Normalize' the schema to make encoding simpler
+
+        * make the entire schema a 'schema' type (essentially, a group), and 
+            all schema fields 'members' of this schema/group. The key for this
+            schema/group is ('External ID', 'Serial Number')
+        * insert the default fields for this record_type, if not already present
+        * make all field definitions into dictionaries with the correct fields
+            (user's field definitions are allowed to be a string containing the
+            type, but convert it to a dict containing 'type'
+        * any fields that are of type 'datasheet' (i.e., 'Specifications' and
+            'Test Results') or 'collection' ('Subcomponents') should also be
+            converted into 'datasheet' or 'collection' groups.
+        """
         #......................................................................
 
         def preprocess_group(sch_in):
             #{{{
-            #print(json.dumps(sch_in, indent=4))
             sch_in = deepcopy(sch_in)
             sch_out = {}
 
             for schema_key, field_def in sch_in.items():
-                #if schema_key == "Length":
-                #    breakpoint()
-                #print(schema_key, field_def)
                 field_def = deepcopy(field_def)
-                #Style.info.print(schema_key, field_def)
 
                 if type(field_def) is str:
                     sch_out[schema_key] = \
@@ -203,7 +197,6 @@ class Encoder:
 
                 # From here forward, "field_def" is assumed to be a dict
 
-                #node = sch_out[schema_key] = {KW_TYPE: field_def.pop(KW_TYPE, "any")}
                 node = sch_out[schema_key] = {KW_TYPE: field_def.get(KW_TYPE, "null,any")}
                
                 # If this has a "value", then this is just a constant that doesn't
@@ -232,7 +225,6 @@ class Encoder:
                     # TODO: check if there are any leftover keys
                     continue
 
-                #member_def = {**typedef_default, KW_COLUMN: schema_key}
                 member_def = {**typedef_default, **field_def}
 
                 sch_out[schema_key] = member_def
@@ -241,65 +233,154 @@ class Encoder:
             #}}}
         
         #......................................................................
+        
+        def has_groups(members):
+            return (
+                isinstance(members, dict)
+                and any(
+                    isinstance(v, dict) and v.get('type', None) in 
+                            ('group', 'collection', 'datasheet', 'schema')
+                    for v in members.values())
+                )
+
+        #......................................................................
+
+        typedef_default = \
+        {
+            KW_TYPE: "null,any", 
+            KW_COLUMN: None, 
+            KW_DEFAULT: None,
+        }
 
         sch_in = deepcopy(schema)
         sch_out = {}
 
-        #Style.fg(0xcc00ff).print(json.dumps(schema, indent=4))
-
+        # Process the root level
+        # We can only handle the fields listed in the 'default' schema, because
+        # these correspond with what the database can hold for this record type.
+        # TODO: Warn if extra fields are found
+        # TODO: Create a mechanism to suppress this warning
+        
         for schema_key, default_field_def in self.default_schema_fields.items():
         
-            if schema_key in sch_in:
-                #printcolor(0xff33cc, f"'{schema_key}' is in incoming schema")
-                if default_field_def[KW_TYPE] == "special":
-                    # TODO: check if user already defined this as a group
-                    # and process it differently
+            #if schema_key == "Serial Number":
+            #    breakpoint()
 
-                    #printcolor(0xcc9933, f"'{schema_key}' is defined as 'special'")
+            field_type = default_field_def[KW_TYPE]
 
+            if field_type in ("datasheet", "collection"):
+                if schema_key in sch_in:
+                    user_field_def = sch_in[schema_key]
+                    # If the user provided this (and they should!), we should check
+                    # how they provided it. The usual case is that they gave it as
+                    # a dictionary of fields, which consists of the "members" of 
+                    # this datasheet (which is essentially the same as a group), 
+                    # but they should be allowed to provide it in the same form
+                    # as we will process it into, so check for 'type' and 'members'.
+                    if isinstance(default_field_def, str):
+                        # If it's a string instead of a dictionary, then the 
+                        # string indicates the type, which is useless for a
+                        # datasheet, because then there's no way of listing the
+                        # members. But, let's go ahead and give them a datasheet
+                        # with no members.
+                        sch_out[schema_key] = \
+                        {
+                            KW_TYPE: field_type,
+                            KW_MEMBERS: {},
+                        }
+                        continue
+                    if isinstance(default_field_def, list):
+                        # If it's a list, it better be a list of strings, each
+                        # of which is a name of a field of type 'any'.
+                        assert(all(isinstance(s, str) for s in default_field_def))
+                        sch_out[schema_key] = \
+                        {
+                            KW_TYPE: field_type,
+                            KW_MEMBERS: {s:"any" for s in default_field_def},
+                        }
+                        continue
+                    if not isinstance(default_field_def, dict):
+                        raise ValueError(f"{field_type} in schema must be a dictionary")
+
+                    if not {KW_TYPE, KW_MEMBERS, KW_KEY}.difference(default_field_def.keys()):
+                        # The only fields here, if any at all, are 'type', 
+                        # 'members', and 'key', so interpret this as a 
+                        # fully-defined field definition and use it as-is. But
+                        # the type (if present) has to be the correct field
+                        # type, and the key (if present) has to be empty.
+                        if user_field_def.get(KW_TYPE, field_type) != field_type:
+                            raise ValueError("this schema field must be of type "
+                                        f"'{field_type}'")
+                        if not user_field_def.get(KW_KEY, None):
+                            raise ValueError(f"{field_type} must not have 'key'")
+                       
+                        members = user_field_def.get(KW_MEMBERS, {})
+
+                        if field_type == "collection":
+                            if has_groups(members):
+                                raise ValueError(f"{schema_key} may not have any subgroups")   
+ 
+                        sch_out[schema_key] = \
+                        {
+                            KW_TYPE: field_type,
+                            KW_MEMBERS: preprocess_group(members),
+                        }
+                        continue
+                        
+                    # None of the above apply.
+                    # NOTE: this should be the most common case!
+                    # Treat this dictionary as a list of members. (It might
+                    # actually include the members 'type', 'members', and 
+                    # 'key', as long as there's at least one more field. 
+                    # (If something goes wrong because of it, then they get 
+                    # what they deserve.) Since one of these members might
+                    # be a group, we have to preprocess that node, too.
+                    members = user_field_def
+                    if field_type == "collection":
+                        if has_groups(members):
+                            raise ValueError(f"{schema_key} may not have any subgroups")   
+                    
                     sch_out[schema_key] = \
                     {
-                        KW_TYPE: "group",
-                        KW_KEY: [],
-                        KW_MEMBERS: preprocess_group(sch_in[schema_key]),
-                    }               
-                else:
-                    field_def = sch_in.pop(schema_key)
-                    if type(field_def) is str:
-                        sch_out[schema_key] = {**default_field_def, KW_TYPE: field_def}
-                    else:
-                        sch_out[schema_key] = {**default_field_def, **field_def}
-            else:
-                #printcolor(0xcc1199, f"'{schema_key}' is not in incoming schema")
-                if default_field_def[KW_TYPE] == "special":
-                    sch_out[schema_key] = \
-                    {
-                        KW_TYPE: "group",
-                        KW_KEY: [],
-                        KW_MEMBERS: {}
+                        KW_TYPE: field_type,
+                        KW_MEMBERS: preprocess_group(members),
                     }
+                    continue
+                
                 else:
-                    sch_out[schema_key] = deepcopy(default_field_def)
+                    # They didn't provide this field, so we'll just give them
+                    # a datasheet with no members.
+                    sch_out[schema_key] = default_field_def
+                    continue
+                logger.warning("This line should be unreachable. A 'continue' "
+                        "is missing somewhere.")
+                continue
+           
+            # If we got here, the field_type is just a normal field
+            if schema_key in sch_in:
+                user_field_def = sch_in[schema_key]
+                if type(user_field_def) is str:
+                    sch_out[schema_key] = {**default_field_def, KW_TYPE: user_field_def}
+                else:
+                    sch_out[schema_key] = {**default_field_def, **user_field_def}
+                continue           
+ 
+            # Use the default
+            sch_out[schema_key] = deepcopy(default_field_def)
 
-        #print(json.dumps(sch_out, indent=4)); exit()
-        #return sch_out
+        
+        # Embed this in a schema type and return
         preprocessed_schema = \
         {
-            KW_TYPE: "group",
+            KW_TYPE: "schema",
             KW_KEY: ["External ID", "Serial Number"],
             KW_MEMBERS: sch_out,
         }
 
-        #Style.fg(0x33ff33).print(json.dumps(preprocessed_schema, indent=4))
-
-        #logger.warning(f"schema in:\n{json.dumps(schema, indent=4)}")
-        #logger.warning(f"schema out:\n{json.dumps(preprocessed_schema, indent=4)}")
-
-
         return preprocessed_schema
         #}}}
     
-    #-----------------------------------------------------------------------------        
+    #--------------------------------------------------------------------------
 
     def index(self, record, schema=None):
         #{{{
@@ -325,7 +406,7 @@ class Encoder:
         return indexed
         #}}}    
 
-    #-----------------------------------------------------------------------------        
+    #--------------------------------------------------------------------------        
 
     def deindex(self, record, schema=None):
         #{{{
@@ -337,13 +418,13 @@ class Encoder:
 
         for k, v in record.items():
             for schema_key, field_def in schema[KW_MEMBERS].items():
-                if field_def[KW_TYPE] == "group":
+                if field_def[KW_TYPE] in ("group", "schema", "datasheet", "collection"):
                     v[schema_key] = self.deindex(v[schema_key], field_def)
         
         return list(record.values())
         #}}}
 
-    #-----------------------------------------------------------------------------        
+    #-------------------------------------------------------------------------- 
 
     def merge_indexed_records(self, record, addendum, schema=None):
         #{{{
@@ -371,7 +452,7 @@ class Encoder:
         return merged
         #}}}
 
-    #-----------------------------------------------------------------------------        
+    #--------------------------------------------------------------------------
 
     def merge_records(self, record, addendum, schema=None):
         #{{{
@@ -382,7 +463,7 @@ class Encoder:
         return merge_indexed_records(record_indexed, addendum_indexed, schema)
         #}}}
 
-    #-----------------------------------------------------------------------------        
+    #--------------------------------------------------------------------------
 
     def encode_indexed(self, sheet):
         #{{{
@@ -395,10 +476,8 @@ class Encoder:
             group_value = {} 
  
             for schema_key, field_def in parent_field_def[KW_MEMBERS].items():
-                #if schema_key == "Test Name":
-                #    breakpoint()
-                #print(schema_key)
-                if field_def[KW_TYPE] == "group":
+                
+                if field_def[KW_TYPE] in ("group", "schema", "collection", "datasheet"):
                     k, v = encode_group(sheet, row_index, field_def)
                     group_value[schema_key] = {k: v} 
                     continue
@@ -414,21 +493,22 @@ class Encoder:
                             datatype=field_def[KW_TYPE],
                             value=field_def[KW_VALUE])
                 
-                #cast_value = tc.cast(field_contents)
-
-                #logger.info(f"schema_key: {schema_key}")
-                #logger.info(f"field_def: {field_def}")
-                #logger.debug(f"cell value: {field_contents}")
-                #logger.debug(f"after casting:  {cast_value}")
-
                 # TODO: handle warnings
-                group_value[schema_key] = field_contents.value
+                if field_contents.warnings:
+                    Style.info.print(field_contents.datatype)
+                    Style.warning.print(field_contents.warnings)
 
-            key = tuple( group_value[key] for key in parent_field_def[KW_KEY])
+                group_value[schema_key] = field_contents.value
+            
+            if parent_field_def[KW_TYPE] in ('collection', 'datasheet'):
+                key = ()
+            else:
+                key = tuple( group_value[key] for key in parent_field_def[KW_KEY])
             
             return key, group_value
         
         #......................................................................
+
         sheet.local_values["Test Name"] = self.test_name
 
         result = {}
@@ -442,11 +522,10 @@ class Encoder:
             else:
                 result[key] = self.merge_indexed_records(result[key], group_value)
 
-        #result.setdefault("_meta", {})["encoder_uuid"] = self.uuid
         return result
         #}}}    
 
-    #-----------------------------------------------------------------------------
+    #--------------------------------------------------------------------------
 
     def encode(self, sheet):
         #{{{
@@ -454,61 +533,94 @@ class Encoder:
 
         encoded_data = self.encode_indexed(sheet)
         deindexed = self.deindex(encoded_data)
-        #print(deindexed)
-        return deindexed, self.uuid
+        
+        return deindexed
         #}}}
-    #-----------------------------------------------------------------------------        
+    #--------------------------------------------------------------------------
 
     def decode(self, record):
         #{{{
+        
         def make_row_template(schema):
             template = {}
             for schema_key, field_def in schema["members"].items():
-                if field_def["type"] != "group":
-                    template[schema_key] = field_def
-                else:
+                field_type = field_def["type"]
+
+                if field_type == "group":
+                    print("GROUP")
                     template.update(make_row_template(field_def))
+                elif field_type == "datasheet":
+                    print("DATASHEET")
+                    template.update(make_row_template(field_def))
+                elif field_type == "collection":
+                    print("COLLECTION")
+                    template.update(make_row_template(field_def))
+                elif field_type == "schema":
+                    template.update(make_row_template(field_def))
+                else:
+                    template[schema_key] = field_def
+
             return template
 
 
         template = make_row_template(self.schema)
 
-        #printcolor(0x3333ff, json.dumps(template, indent=4))
-
-
-        #printcolor(0xff33cc, json.dumps(Encoder.preserve_order(self.raw_schema), indent=4))
-        #print()
-        #indexed = self.index(record)
-
         def make_rows(record, schema, current_row):
-            for item in record:
-                #print(f"ITEM: {item}")
-                current_row = deepcopy(current_row)
-                next_group_key, next_group_field_def = None, None
-                for schema_key, field_def in schema["members"].items():
-                    if field_def[KW_TYPE] == "group":
-                        next_group_key, next_group_field_def = schema_key, field_def
-                    else:
-                        current_row[schema_key] = item[schema_key]
-                if next_group_key is not None:
-                    make_rows(item[next_group_key], next_group_field_def, current_row)
-                else:
-                    rows.append(deepcopy(current_row))                    
+            # Use 'schema' to locate fields in 'record' and put them in 'current_row'
+            # when the field type is 'group', recursively call make_rows to get a row
+            # for each node in the group.
+            #   * the leaf nodes should be the only ones adding rows, so make sure not
+            #     to add a row if there's a group at this level
+            #   * make sure to add all non-group fields before drilling down into a
+            #     group, or all fields won't be picked up
+            #   * if there's more than one group, there's no way to drill down into
+            #     both simultaneously, so it's not allowed.
+            
+            next_group_key = None
+            for schema_key, field_def in schema["members"].items():
+                field_type = field_def[KW_TYPE]
+                if field_type in ("group", "datasheet", "schema"):
+                    # keep track of this, but process at the end
+                    if next_group_key is not None:
+                        ValueError("Decode found more than one group at the same level")
+                    next_group_key = schema_key
+                    continue
+                elif field_type in ("collection",):
+                    # This is a shallow group, so we can just interate
+                    # through it and not have to process it recursively
+                    for sub_schema_key, sub_field_def in field_def['members'].items():
+                        current_row[sub_schema_key] = record[schema_key][sub_schema_key]
+                    continue
 
+                current_row[schema_key] = record[schema_key]
 
-        def append_row(current_row):
-            pass
+            # If there is a group, process it
+            if next_group_key is not None:
+                make_rows( 
+                        record[next_group_key], 
+                        schema['members'][next_group_key], 
+                        current_row)        
+                return
+
+            rows.append(deepcopy(current_row))
+
+            return
 
 
         record = deepcopy(record)
         rows = []
+       
+        #Style.fg(0x00ffff).print("SCHEMA:", json.dumps(self.schema, indent=4))
+
+        #Style.fg(0xff9900).print("RECORD:", json.dumps(record, indent=4))
+ 
         current_row = {key: None for key in template}
+        #Style.fg(0xff00ff).print("ROW TEMPLATE:", json.dumps(current_row, indent=4))
         
-        make_rows(record, self.schema, current_row)
-            
-
-        #printcolor(0xffff00, json.dumps(rows, indent=4))
-
+        make_rows(record, self.schema, deepcopy(current_row))
+        #Style.fg(0x00ff00).print("ROWS:", json.dumps(rows, indent=4)) 
+        
+        return rows
         #}}}
 
     #-----------------------------------------------------------------------------
@@ -658,8 +770,6 @@ class Encoder:
 
 
         #......................................................................
-
-        #Style.warning.print(json.dumps(part_type_data, indent=4))   
 
         #}}}
 

@@ -305,7 +305,14 @@ def postgresql_pattern(expr):
     usage.
     '''
 
-    new_expr = expr.replace('.', '\.').replace('*', '\*').replace('_', '.').replace('%', '.*')
+    new_expr = (expr
+                    .replace('.', '\.')
+                    .replace('*', '\*')
+                    .replace('(', '\(')
+                    .replace(')', '\)')
+                    .replace('_', '.')
+                    .replace('%', '.*')
+                )
 
     return re.compile('^' + new_expr + '$')
 

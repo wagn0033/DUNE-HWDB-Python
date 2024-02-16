@@ -46,7 +46,7 @@ class HWItem:
         "Manufacturer": "manufacturer",
         "Manufacturer Name": "manufacturer_name",
         "Manufacturer ID": "manufacturer_id",
-        "Item Comments": "comments",
+        "Comments": "comments",
         "Subcomponents": "subcomponents",
         "Specifications": "specifications",
         "Enabled": "enabled",
@@ -57,6 +57,61 @@ class HWItem:
     # TODO: we need a bunch of property getters/setters, but 
     # we can get away without them for a while because we
     # aren't using this interactively.
+    @property
+    def part_type_id(self):
+        return self._current['part_type_id']
+
+    @property
+    def part_type_name(self):
+        return self._current['part_type_name']
+
+    @property
+    def part_id(self):
+        return self._current['part_id']
+    
+    @property
+    def serial_number(self):
+        return self._current['serial_number']
+    @serial_number.setter
+    def serial_number(self, value):
+        self._current['serial_number'] = value
+    
+    @property
+    def country_code(self):
+        return self._current['country_code']
+    @property
+    def country_name(self):
+        return self._current['country_name']
+    @property
+    def country(self):
+        return self._current['country']
+    
+    @property
+    def institution_id(self):
+        return self._current['institution_id']
+    @property
+    def institution_name(self):
+        return self._current['institution_name']
+    @property
+    def country(self):
+        return self._current['institution']
+    
+    @property
+    def manufacturer_id(self):
+        return self._current['manufacturer_id']
+    @property
+    def manufacturer_name(self):
+        return self._current['manufacturer_name']
+    @property
+    def manufacturer(self):
+        return self._current['manufacturer']
+
+    @property
+    def specifications(self):
+        return self._current['specifications']
+
+    # TODO: add more of these
+    
 
     #--------------------------------------------------------------------------
 
@@ -75,6 +130,8 @@ class HWItem:
 
         self._part_type = ut.fetch_component_type(part_type_id, part_type_name)
         self._last_commit = {k: None for k in self._property_to_column.keys()}
+        self._last_commit['part_type_id'] = self._part_type['ComponentType']['part_type_id']
+        self._last_commit['part_type_name'] = self._part_type['ComponentType']['full_name']
         self._current = deepcopy(self._last_commit)
         self._is_new = False    
         #}}}
@@ -123,7 +180,7 @@ class HWItem:
             "Country Code": "US",
             "Manufacturer ID": 7,
             "Manufacturer Name": "Hajime Inc",
-            "Item Comments": "generated 2023-10-17 09:39:48",
+            "Comments": "generated 2023-10-17 09:39:48",
             "Enabled": true,
             "Specifications": [
                 {
@@ -199,8 +256,6 @@ class HWItem:
 
         new_hwitem.normalize()
 
-        new_hwitem.validate()
-
         return new_hwitem
         #}}}
 
@@ -267,6 +322,8 @@ class HWItem:
         ct_all = ut.fetch_component_type(part_type_id=it["component_type"]["part_type_id"])
         ct = ct_all["ComponentType"]
        
+        country_info = ut.lookup_country(it["country_code"])[0]
+
         hwdb_record = (
         {
             "part_type_id": ct["part_type_id"],
@@ -275,13 +332,16 @@ class HWItem:
             "part_id": it["part_id"],
             "institution_id": it["institution"]["id"],
             "institution_name": it["institution"]["name"],
-            "country_name": ut.lookup_country_name_by_country_code(it["country_code"]),
-            "country_code": it["country_code"],
+            #"country_name": ut.lookup_country_name_by_country_code(it["country_code"]),
+            "country_name": country_info['name'],
+            #"country_code": it["country_code"],
+            "country_code": country_info['code'],
+            "country": country_info['combined'],
             "comments": it["comments"],
             "enabled": it["enabled"],
         })
-        hwdb_record["country"] = (f"({hwdb_record['country_code']}) "
-                                    f"{hwdb_record['country_name']}")
+        #hwdb_record["country"] = (f"({hwdb_record['country_code']}) "
+        #                            f"{hwdb_record['country_name']}")
         hwdb_record["institution"] = (f"({hwdb_record['institution_id']}) "
                                     f"{hwdb_record['institution_name']}")
             
@@ -360,6 +420,7 @@ class HWItem:
             if "_meta" not in post_data['specifications']:
                 post_data['specifications']['_meta'] = {}
 
+            logger.info("Posting new item")
             resp = ra.post_hwitem(part_type_id=current['part_type_id'], data=post_data)
             self._is_new = False
 
@@ -391,6 +452,7 @@ class HWItem:
             if "_meta" not in patch_data['specifications']:
                 patch_data['specifications']['_meta'] = {}
 
+            logger.info("Patching item")
             resp = ra.patch_hwitem(part_id=current['part_id'], data=patch_data)
             
             # TODO: is the REST API supposed to reset "enabled"? Well, it does,
@@ -405,7 +467,7 @@ class HWItem:
             for field in fields_to_copy:
                 last_commit[field] = current[field]
 
-        self.update_enabled()
+        #self.update_enabled()
 
 
         #}}}
@@ -584,6 +646,35 @@ class HWItem:
         Checks that all required 'core' data exists and appears to meet
         requirements in the ComponentType definition.
         """
+        #Style.notice.print(json.dumps(self._part_type, indent=4))
+
+        # Check user role
+        if not ut.user_role_check(self.part_type_id):
+            raise ra.InsufficientPermissions("The user is not authorized to "
+                    f"modify records of type '{self.part_type_id}'")
+
+
+        # Check manufacturer
+        available_manufacturer_ids = {
+                m['id'] for m in self._part_type["ComponentType"]["manufacturers"]}
+
+        if self.manufacturer_id is not None \
+                and self.manufacturer_id not in available_manufacturer_ids:
+            raise ValueError(f"Manufacturer '{self.manufacturer}' is not available for "
+                    "component type '{self.part_type_id}'")
+
+
+        # Check spec fields
+        spec_def_keys = {k: None for k in self._part_type["ComponentType"]["properties"]
+                                    ["specifications"][0]["datasheet"].keys()}
+        spec_keys = {k: None for k in self.specifications.keys()}
+        # (compare them WITHOUT the _meta field for now, but resolve it later)
+        spec_def_keys.pop("_meta", None)
+        spec_keys.pop("_meta", None)
+        if spec_def_keys != spec_keys:
+            raise ValueError(f"The specifications for this item do not meet the "
+                    "requirements in the specification definition")
+
 
     #--------------------------------------------------------------------------
 
@@ -676,6 +767,7 @@ class HWItem:
 
 
     def __str__(self):
+        #{{{
         style_bold = Style.bold()
         style_green = Style.fg(0x33ff33).bold()
         style_yellow = Style.fg(0xdddd22).bold()
@@ -805,6 +897,7 @@ class HWItem:
             display_edited_item()
 
         return fp.getvalue()
+        #}}}
 
 if __name__ == "__main__":
     pass

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Sisyphus/HWDBUtility/HWItemTest.py
+Sisyphus/HWDBUtility/HWTest.py
 Copyright (c) 2024 Regents of the University of Minnesota
 Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
@@ -25,7 +25,7 @@ import re
 import time
 import random
 
-class HWItemTest:
+class HWTest:
     #{{{
     _column_to_property = \
     {
@@ -45,7 +45,7 @@ class HWItemTest:
     def __init__(self, *, part_type_id=None, part_type_name=None, test_name=None, AreYouSure=False):
         #{{{
         if not AreYouSure:
-            raise ValueError("Don't create new HWItemTests this way "
+            raise ValueError("Don't create new HWTests this way "
                             "unless you know what you're doing!")
 
         self._part_type = ut.fetch_component_type(part_type_id, part_type_name)
@@ -78,7 +78,7 @@ class HWItemTest:
         #print(user_record.get("Part Type Name", None))
         #print(user_record.get("Test Name", None))
 
-        new_hwitemtest = HWItemTest(
+        new_hwtest = HWTest(
                 part_type_id=user_record.get("Part Type ID", None),
                 part_type_name=user_record.get("Part Type Name", None),
                 test_name=user_record.get("Test Name", None),
@@ -96,20 +96,20 @@ class HWItemTest:
                     part_id=user_record.get("External ID", None),
                     serial_number=user_record.get("Serial Number", None),
                     test_name=user_record.get("Test Name", None))
-            new_hwitemtest._is_new = False
-            new_hwitemtest._last_commit = hwdb_record
-            new_hwitemtest._current['part_id'] = hwdb_record['part_id']
+            new_hwtest._is_new = False
+            new_hwtest._last_commit = hwdb_record
+            new_hwtest._current['part_id'] = hwdb_record['part_id']
     
         except ra.NotFound:
             # This is fine. It just means that the item hasn't been added yet.
-            new_hwitemtest._is_new = True
-            new_hwitemtest._pending_item = True
+            new_hwtest._is_new = True
+            new_hwtest._pending_item = True
 
         for col_name, prop_name in cls._column_to_property.items():
             if col_name not in user_record:
                 logger.warning(f"{col_name} not in user_record")
             else:
-                new_hwitemtest._current[prop_name] = user_record.pop(col_name, None)
+                new_hwtest._current[prop_name] = user_record.pop(col_name, None)
 
         if len(user_record) > 0:
             logger.warning(f"extra columns in user_record: {tuple(user_record.keys())}")
@@ -117,7 +117,7 @@ class HWItemTest:
         #new_hwitem.normalize()
         #new_hwitem.validate()
 
-        return new_hwitemtest
+        return new_hwtest
         #}}}
 
     @classmethod
