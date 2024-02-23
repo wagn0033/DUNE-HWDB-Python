@@ -358,21 +358,23 @@ def cast_any(cell):
 
 def cast(cell):
     #{{{
-
+    
     # If the value is literally "<null>", treat this as an overwriting null.
     # We really needed there to be two kinds of nulls. One that's just a plain 
     # old ordinary null, and another that means that if you're editing an item,
     # keep the current value. Treat "<null>" as the second kind.
-    if isinstance(type(cell.value), str) and cell.value.casefold() == "<null>":
-        cell.value = "<null>"
-        return cell
+    if isinstance(type(cell.value), str):
+        if cell.value.casefold() == "<null>":
+            cell.value = "<null>"
+            return cell
+        elif cell.value.casefold() == "<empty>":
+            cell.value = "<empty>"
+            return cell
 
     #if cell.datatype == "null,str":
     #    breakpoint()
 
     type_chain = cell.datatype.lower().split(',')
-
-    
 
     for typedef in type_chain:
         if typedef in ('str', 'string', 'text'):

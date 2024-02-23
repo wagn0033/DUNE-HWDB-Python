@@ -16,10 +16,12 @@ logger = config.getLogger(__name__)
 
 import Sisyphus
 from Sisyphus.HWDBUtility.Docket import Docket
-from Sisyphus.HWDBUtility.HWItem import HWItem
-from Sisyphus.HWDBUtility.HWTest import HWTest
 from Sisyphus.HWDBUtility.SheetWriter import ExcelWriter
 
+from Sisyphus.DataModel import HWItem
+from Sisyphus.DataModel import HWTest
+
+from Sisyphus.Utils.utils import preserve_order, restore_order, serialize_for_display
 from Sisyphus.Utils.Terminal.Style import Style
 from Sisyphus.Utils.Terminal.BoxDraw import Table
 from Sisyphus.Utils.Terminal import BoxDraw
@@ -126,8 +128,6 @@ class Uploader():
     def queue_item_job(self, raw_job):
         #{{{ 
         #print(json.dumps(raw_job["Data"], indent=4))
-        print(raw_job)
-        exit()
         hwitem = HWItem.fromUserData(raw_job["Data"])
         if hwitem.is_new():
             print(f"Queuing CREATE job for Item {hwitem._current['serial_number']} "
@@ -173,8 +173,9 @@ class Uploader():
 
     def queue_test_job(self, raw_job):
         #{{{            
-        #Style.info.print(json.dumps(raw_job, indent=4))
-        hwtest = HWTest.fromUserData(raw_job["Data"])
+        Style.info.print(json.dumps(serialize_for_display(raw_job), indent=4))
+        #breakpoint()
+        hwtest = HWTest.fromUserData(raw_job["Data"], raw_job["Encoder"])
         #Style.error.print(json.dumps(hwtest._current, indent=4))
         #print(hwtest)
 
@@ -287,7 +288,7 @@ class Uploader():
 
         raw_jobs = self.raw_job_data
 
-        #Style.warning.print(json.dumps(raw_jobs, indent=4))
+        Style.warning.print(json.dumps(serialize_for_display(raw_jobs), indent=4))
         #return
 
         while len(raw_jobs) > 0:

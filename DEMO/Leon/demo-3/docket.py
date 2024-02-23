@@ -28,14 +28,16 @@ contents["Values"].update(
         "Part Type Name": "Z.Sandbox.HWDBUnitTest.wibble",
         "Institution Name": "Cal%Tech%",
         "Country Code": "US",
-        "Manufacturer Name": "Acme Corporation",
+        "Manufacturer": "(50)%",
+        #"Manufacturer Name": "Acme%",
+        #"Manufacturer ID": 7,
         "Enabled": True,
     })
 
 # Append some sources
 src_item = {
         "Source Name": "Item Source",
-        "Files": "bps-summary*.csv",
+        "Files": "bps-summary-item.csv",
         "Encoder": "Item Encoder",
     }
 
@@ -52,8 +54,9 @@ src_test_bpssummary = {
     }
 
 contents["Sources"].append(src_item)
-contents["Sources"].append(src_test_netconf)
 contents["Sources"].append(src_test_bpssummary)
+#contents["Sources"].append(src_test_netconf)
+#contents["Sources"].append(src_test_bpssummary)
 
 # Append some encoders
 enc_item = {
@@ -99,10 +102,19 @@ enc_test_netconf = {
                 "DATA":
                  {
                     "type": "group",
-                    "key": "TestTime",
+                    "key": "timestamp",
                     "members":
                     {
-                        "TestTime": "number",
+                        "timestamp": 
+                        {
+                            "column": "TestTime",
+                            "type": "number",
+                        },
+                        "TestTime":
+                        {
+                            "column": "TestTime",
+                            "type": "unixtime",
+                        },
                         "init_chip_results": "int",
                     }
                 }
@@ -159,6 +171,8 @@ contents["Encoders"].append(enc_test_netconf)
 contents["Encoders"].append(enc_test_bpssummary)
 
 
-
+#import json
+#print(json.dumps(contents, indent=4))
+#breakpoint()
 
 

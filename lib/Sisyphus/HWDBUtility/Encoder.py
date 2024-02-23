@@ -20,7 +20,7 @@ from Sisyphus.Utils import utils
 
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
-
+from Sisyphus.Utils.utils import preserve_order, restore_order, serialize_for_display
 import json
 import sys
 import numpy as np
@@ -88,7 +88,7 @@ default_schema_fields_by_record_type = \
         "Test Name": {KW_TYPE:"null,string", KW_COLUMN:"Test Name", KW_DEFAULT:None},
 
         # for record type 'Test':
-        "Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
+        "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""},
         "Test Results": {KW_TYPE:"datasheet"},
     },
     "Item Image":
@@ -97,7 +97,7 @@ default_schema_fields_by_record_type = \
         **default_universal_fields,
 
         # for record_type 'Item Image' or 'Test Image':
-        "Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
+        "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""},
         "Source File": {KW_TYPE:"null,string", KW_COLUMN:"File", KW_DEFAULT:None},
         "File Name": {KW_TYPE:"null,string", KW_COLUMN:"Rename", KW_DEFAULT:None},
     },
@@ -110,14 +110,12 @@ default_schema_fields_by_record_type = \
         "Test Name": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
 
         # for record_type 'Item Image" or 'Test Image':
-        "Comments": {KW_TYPE:"null,string", KW_COLUMN:"Comments", KW_DEFAULT:None},
+        "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""},
         "Source File": {KW_TYPE:"null,string", KW_COLUMN:"File", KW_DEFAULT:None},
         "File Name": {KW_TYPE:"null,string", KW_COLUMN:"Rename", KW_DEFAULT:None},
     }
 }
 #}}}
-
-
 
 class Encoder:
     _encoder_cache = {}
@@ -390,13 +388,19 @@ class Encoder:
         Since indexes may have more than one key, and JSON doesn't allow tuples
         to be keys, this format should be only used to manipulate data. It should
         be deindexed again before adding to the HWDB.
+        
+        Parameters:
+            record: a list of dict, each dict represents a set of fields, where
+                some subset of fields represents a key to identify that dict
+            schema: the schema of an encoder, or a subnode in the schema that
+                looks like a schema (mostly by having a 'members' node) 
         """
-
+        #breakpoint()
         record = deepcopy(record)
         if schema is None:
             schema = self.schema
 
-        indexed = { tuple(v[k] for k in schema[KW_KEY]): v for v in record }
+        indexed = { tuple(v[k] for k in schema.get(KW_KEY, [])): v for v in record }
 
         for k, v in indexed.items():
             for member_key, member_def in schema['members'].items():
@@ -432,11 +436,13 @@ class Encoder:
 
         if schema is None:
             schema = self.schema
-        
-        merged = {}
 
+        #print("MIR")
+
+        merged = {}
+        
         for schema_key, field_def in schema[KW_MEMBERS].items():
-            if field_def[KW_TYPE] == "group":
+            if field_def[KW_TYPE] in ("group", "schema", "datasheet", "collection"):
                 merged[schema_key] = deepcopy(record[schema_key])
                 for k, v in addendum[schema_key].items():
                     if k in record[schema_key]:
@@ -447,6 +453,10 @@ class Encoder:
                     else:
                         merged[schema_key][k] = v
             else:
+                #print(schema_key, field_def[KW_TYPE])
+                #print(record)
+                if schema_key not in record:
+                    breakpoint()
                 merged[schema_key] = record[schema_key]
 
         return merged
@@ -460,7 +470,61 @@ class Encoder:
 
         record_indexed = self.index(record, schema)
         addendum_indexed = self.index(addendum, schema)
-        return merge_indexed_records(record_indexed, addendum_indexed, schema)
+        Style.fg(0x66ff00).print("OLD DATA:", 
+                        json.dumps(serialize_for_display(record_indexed), indent=4))
+        Style.fg(0x00ff00).print("NEW DATA:", 
+                        json.dumps(serialize_for_display(addendum_indexed), indent=4))
+        breakpoint()
+
+        '''
+        #merged = deepcopy(record)
+        merged = {}
+
+        for key, addendum_value in addendum.items():
+            if key in record:
+                record_value = record[key]
+                for schema_key, field_def in schema[KW_MEMBERS].items():
+                    if field_def[KW_TYPE] in ("group", "schema", "datasheet", "collection"):
+                        # if it's grouplike, we need to merge the two 
+                        merged[key][schema_key] = self.merge_indexed_records(
+                                    record_value[schema_key],
+                                    addendum_value[schema_key],
+                                    field_def)
+                    else:
+                        # if it's not grouplike, overwrite the 'record' copy with the 'addendum'
+                        merged[key][schema_key] = addendum_value[schema_key]
+                        
+            else:
+                merged[key] = addendum_value
+
+        return merged
+        '''
+
+        merged_indexed = {}
+        
+        for key, addendum_value in addendum_indexed.items():
+            merged_indexed[key] = {}
+            if key in record_indexed:
+                record_value = record_indexed[key]
+                for schema_key, field_def in schema[KW_MEMBERS].items():
+                    if field_def[KW_TYPE] in ("group", "schema", "datasheet", "collection"):
+                        # if it's grouplike, we need to merge the two
+                        merged_indexed[key][schema_key] = self.merge_indexed_records(
+                                    record_value[schema_key],
+                                    addendum_value[schema_key],
+                                    field_def)
+                    else:
+                        # if it's not grouplike, overwrite the 'record' copy with the 'addendum'
+                        merged_indexed[key][schema_key] = addendum_value[schema_key]
+
+            else:
+                merged_indexed[key] = addendum_value
+
+        #merged_indexed = self.merge_indexed_records(record_indexed, addendum_indexed, schema)        
+
+        merged = self.deindex(merged_indexed, schema)
+
+        return merged
         #}}}
 
     #--------------------------------------------------------------------------
@@ -485,6 +549,8 @@ class Encoder:
                 if KW_COLUMN in field_def:
                     field_contents = sheet.coalesce(field_def[KW_COLUMN], 
                                                     row_index, field_def[KW_TYPE])
+                    if field_contents.location == "not found":
+                        field_contents.value = field_def[KW_DEFAULT]
                 elif KW_VALUE in field_def:
                     field_contents = Cell(  
                             source="encoder", 
@@ -547,13 +613,13 @@ class Encoder:
                 field_type = field_def["type"]
 
                 if field_type == "group":
-                    print("GROUP")
+                    #print("GROUP")
                     template.update(make_row_template(field_def))
                 elif field_type == "datasheet":
-                    print("DATASHEET")
+                    #print("DATASHEET")
                     template.update(make_row_template(field_def))
                 elif field_type == "collection":
-                    print("COLLECTION")
+                    #print("COLLECTION")
                     template.update(make_row_template(field_def))
                 elif field_type == "schema":
                     template.update(make_row_template(field_def))

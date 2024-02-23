@@ -292,254 +292,152 @@ def fetch_hwitems(part_type_id = None,
     (singular) does. So, it has to do a fuckton of extra work and can take
     a horribly long time.
     '''
-    NUM_THREADS = 50
-    MIN_PAGE_SIZE = 50
-    MAX_PAGE_SIZE = 250
 
-    save_session_kwargs = deepcopy(ra.session_kwargs)
-    ra.session_kwargs["timeout"] = 16
+    def fetch_multiple(part_type_id, part_type_name, part_id, serial_number, count):
+        
+        NUM_THREADS = 50
+        MIN_PAGE_SIZE = 50
+        MAX_PAGE_SIZE = 250
 
-    count = max(1, 100000 if (count == -1) else count)
+        save_session_kwargs = deepcopy(ra.session_kwargs)
+        ra.session_kwargs["timeout"] = 16
 
-    # "get_hwitems" doesn't permit part_type_name, so if it's present,
-    # we have to look up the part_type_id for it, and ensure that
-    # it is consistent with the given part_type_id, if there is one.
-    if part_type_name is not None:
-        # We don't need everything that this returns, but the function
-        # does check for consistency, so we'll use it.
-        component_type = fetch_component_type(
-                                    part_type_id=part_type_id,
-                                    part_type_name=part_type_name)
-        # If the above didn't raise anything, we're good.
-        # Let's grab the part_type_id from it, in case we don't
-        # already have it.
-        part_type_id = component_type["ComponentType"]["part_type_id"]
+        count = max(1, 100000 if (count == -1) else count)
 
-    retval = {}
+        # "get_hwitems" doesn't permit part_type_name, so if it's present,
+        # we have to look up the part_type_id for it, and ensure that
+        # it is consistent with the given part_type_id, if there is one.
+        if part_type_name is not None:
+            # We don't need everything that this returns, but the function
+            # does check for consistency, so we'll use it.
+            component_type = fetch_component_type(
+                                        part_type_id=part_type_id,
+                                        part_type_name=part_type_name)
+            # If the above didn't raise anything, we're good.
+            # Let's grab the part_type_id from it, in case we don't
+            # already have it.
+            part_type_id = component_type["ComponentType"]["part_type_id"]
 
-    # We're going to use a thread pool to get things, but we need to wrap
-    # the functions we need in order to pass the arguments correctly.
-    pool = mp.Pool(processes=NUM_THREADS)
-    get_hwitems = lambda args, kwargs: ra.get_hwitems(*args, **kwargs)
-    get_hwitem = lambda args, kwargs: ra.get_hwitem(*args, **kwargs)
-    get_subcomponents = lambda args, kwargs: ra.get_subcomponents(*args, **kwargs)
+        retval = {}
 
-    # Let's first find out how many records we're dealing with
+        # We're going to use a thread pool to get things, but we need to wrap
+        # the functions we need in order to pass the arguments correctly.
+        pool = mp.Pool(processes=NUM_THREADS)
+        get_hwitems = lambda args, kwargs: ra.get_hwitems(*args, **kwargs)
+        get_hwitem = lambda args, kwargs: ra.get_hwitem(*args, **kwargs)
+        get_subcomponents = lambda args, kwargs: ra.get_subcomponents(*args, **kwargs)
 
-    # There's no sense in using a page size that's too small, because
-    # we're more likely to capture the desired number of records if
-    # the page is larger. Likewise, we don't want the page to be too
-    # large, either.
-    page_size = min(max(count, MIN_PAGE_SIZE), MAX_PAGE_SIZE)
+        # Let's first find out how many records we're dealing with
 
-    resp = ra.get_hwitems(
-                part_type_id=part_type_id,
-                part_id=part_id,
-                serial_number=serial_number,
-                size=page_size)
-    total_records = resp["pagination"]["total"]
-    num_pages = resp["pagination"]["pages"]
+        # There's no sense in using a page size that's too small, because
+        # we're more likely to capture the desired number of records if
+        # the page is larger. Likewise, we don't want the page to be too
+        # large, either.
+        page_size = min(max(count, MIN_PAGE_SIZE), MAX_PAGE_SIZE)
 
-    pages = {1: resp["data"]}
-
-    # If there's only one page, then we already have everything we need.
-    if num_pages == 1:
-        pass
-
-    # If there's two pages, then grab the second page, and we have
-    # everything we need
-    elif num_pages == 2:
         resp = ra.get_hwitems(
                     part_type_id=part_type_id,
                     part_id=part_id,
                     serial_number=serial_number,
-                    size=page_size,
-                    page=2)
-        pages[2] = resp["data"]
+                    size=page_size)
+        total_records = resp["pagination"]["total"]
+        num_pages = resp["pagination"]["pages"]
 
-    # If there's more than two pages, then calculate how many pages we
-    # need, and get them.
-    else:
-        items_on_last_page = total_records - page_size * (num_pages - 1)
-        pages_needed = (count - 1) // page_size + 1
-        if (pages_needed-1) * page_size + items_on_last_page < count:
-            pages_needed += 1
+        pages = {1: resp["data"]}
 
-        # Generate a bunch of async requests to get our data in parallel
-        page_res = {}
-        for page_num in range(num_pages, max(1, num_pages - pages_needed), -1):
-            kwargs = \
-            {
-                "part_type_id": part_type_id,
-                "part_id": part_id,
-                "serial_number": serial_number,
-                "size": page_size,
-                "page": page_num,
-            }
-            page_res[page_num] = pool.apply_async(get_hwitems, ((), kwargs))
+        # If there's only one page, then we already have everything we need.
+        if num_pages == 1:
+            pass
 
-        # Read all the data that was gathered
-        for page_num, res in page_res.items():
-            pages[page_num] = res.get()["data"]
+        # If there's two pages, then grab the second page, and we have
+        # everything we need
+        elif num_pages == 2:
+            resp = ra.get_hwitems(
+                        part_type_id=part_type_id,
+                        part_id=part_id,
+                        serial_number=serial_number,
+                        size=page_size,
+                        page=2)
+            pages[2] = resp["data"]
 
-    # Iterate backwards through "pages" until we get the right number
-    # of records
-    part_ids = []
-    for page_num in reversed(sorted(pages.keys())):
-        page = pages[page_num]
-        if len(part_ids) >= count: break
-        for rec in reversed(page):
-            part_ids.append(rec["part_id"])
+        # If there's more than two pages, then calculate how many pages we
+        # need, and get them.
+        else:
+            items_on_last_page = total_records - page_size * (num_pages - 1)
+            pages_needed = (count - 1) // page_size + 1
+            if (pages_needed-1) * page_size + items_on_last_page < count:
+                pages_needed += 1
+
+            # Generate a bunch of async requests to get our data in parallel
+            page_res = {}
+            for page_num in range(num_pages, max(1, num_pages - pages_needed), -1):
+                kwargs = \
+                {
+                    "part_type_id": part_type_id,
+                    "part_id": part_id,
+                    "serial_number": serial_number,
+                    "size": page_size,
+                    "page": page_num,
+                }
+                page_res[page_num] = pool.apply_async(get_hwitems, ((), kwargs))
+
+            # Read all the data that was gathered
+            for page_num, res in page_res.items():
+                pages[page_num] = res.get()["data"]
+
+        # Iterate backwards through "pages" until we get the right number
+        # of records
+        part_ids = []
+        for page_num in reversed(sorted(pages.keys())):
+            page = pages[page_num]
             if len(part_ids) >= count: break
+            for rec in reversed(page):
+                part_ids.append(rec["part_id"])
+                if len(part_ids) >= count: break
 
-    # Generate more async requests
-    hwitems = {part_id: {} for part_id in part_ids}
-    hwitems_res = {}
-    for part_id in part_ids:
-        item_res = pool.apply_async(get_hwitem, ((), {"part_id": part_id}))
-        subcomp_res = pool.apply_async(get_subcomponents, ((), {"part_id": part_id}))
-        hwitems_res[part_id] = {"Item": item_res, "Subcomponents": subcomp_res}
+        # Generate more async requests
+        hwitems = {part_id: {} for part_id in part_ids}
+        hwitems_res = {}
+        for part_id in part_ids:
+            item_res = pool.apply_async(get_hwitem, ((), {"part_id": part_id}))
+            subcomp_res = pool.apply_async(get_subcomponents, ((), {"part_id": part_id}))
+            hwitems_res[part_id] = {"Item": item_res, "Subcomponents": subcomp_res}
 
-    # Gather the collected data
-    for part_id, res_dict in hwitems_res.items():
-        hwitems[part_id] = \
-        {
-            "Item": res_dict["Item"].get()["data"],
-            "Subcomponents": res_dict["Subcomponents"].get()["data"],
+        # Gather the collected data
+        for part_id, res_dict in hwitems_res.items():
+            hwitems[part_id] = \
+            {
+                "Item": res_dict["Item"].get()["data"],
+                "Subcomponents": res_dict["Subcomponents"].get()["data"],
+            }
+
+        pool.close()
+        pool.join()
+
+        ra.session_kwargs = save_session_kwargs
+
+        return hwitems
+
+    def fetch_single(part_id):
+        hwitems = {
+            part_id:
+            {
+                "Item": ra.get_hwitem(part_id)['data'],
+                "Subcomponents": ra.get_subcomponents(part_id)['data'],
+            }
         }
+        return hwitems
 
-    pool.close()
-    pool.join()
-
-    ra.session_kwargs = save_session_kwargs
-
-    return hwitems
+    if part_type_name or part_type_id:
+        return fetch_multiple(part_type_id, part_type_name, part_id, serial_number, count)
+    else:
+        # TODO: maybe could check if the serial number matches, if they
+        # suppied it. But for now just accept the part_id and ignore
+        # the serial_number entirely
+        return fetch_single(part_id)
 
     #}}}
 
-
-#######################################################################
-"""
-def lookup_part_type_id_by_fullname(fullname):
-    # TODO: this function is obsolete. Refactor to eliminate calls.
-    #{{{
-    # The full name should be formatted as [ProjID].[SystemName].[SubsytemName].[PartName],
-    # so there should be exactly 3 periods.
-    
-    logger.debug(f"looking up part type by full name '{fullname}'")
-
-    # If the value has been cached, return that instead
-    myself = lookup_part_type_id_by_fullname
-    fnu = fullname.upper()
-    if not hasattr(myself, "_cache"):
-        myself._cache = {}
-    if fnu in myself._cache.keys():
-        value = myself._cache[fnu]
-        logger.debug(f"returning cached value {value}")
-        return value
-
-    # Validate formatting of fullname
-    try:
-        project_id, system_name, subsystem_name, part_name = fullname.split('.')
-    except ValueError:
-        msg = f"Part name '{fullname}' is invalidly formatted"
-        logger.error(msg)
-        raise ValueError(msg)
-
-
-    # Get the component type. We can use 0 for wildcards for proj and sys, because
-    # the full name should be unambiguous anyway.
-    resp = ra.get_component_types(project_id.upper(), 0, 0, full_name=fullname)
-
-    if resp["status"] != "OK":
-        msg = "There was a problem obtaining the part type ID from the server"
-        logger.error(msg)
-        raise RuntimeError(msg)
-
-    if len(resp['data']) == 0:
-        msg = f"The full part name '{fullname}' cannot be found"
-        logger.error(msg)
-        raise ValueError(msg)
-
-    if len(resp['data']) > 1:
-        # This could happen because the "fullname" could contain PostgreSQL-style
-        # wildcards, which is permitted by the REST API
-        msg = f"The full part name '{fullname}' is ambiguous"
-        logger.error(msg)
-        raise ValueError(msg)
-
-    value = (
-            resp['data'][0]['part_type_id'],
-            resp['data'][0]['full_name'], 
-            )
-    logger.debug(f"Found value {value}. Caching and returning.")
-    myself._cache[value[0].upper()] = value
-    return value
-    #}}}
-
-#######################################################################
-
-def lookup_component_type_defs(part_type_id):
-    # TODO: this function is obsolete. Refactor to eliminate calls.
-    #{{{
-    logger.debug(f"looking up component type definition information for '{part_type_id}'")
-
-    # TBD: NEED SOME ERROR HANDLING!!!
-    
-    # If the value has been cached, return that instead
-    myself = lookup_component_type_defs
-    pt_id = part_type_id.upper()
-    if not hasattr(myself, "_cache"):
-        myself._cache = {}
-    if pt_id in myself._cache.keys():
-        value = myself._cache[pt_id]
-        logger.debug(f"returning cached value {value}")
-        return value
-
-    type_info = {"part_type_id": pt_id}
-
-    resp = ra.get_component_type(pt_id) 
-    if resp["status"] != "OK":
-        raise ValueError("Component type lookup failed.")
-    
-    type_info["full_name"] = resp['data']['full_name']
-    type_info["spec_def"] = resp['data']['properties']['specifications'][0]['datasheet']
-    type_info["subcomponents"] = resp['data']['connectors']
-
-    resp = ra.get_test_types(pt_id)
-    if resp["status"] != "OK":
-        raise ValueError("Test type lookup failed.")
-    type_info["tests"] = [
-        {
-            "test_name": node["name"],
-            "test_type_id": node["id"]
-        }
-        for node in resp['data']
-    ]
-
-    for node in type_info["tests"]:
-        resp = ra.get_test_type(pt_id, node["test_type_id"])
-        if resp["status"] != "OK":
-            raise ValueError("Test type definition lookup failed.")
-        node["test_def"] = resp['data']['properties']['specifications'][0]['datasheet']
-    
-    myself._cache[pt_id] = type_info
-
-    return type_info
-    #}}}
-"""
-
-#######################################################################
-#
-#def lookup_institution_by_id(inst_id):
-#    #{{{
-#    if not hasattr(lookup_institution_by_id, "_cache"):
-#        inst_list = ra.get_institutions()['data']
-#        lookup_institution_by_id._cache = { inst_item['id']: inst_item for inst_item in inst_list }
-#
-#    return lookup_institution_by_id._cache[inst_id]
-#    #}}}
-#
 #######################################################################
 
 def bulk_add_hwitems(part_type_id, count, *, 

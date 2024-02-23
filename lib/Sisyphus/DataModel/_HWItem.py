@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Sisyphus/HWDBUtility/HWItem.py
+Sisyphus/DataModel/_HWItem.py
 Copyright (c) 2024 Regents of the University of Minnesota
 Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
@@ -28,7 +28,7 @@ import random
 _HWItem_cache = {}
 
 class HWItem:
-
+    #{{{
     #{{{
     # Map the "column" name to the "property" name
     _column_to_property = \
@@ -269,11 +269,11 @@ class HWItem:
         The arguments supplied must be sufficient to uniquely describe one
         item in the HWDB.
         """
-
+        
         hwdb_record = cls._get_from_hwdb(part_type_id, part_type_name, part_id, serial_number)
         new_hwitem = HWItem(
-                part_type_id=user_record.get("Part Type ID", None),
-                part_type_name=user_record.get("Part Type Name", None),
+                part_type_id=hwdb_record.get("part_type_id", None),
+                part_type_name=hwdb_record.get("part_type_name", None),
                 AreYouSure=True)
 
         new_hwitem._last_commit = deepcopy(hwdb_record)
@@ -294,17 +294,11 @@ class HWItem:
             "serial_number": serial_number,
             "count": 2
         }
-        #Style(fg="orange").print(json.dumps(kwargs, indent=4))
 
         if part_id is not None:
             kwargs["serial_number"] = None
 
-        #hwitem_raw = ut.fetch_hwitems(
-        #            part_type_id, part_type_name, part_id, serial_number=None, count=2)
         hwitem_raw = ut.fetch_hwitems(**kwargs)
-
-        #Style(fg="brown").print(json.dumps(kwargs, indent=4))
-        #Style(fg="magenta").print('HWDB existing items:', json.dumps(hwitem_raw, indent=4))
 
         # Raise an exception if no records are found, or more than one is found.
         if len(hwitem_raw) == 0:
@@ -898,6 +892,8 @@ class HWItem:
 
         return fp.getvalue()
         #}}}
+
+    #}}}
 
 if __name__ == "__main__":
     pass

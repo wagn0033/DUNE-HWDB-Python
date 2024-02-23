@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Sisyphus/HWDBUtility/HWTest.py
+Sisyphus/DataModel/_HWTest.py
 Copyright (c) 2024 Regents of the University of Minnesota
 Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
@@ -9,7 +9,7 @@ Author:
 
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
-
+from Sisyphus.Utils.utils import preserve_order, restore_order, serialize_for_display
 import Sisyphus.RestApiV1 as ra
 import Sisyphus.RestApiV1.Utilities as ut
 from Sisyphus.Utils.Terminal.Style import Style
@@ -26,6 +26,7 @@ import time
 import random
 
 class HWTest:
+    #{{{
     #{{{
     _column_to_property = \
     {
@@ -72,7 +73,7 @@ class HWTest:
         return user_record
 
     @classmethod
-    def fromUserData(cls, user_record):
+    def fromUserData(cls, user_record, encoder=None):
         #{{{
         #print(user_record.get("Part Type ID", None))
         #print(user_record.get("Part Type Name", None))
@@ -83,6 +84,7 @@ class HWTest:
                 part_type_name=user_record.get("Part Type Name", None),
                 test_name=user_record.get("Test Name", None),
                 AreYouSure=True)
+        new_hwtest._encoder = encoder
 
         user_record = deepcopy(user_record)
 
@@ -105,6 +107,16 @@ class HWTest:
             new_hwtest._is_new = True
             new_hwtest._pending_item = True
 
+        #Style.fg(0x00ff00).print("NEW DATA:", json.dumps(user_record['Test Results'], indent=4))
+        #Style.fg(0x66ff00).print("OLD DATA:", json.dumps(new_hwtest._last_commit['test_data'], indent=4))
+      
+        merged = encoder.merge_records(
+                        [new_hwtest._last_commit['test_data']],
+                        [user_record['Test Results']],
+                        encoder.schema['members']['Test Results'])
+        Style.fg(0xff6600).print("RESULT", json.dumps(merged, indent=4))
+
+ 
         for col_name, prop_name in cls._column_to_property.items():
             if col_name not in user_record:
                 logger.warning(f"{col_name} not in user_record")
@@ -116,6 +128,7 @@ class HWTest:
 
         #new_hwitem.normalize()
         #new_hwitem.validate()
+
 
         return new_hwtest
         #}}}
@@ -272,7 +285,7 @@ class HWTest:
         #}}}
 
 
-
+    #}}}
 
 
 

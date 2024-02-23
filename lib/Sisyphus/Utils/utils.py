@@ -298,6 +298,7 @@ def scramble_order(obj):
     #}}}
 
 def postgresql_pattern(expr):
+    #{{{
     '''Create a regular expression pattern object from postgresql wildcards
 
     This is just a quick-and-dirty substitution. It probably could be
@@ -315,8 +316,43 @@ def postgresql_pattern(expr):
                 )
 
     return re.compile('^' + new_expr + '$')
+    #}}}
+
+def serialize_for_display(obj):
+    if isinstance(obj, dict):
+        newobj = {}
+        for key, value in obj.items():
+            if isinstance(key, tuple):
+                key = str(key)
+            newobj[key] = serialize_for_display(value)
+        return newobj
+            
+    elif isinstance(obj, list):
+        newobj = []
+        for value in obj:
+            newobj.append(serialize_for_display(value))
+        return newobj
+
+    elif isinstance(obj,  (str, float, int, bool, type(None))):
+        return obj
+
+    else:
+        return str(obj)            
+
+
 
 
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+
+
+
+
+
+
+
+
+
+
+

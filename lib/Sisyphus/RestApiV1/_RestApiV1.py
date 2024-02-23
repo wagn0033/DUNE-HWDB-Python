@@ -389,7 +389,7 @@ def post_hwitem_image(part_id, data, filename, **kwargs):
                 **kwargs)
 
     return resp
-    #}}}
+    #}}}z
 
 #-----------------------------------------------------------------------------
 
@@ -454,6 +454,41 @@ def get_image(image_id, write_to_file=None, **kwargs):
 
     return resp
     #}}}
+
+#-----------------------------------------------------------------------------
+
+def get_hwitem_qrcode(part_id, write_to_file=None, **kwargs):
+    #{{{
+    logger.debug(f"<get_hwitem_qrcode> part_id={part_id}")
+    path = f"api/v1/get-qrcode/{sanitize(part_id)}"
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _get(url, return_type="raw", **kwargs)
+    
+    if write_to_file is not None:
+        with open(write_to_file, "wb") as fp:
+            fp.write(resp.content)
+
+    return resp
+    #}}}
+
+#-----------------------------------------------------------------------------
+
+def get_hwitem_barcode(part_id, write_to_file=None, **kwargs):
+    #{{{
+    logger.debug(f"<get_hwitem_barcode> part_id={part_id}")
+    path = f"api/v1/get-barcode/{sanitize(part_id)}"
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _get(url, return_type="raw", **kwargs)
+    
+    if write_to_file is not None:
+        with open(write_to_file, "wb") as fp:
+            fp.write(resp.content)
+
+    return resp
+    #}}}
+
 
 ##############################################################################
 #

@@ -96,7 +96,7 @@ class Sheet:
         the value in the headers for the sheet, or the global values passed to the sheet. If none
         of them exist, returns None.
         '''
-    
+
         def inner_coalesce(self, column, row_index, datatype):
             if row_index is not None and (row_index >= self.rows or row_index < 0):
                 msg = f"{self.sheet_source}: row index {row_index} out of range"
