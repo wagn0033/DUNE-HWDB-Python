@@ -11,6 +11,8 @@ import argparse
 from datetime import datetime, timezone
 from copy import deepcopy
 
+import multiprocessing.dummy as mp # multiprocessing interface, but uses threads instead
+
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
 
@@ -70,7 +72,7 @@ class Uploader():
         self.process_raw_job_data()
 
 
-        #self.execute_jobs()
+        self.execute_jobs()
         #}}}
 
     #--------------------------------------------------------------------------
@@ -85,6 +87,16 @@ class Uploader():
 
     def execute_jobs(self):
         #{{{
+        def update_part_id(part_type_id, part_id, serial_number):
+            # find any tests with the same part_type and serial_number
+            # but don't have the part_id updated yet and update them.
+            for merge_test in self.test_queue_new:
+                if HWTest._is_unassigned(merge_test._current['part_id']):
+                    if (merge_test._current['part_type_id'] == part_type_id
+                            and merge_test._current['serial_number'] == serial_number):
+                        merge_test._current['part_id'] = part_id
+
+
         for new_item in self.item_queue_new:
             if self._submit:
                 Style.notice.print("\nCreating new item:")
@@ -97,6 +109,11 @@ class Uploader():
             if self._submit:
                 new_item.update_core()
                 new_item.update_enabled()
+
+                update_part_id(new_item._current['part_type_id'],
+                                new_item._current['part_id'],
+                                new_item._current['serial_number'])
+
 
         for edited_item in self.item_queue_edit:
             if self._submit:
@@ -173,7 +190,7 @@ class Uploader():
 
     def queue_test_job(self, raw_job):
         #{{{            
-        Style.info.print(json.dumps(serialize_for_display(raw_job), indent=4))
+        #Style.info.print(json.dumps(serialize_for_display(raw_job), indent=4))
         #breakpoint()
         hwtest = HWTest.fromUserData(raw_job["Data"], raw_job["Encoder"])
         #Style.error.print(json.dumps(hwtest._current, indent=4))
@@ -273,7 +290,7 @@ class Uploader():
         EW.close()
 
 
-        print(json.dumps(table, indent=4))
+        #print(json.dumps(table, indent=4))
         #print(header)
         #print()
         #print('\n'.join(str(s) for s in table))
@@ -288,17 +305,37 @@ class Uploader():
 
         raw_jobs = self.raw_job_data
 
-        Style.warning.print(json.dumps(serialize_for_display(raw_jobs), indent=4))
+        #Style.warning.print(json.dumps(serialize_for_display(raw_jobs), indent=4))
         #return
+
+        pool = mp.Pool(processes=10)
+
+        queue_item_job = lambda args, kwargs: self.queue_item_job(*args, **kwargs)
+        queue_test_job = lambda args, kwargs: self.queue_test_job(*args, **kwargs)
+
+        job_res = []
 
         while len(raw_jobs) > 0:
             current_job = raw_jobs.pop(0)
             record_type = current_job["Record Type"]
             if record_type == "Item":
-                #print("FOUND ITEM")
-                self.queue_item_job(current_job)
+                #self.queue_item_job(current_job)
+                #print("async item")
+                job_res.append(
+                        pool.apply_async(
+                                queue_item_job, 
+                                ((current_job,), {})
+                                )
+                        )
             elif record_type == "Test":
-                self.queue_test_job(current_job)
+                #self.queue_test_job(current_job)
+                #print("async test")
+                job_res.append(
+                        pool.apply_async(
+                                queue_test_job, 
+                                ((current_job,), {})
+                                )
+                        )
             else:
                 print("FOUND SOMETHING ELSE")
         
@@ -306,7 +343,13 @@ class Uploader():
             self.create_item_sheet(item_summary)
         #create_item_sheet(self.item_summary)
         #print(json.dumps(self.item_summary, indent=4))
-        
+        #print("waiting to join")
+        pool.close()
+        pool.join() 
+        for res in job_res:
+            res.get()
+            #print(res.get())
+        #print("joined")
 
 
 

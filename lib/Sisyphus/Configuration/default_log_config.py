@@ -63,6 +63,7 @@ contents = \
             "propagate": False
         },
         "__main__": {
+            "handlers": ["logfile"],
             "level": "DEBUG",
             "propagate": False
         },

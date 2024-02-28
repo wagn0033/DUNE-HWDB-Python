@@ -239,6 +239,7 @@ def cast_float(cell):
     
     try:
         cell.value = float(cell.value)
+        cell.warnings = []
         return cell 
     except (TypeError, ValueError) as err:
         pass
@@ -350,6 +351,8 @@ def cast_any(cell):
         cell.value = int(cell.value)
     elif type(cell.value) in (np.float64,):
         cell.value = float(cell.value)
+    elif type(cell.value) in (np.bool_,):
+        cell.value = bool(cell.value)
 
     cell.warnings = []
     return cell
@@ -358,7 +361,6 @@ def cast_any(cell):
 
 def cast(cell):
     #{{{
-    
     # If the value is literally "<null>", treat this as an overwriting null.
     # We really needed there to be two kinds of nulls. One that's just a plain 
     # old ordinary null, and another that means that if you're editing an item,
@@ -400,14 +402,13 @@ def cast(cell):
         elif typedef in ('dict', 'obj', 'object'):
             cell = cast_dict(cell)
         elif typedef in ('json',):
-            cell = cast_json(cell)
-        elif typedef in ('any',):
+            cell = cast_any(cell)
+        elif typedef in ('any'):
             cell = cast_any(cell)
         else:
             cell = cast_any(cell)
-            cell.warnings.append("Unknown type '{typedef}'")
+            cell.warnings.append(f"Unknown type '{typedef}'")
         if not cell.warnings:
-            #breakpoint()
             break
 
     return cell

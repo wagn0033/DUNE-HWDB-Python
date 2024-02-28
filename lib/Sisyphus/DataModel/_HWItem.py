@@ -57,6 +57,7 @@ class HWItem:
     # TODO: we need a bunch of property getters/setters, but 
     # we can get away without them for a while because we
     # aren't using this interactively.
+    #{{{
     @property
     def part_type_id(self):
         return self._current['part_type_id']
@@ -111,7 +112,7 @@ class HWItem:
         return self._current['specifications']
 
     # TODO: add more of these
-    
+    #}}}
 
     #--------------------------------------------------------------------------
 
@@ -146,8 +147,8 @@ class HWItem:
 
     @classmethod
     def fromUserData(cls, user_record):
-        #{{{
-        #{{{
+        #{{{ method
+        #{{{ docstring
         """Create a HWItem from user data
 
         Typically, this means the data read from a spreadsheet and encoded
@@ -215,14 +216,14 @@ class HWItem:
         enclosed in a list. Either way, it will be stored internally without
         the enclosing list.
         """
-        #}}}
+        #}}} docstring
         new_hwitem = HWItem(
                 part_type_id=user_record.get("Part Type ID", None),
                 part_type_name=user_record.get("Part Type Name", None),
                 AreYouSure=True)
 
         user_record = deepcopy(user_record)
-
+        
         #print(json.dumps(user_record, indent=4))
 
         if isinstance(spec := user_record.get("Specifications", None), list):
@@ -241,9 +242,11 @@ class HWItem:
             new_hwitem._last_commit = hwdb_record
 
         except ra.NotFound:
-            # This is fine. It just means that it's new!
-            new_hwitem._is_new = True
-
+            if cls._is_unassigned(user_record.get("External ID", None)):
+                # This is fine. It just means that it's new!
+                new_hwitem._is_new = True
+            else:
+                raise    
 
         for col_name, prop_name in cls._column_to_property.items():
             if col_name not in user_record:
@@ -257,7 +260,7 @@ class HWItem:
         new_hwitem.normalize()
 
         return new_hwitem
-        #}}}
+        #}}} method
 
     #--------------------------------------------------------------------------
 
@@ -294,8 +297,12 @@ class HWItem:
             "serial_number": serial_number,
             "count": 2
         }
-
-        if part_id is not None:
+        # If there's a part_id, don't use the serial_number, because it's
+        # possible that the user has given one with the intent of changing
+        # it to the new one.
+        if cls._is_unassigned(part_id):
+            kwargs['part_id'] = None
+        else:
             kwargs["serial_number"] = None
 
         hwitem_raw = ut.fetch_hwitems(**kwargs)
@@ -892,6 +899,12 @@ class HWItem:
 
         return fp.getvalue()
         #}}}
+
+    @staticmethod
+    def _is_unassigned(part_id):
+        unassigned = (None, '', '<unassigned>', '<tbd>', '<null>')
+        return (part_id is None) or (part_id.casefold() in unassigned)
+
 
     #}}}
 

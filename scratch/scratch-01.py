@@ -7,14 +7,23 @@ Created on Thu Aug  3 09:28:15 2023
 """
 
 import json
-from Sisyphus.RestApiV1 import get_component_images, get_image
+from Sisyphus import RestApiV1 as ra
+from Sisyphus.RestApiV1 import Utilities as ut
 
-images = get_component_images("Z00100300001")
+kwargs = {
+            #"part_type_id": "Z00100300022",
+            "part_type_id": None,
+            "part_type_name": None,
+            "part_id": "Z00100300022-00064",
+            "serial_number": None,
+            "count": 2
+        }
 
-print(json.dumps(images, indent=4))
+items = ut.fetch_hwitems(**kwargs)
 
-for image_meta in images['data']:
-    image_id = image_meta['image_id']
-    image_name = image_meta['image_name']
+print(json.dumps(items, indent=4))
 
-    image_data = get_image(image_id, image_name)
+items_again = ut.fetch_hwitems(**kwargs)
+
+
+

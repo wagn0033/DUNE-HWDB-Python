@@ -180,6 +180,7 @@ class PDFLabels:
             self.add_label_type(*args)
 
     def add_label_type(self, code_type, template, page_size="letter"): 
+        #{{{
         code_type = code_type.casefold()
         assert(code_type in ('qr', 'bar'))
         assert(page_size.casefold() in ('a4', 'letter'))
@@ -193,6 +194,7 @@ class PDFLabels:
                     label_templates[page_size][template])
         else:
             raise ValueError(f"Template ({page_size}, {template}) not defined")
+        #}}}
 
     def generate_label_sheets(self, filename):
         #{{{

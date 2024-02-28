@@ -15,7 +15,7 @@ import Sisyphus.RestApiV1.Utilities as ut
 from Sisyphus.HWDBUtility.SheetReader import Sheet, Cell
 from Sisyphus.HWDBUtility import TypeCheck as tc
 from Sisyphus.Utils.Terminal.Style import Style
-
+from Sisyphus.Utils.CI_dict import CI_dict
 from Sisyphus.Utils import utils
 
 import pprint
@@ -35,6 +35,7 @@ import uuid
 KW_TYPE = "type"
 KW_KEY = "key"
 KW_COLUMN = "column"
+KW_CHOICES = "choices"
 KW_MEMBERS = "members"
 KW_VALUE = "value"
 KW_DEFAULT = "default"
@@ -53,7 +54,7 @@ default_universal_fields = \
 {
     "Part Type ID": {KW_TYPE:"null,string", KW_COLUMN:"Part Type ID", KW_DEFAULT:None},
     "Part Type Name": {KW_TYPE:"null,string", KW_COLUMN:"Part Type Name", KW_DEFAULT:None},
-    "External ID": {KW_TYPE:"null,string", KW_COLUMN:"External ID", KW_DEFAULT:None},
+    "External ID": {KW_TYPE:"null,string", KW_COLUMN:["External ID","Part ID"], KW_DEFAULT:None},
     "Serial Number": {KW_TYPE:"null,string", KW_COLUMN:"Serial Number", KW_DEFAULT:None},
 }
 
@@ -124,8 +125,6 @@ class Encoder:
         self._encoder_def = deepcopy(encoder_def)
         enc = deepcopy(self._encoder_def)
         
-        self.warnings = []
-        
         self.name = enc.pop("Encoder Name", None)
         
         self.record_type = enc.pop("Record Type", None)
@@ -153,12 +152,6 @@ class Encoder:
     
     #--------------------------------------------------------------------------
     
-    def add_warning(self, warning):
-        printcolor(0xffaa33, f"WARNING: {warning}")
-        self.warnings.append(warning)
-    
-    #--------------------------------------------------------------------------
-
     def _preprocess_schema(self, schema):
         #{{{
         """'Normalize' the schema to make encoding simpler
@@ -176,10 +169,44 @@ class Encoder:
         """
         #......................................................................
 
-        def preprocess_group(sch_in):
+        def make_prefix_variants(schema_key, column, prefix):
+            
+            if column is None:
+                columns = [schema_key]
+            elif isinstance(column, (list, tuple)):
+                columns = list(column) + [schema_key]
+            else:
+                columns = [column, schema_key]
+
+            if prefix:
+                prefixed = []
+                naked = []
+                for column in columns:
+                    if column[:2].casefold() == prefix.casefold():
+                        prefixed.append(column)
+                        naked.append(column[2:])
+                    else:
+                        naked.append(column)
+                        prefixed.append(prefix + column)
+                columns = list(CI_dict.fromkeys(prefixed + naked).keys())
+            
+            return columns
+
+
+        def preprocess_group(sch_in, sch_type=None):
             #{{{
             sch_in = deepcopy(sch_in)
             sch_out = {}
+
+            field_prefix = None
+            if self.record_type == "Item":
+                if sch_type in ('datasheet', 'group'):
+                    field_prefix = "S:"
+                elif sch_type in ('collection',):
+                    field_prefix = "C:"
+            elif self.record_type == "Test":
+                if sch_type in ('datasheet', 'group'):
+                    field_prefix = "T:"
 
             for schema_key, field_def in sch_in.items():
                 field_def = deepcopy(field_def)
@@ -188,7 +215,7 @@ class Encoder:
                     sch_out[schema_key] = \
                     {
                         KW_TYPE: field_def,
-                        KW_COLUMN: schema_key,
+                        KW_COLUMN: make_prefix_variants(schema_key, None, field_prefix),
                         KW_DEFAULT: None
                     }
                     continue
@@ -213,7 +240,7 @@ class Encoder:
                         node[KW_KEY] = [key]
 
                     members = field_def.pop(KW_MEMBERS, {})
-                    node[KW_MEMBERS] = preprocess_group(members)
+                    node[KW_MEMBERS] = preprocess_group(members, "group")
 
                     # check that all the "key"s are in members
                     for key_name in node[KW_KEY]:
@@ -224,6 +251,8 @@ class Encoder:
                     continue
 
                 member_def = {**typedef_default, **field_def}
+                columns = make_prefix_variants(schema_key, member_def['column'], field_prefix)
+                member_def['column'] = columns
 
                 sch_out[schema_key] = member_def
 
@@ -251,6 +280,7 @@ class Encoder:
         }
 
         sch_in = deepcopy(schema)
+        #Style.error.print(json.dumps(sch_in, indent=4))
         sch_out = {}
 
         # Process the root level
@@ -275,6 +305,7 @@ class Encoder:
                     # this datasheet (which is essentially the same as a group), 
                     # but they should be allowed to provide it in the same form
                     # as we will process it into, so check for 'type' and 'members'.
+                    
                     if isinstance(default_field_def, str):
                         # If it's a string instead of a dictionary, then the 
                         # string indicates the type, which is useless for a
@@ -287,6 +318,7 @@ class Encoder:
                             KW_MEMBERS: {},
                         }
                         continue
+                    
                     if isinstance(default_field_def, list):
                         # If it's a list, it better be a list of strings, each
                         # of which is a name of a field of type 'any'.
@@ -297,9 +329,10 @@ class Encoder:
                             KW_MEMBERS: {s:"any" for s in default_field_def},
                         }
                         continue
+                    
                     if not isinstance(default_field_def, dict):
                         raise ValueError(f"{field_type} in schema must be a dictionary")
-
+                    
                     if not {KW_TYPE, KW_MEMBERS, KW_KEY}.difference(default_field_def.keys()):
                         # The only fields here, if any at all, are 'type', 
                         # 'members', and 'key', so interpret this as a 
@@ -321,7 +354,7 @@ class Encoder:
                         sch_out[schema_key] = \
                         {
                             KW_TYPE: field_type,
-                            KW_MEMBERS: preprocess_group(members),
+                            KW_MEMBERS: preprocess_group(members, field_type),
                         }
                         continue
                         
@@ -341,7 +374,7 @@ class Encoder:
                     sch_out[schema_key] = \
                     {
                         KW_TYPE: field_type,
-                        KW_MEMBERS: preprocess_group(members),
+                        KW_MEMBERS: preprocess_group(members, field_type),
                     }
                     continue
                 
@@ -361,12 +394,24 @@ class Encoder:
                     sch_out[schema_key] = {**default_field_def, KW_TYPE: user_field_def}
                 else:
                     sch_out[schema_key] = {**default_field_def, **user_field_def}
+                
+                if sch_out[schema_key].get(KW_COLUMN) is not None:
+                    sch_out[schema_key][KW_COLUMN] = \
+                                    make_prefix_variants(
+                                        schema_key,
+                                        sch_out[schema_key][KW_COLUMN],
+                                        None)
+
                 continue           
  
             # Use the default
             sch_out[schema_key] = deepcopy(default_field_def)
-
-        
+            
+            if sch_out[schema_key].get(KW_COLUMN) is not None:
+                sch_out[schema_key][KW_COLUMN] = make_prefix_variants(
+                                                    schema_key,
+                                                    sch_out[schema_key][KW_COLUMN],
+                                                    None) 
         # Embed this in a schema type and return
         preprocessed_schema = \
         {
@@ -374,7 +419,7 @@ class Encoder:
             KW_KEY: ["External ID", "Serial Number"],
             KW_MEMBERS: sch_out,
         }
-
+        #Style.warning.print(json.dumps(preprocessed_schema, indent=4))
         return preprocessed_schema
         #}}}
     
@@ -536,7 +581,7 @@ class Encoder:
         #......................................................................
 
         def encode_group(sheet, row_index, parent_field_def):
-           
+            #{{{ 
             group_value = {} 
  
             for schema_key, field_def in parent_field_def[KW_MEMBERS].items():
@@ -547,8 +592,13 @@ class Encoder:
                     continue
 
                 if KW_COLUMN in field_def:
-                    field_contents = sheet.coalesce(field_def[KW_COLUMN], 
-                                                    row_index, field_def[KW_TYPE])
+                    columns = deepcopy(field_def[KW_COLUMN])
+                    field_contents = sheet.coalesce(
+                                columns, 
+                                row_index, 
+                                field_def[KW_TYPE],
+                                field_def.get(KW_CHOICES)
+                            )
                     if field_contents.location == "not found":
                         field_contents.value = field_def[KW_DEFAULT]
                 elif KW_VALUE in field_def:
@@ -561,8 +611,23 @@ class Encoder:
                 
                 # TODO: handle warnings
                 if field_contents.warnings:
-                    Style.info.print(field_contents.datatype)
-                    Style.warning.print(field_contents.warnings)
+                    warnings = field_contents.warnings
+                    location = field_contents.location
+                    loc_col = location.column       
+                    loc_row = location.row
+                    
+                    if loc_row == "header":
+                        if loc_col not in header_warnings:
+                            header_warnings[loc_col] = f"for field '{loc_col}': {warnings[-1]}"
+                    elif loc_row == "inherited":
+                        if loc_col not in global_warnings:
+                            global_warnings[loc_col] = f"for field '{loc_col}': {warnings[-1]}"
+                    else:
+                        row_warnings.setdefault(loc_row, {})[loc_col] = warnings[-1]
+
+                    #conversion_warnings.append(f"
+                    #Style.warning.print("Conversion warning")
+                    #Style.warning.print(field_contents)
 
                 group_value[schema_key] = field_contents.value
             
@@ -572,21 +637,44 @@ class Encoder:
                 key = tuple( group_value[key] for key in parent_field_def[KW_KEY])
             
             return key, group_value
-        
+            #}}}
         #......................................................................
 
         sheet.local_values["Test Name"] = self.test_name
 
         result = {}
+        header_warnings = {}
+        global_warnings = {}
+        row_warnings = {} 
+
+        Style.info.print(f"Encoding sheet '{sheet.description()}' with encoder '{self.name}'")
+        print()
 
         for row_index in range(sheet.rows):
-
+            print(f"\x1b[1FProcessing row {row_index+1} of {sheet.rows}\x1b[K")
             key, group_value = encode_group(sheet, row_index, self.schema)
 
             if key not in result:
                 result[key] = group_value
             else:
                 result[key] = self.merge_indexed_records(result[key], group_value)
+            
+        print(f"\x1b[1F", end='')
+
+        if global_warnings:
+            Style.warning.print("The following warnings occurred with the values passed to the sheet:")
+            for loc_col, msg in global_warnings.items():
+                Style.warning.print(f"    {msg}")
+        if header_warnings:
+            Style.warning.print("The following warnings occurred in the header of the sheet:")
+            for loc_col, msg in header_warnings.items():
+                Style.warning.print(f"    {msg}")
+        if row_warnings:
+            Style.warning.print("The following warnings occurred in the main body of the sheet:")
+            for loc_row, row_info in row_warnings.items():
+                for loc_col, msg in row_info.items():
+                    Style.warning.print(f"    in row {loc_row}, field '{loc_col}': {msg}")
+
 
         return result
         #}}}    
@@ -734,20 +822,27 @@ class Encoder:
                 "Schema": {"Specifications": {}, "Subcomponents": {}}
             }
             spec = part_type_data["ComponentType"]["properties"]["specifications"][0]["datasheet"]
-            meta = spec.get('_meta', {})
             spec = utils.restore_order(deepcopy(spec))
+            meta = spec.pop('_meta', {})
             connectors = part_type_data["ComponentType"]["connectors"]
 
             for k, v in spec.items():
-                encoder_def["Schema"]["Specifications"][k] = \
-                        {
-                            "type": "null,any",
-                            "default": v,
-                            "column": f"S:{k}" 
-                        }
+                if isinstance(v, list):
+                    encoder_def["Schema"]["Specifications"][k] = {
+                                "type": "null,any",
+                                "choices": v,
+                                "default": None,
+                                "column": f"S:{k}" 
+                            }
+                
+                else:
+                    encoder_def["Schema"]["Specifications"][k] = {
+                                "type": "null,any",
+                                "default": v,
+                                "column": f"S:{k}" 
+                            }
             for k, v in connectors.items():
-                encoder_def["Schema"]["Subcomponents"][k] = \
-                        {
+                encoder_def["Schema"]["Subcomponents"][k] = {
                             "type": "null,str",
                             "column": f"C:{k}",
                             "default": "<null>" 
@@ -772,17 +867,21 @@ class Encoder:
             test_node = part_type_data["TestTypeDefs"][test_name]["data"]
             spec = test_node["properties"]["specifications"][0]["datasheet"]
             for k, v in spec.items():
-                # the value v normally means the default value, but if it's 
-                # a list, it's supposed to mean that the value is supposed
-                # to be chosen from the list, not the list itself. So if we
-                # see a list, make it a default value of null
+                
+
                 if isinstance(v, list):
-                    v = None
-                encoder_def["Schema"]["Test Results"][k] = \
-                    {
-                        "default": v,
-                        "column": f"T:{k}"
-                    }
+                    encoder_def["Schema"]["Test Results"][k] = {
+                            "type": "null,any",
+                            "choices": v,
+                            "default": None,
+                            "column": f"T:{k}"
+                        }
+                else:
+                    encoder_def["Schema"]["Test Results"][k] = {
+                            "type": "null,any",
+                            "default": v,
+                            "column": f"T:{k}"
+                        }
 
             return encoder_def
         
@@ -790,14 +889,13 @@ class Encoder:
 
         def create_item_image_encoder():
             
-            encoder_def = \
-            {
-                "Encoder Name": f"_AUTO_{part_type_id}_Item_Image",
-                "Record Type": "Item Image",
-                "Part Type ID": part_type_id,
-                "Part Type Name": part_type_name,
-                "Schema": {}
-            }
+            encoder_def = {
+                        "Encoder Name": f"_AUTO_{part_type_id}_Item_Image",
+                        "Record Type": "Item Image",
+                        "Part Type ID": part_type_id,
+                        "Part Type Name": part_type_name,
+                        "Schema": {}
+                    }
 
             return encoder_def
         
@@ -809,15 +907,14 @@ class Encoder:
                 raise ValueError("Cannot generate 'Test Image' encoder because "
                             "'Test Name' was not provided.")
  
-            encoder_def = \
-            {
-                "Encoder Name": f"_AUTO_{part_type_id}_Test_Image",
-                "Record Type": "Test Image",
-                "Part Type ID": part_type_id,
-                "Part Type Name": part_type_name,
-                "Test Name": test_name,
-                "Schema": {}
-            }
+            encoder_def = {
+                        "Encoder Name": f"_AUTO_{part_type_id}_Test_Image",
+                        "Record Type": "Test Image",
+                        "Part Type ID": part_type_id,
+                        "Part Type Name": part_type_name,
+                        "Test Name": test_name,
+                        "Schema": {}
+                    }
 
             return encoder_def
         

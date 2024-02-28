@@ -141,8 +141,8 @@ enc_test_bpssummary = {
                             {
                                 "ChanName": "str",
                                 "Chan": "int",
-                                "Mean": "float",
-                                "Std": "float",
+                                "Mean": "null,float",
+                                "Std": "null,float",
                                 "Nent": "int",
                                 "io_group": "int",
                                 "io_channel": "int",

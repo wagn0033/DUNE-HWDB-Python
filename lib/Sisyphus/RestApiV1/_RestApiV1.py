@@ -180,6 +180,8 @@ def _request(method, url, *args, return_type="json", **kwargs):
 
             resp = session.send(prepped)
         else:
+            #if method in ('post', 'patch'):
+            #    breakpoint()
             resp = session.request(method, url, *args, **augmented_kwargs)
 
     except requests.exceptions.ConnectionError as conn_err:

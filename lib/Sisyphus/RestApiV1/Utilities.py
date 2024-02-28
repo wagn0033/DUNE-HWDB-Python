@@ -30,7 +30,7 @@ def user_role_check(part_type_id=None, part_type_name=None):
     #{{{
     """Checks if the user is permitted to work with this ComponentType"""
    
-    logger.debug(f"<user_role_check> checking ({part_type_id}, {part_type_name})")
+    #logger.debug(f"<user_role_check> checking ({part_type_id}, {part_type_name})")
     # Set up the caching
     def make_cache(fn, name, val):
         if not hasattr(fn, name):
@@ -41,7 +41,7 @@ def user_role_check(part_type_id=None, part_type_name=None):
     if part_type_id is not None:
         if part_type_id in _cache:
             retval = _cache[part_type_id]
-            logger.debug(f"<user_role_check> returning {retval} from cache")
+            #logger.debug(f"<user_role_check> returning {retval} from cache")
             return retval  
 
     part_type = fetch_component_type(part_type_id, part_type_name)

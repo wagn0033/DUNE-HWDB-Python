@@ -209,6 +209,8 @@ def preserve_order(obj):
             obj["_meta"] = obj.pop("_meta")       
         
         if len(order) > 1:
+            if "_meta" in obj and obj["_meta"] is None:
+                obj["_meta"] = {}
             obj.setdefault("_meta", {})["keys"] = order
 
     # Even though the change was made in-place, return the object anyway.

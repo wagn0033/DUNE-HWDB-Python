@@ -29,6 +29,8 @@ from Sisyphus.HWDBUtility.keywords import *
 
 from Sisyphus.HWDBUtility import TypeCheck as tc
 from Sisyphus.HWDBUtility.TypeCheck import Cell, CellLocation
+from Sisyphus.Utils.Terminal.Style import Style
+from Sisyphus.Utils.CI_dict import CI_dict
 
 import json
 import sys
@@ -70,14 +72,24 @@ class Sheet:
             else:
                 raise ValueError(f"Unrecognized file type '{filename}'")
             self.sheetname = sheet
-            self.global_values = values or {}
+            self.global_values = CI_dict(values or {})
             #self.global_values["HWDB Utility Version"] = version
-            self.local_values = {}
+            self.local_values = None
             self.dataframe = None
             self.rows = None
+
+            # 
+
+
             self.sheet_source = trace            
             self._read_data()
         #}}}
+
+    def description(self):
+        if self.sheetname:
+            return f"{self.filename} | {self.sheetname}"
+        else:
+            return f"{self.filename}"
 
     def create_cell(self, location, value, datatype):
         return Cell(
@@ -87,7 +99,7 @@ class Sheet:
                 datatype=datatype,
                 value=value)
     
-    def coalesce(self, column, row_index=None, datatype='any'):
+    def coalesce(self, column, row_index=None, datatype='any', choices=None):
         #{{{
         '''
         Returns the value of a cell, or a set default value.
@@ -97,39 +109,79 @@ class Sheet:
         of them exist, returns None.
         '''
 
-        def inner_coalesce(self, column, row_index, datatype):
+        def inner_coalesce(self, columns, row_index, datatype):
             if row_index is not None and (row_index >= self.rows or row_index < 0):
                 msg = f"{self.sheet_source}: row index {row_index} out of range"
                 logger.error(msg)
                 raise IndexError(msg)
 
-            if row_index is not None and column in self.dataframe:
-                return self.create_cell(
-                        CellLocation(column, self.row_offset+row_index),
-                        self.dataframe[column][row_index],
-                        datatype)
-                        #self.dictionary[row_index][column])
+            # Try all the possible column names in the main part of the sheet
+            # before resorting to looking for it in locals or globals
+            if row_index is not None:
+                record = self.tabledata[row_index]
+                for column in columns:
+                    if column in record:
+                        cell = self.create_cell(
+                                CellLocation(column, self.row_offset+row_index+1),
+                                record[column],
+                                datatype)
+                        #print(columns, cell)
+                        return cell
 
-            if column in self.local_values:
-                return self.create_cell(
-                        "header",
-                        self.local_values[column],
-                        datatype)
+            # Try all possible columns for locals before going on to globals
+            for column in columns:
+                if column in self.local_values:
+                    cell = self.create_cell(
+                            #"header",
+                            CellLocation(column, "header"),
+                            self.local_values[column],
+                            datatype)
+                    #print(columns, cell)
+                    return cell
 
-            if column in self.global_values:
-                return self.create_cell(
-                        "inherited",
-                        self.global_values[column],
-                        datatype)
+            # Try the globals as a last resort
+            for column in columns:
+                if column in self.global_values:
+                    cell = self.create_cell(
+                            "inherited",
+                            self.global_values[column],
+                            datatype)
+                    #print(columns, cell)
+                    return cell
 
             # We didn't find anything, so let's just see if it was prefaced
             # by "S:", "C:", or "T:" and try again.
-            if column[:2] in ("S:", "C:", "T:"):
-                return inner_coalesce(self, column[2:], row_index, datatype)
+            #if column[:2] in ("S:", "C:", "T:"):
+            #    return inner_coalesce(self, column[2:], row_index, datatype)
             
             return self.create_cell("not found", None, "any")
 
-        return tc.cast(inner_coalesce(self, column, row_index, datatype))
+        # sort of a late-addition hack:
+        # "column" can be a list of aliases, or a single value.
+        # if it's a single value, convert it to a list first.
+        if isinstance(column, (list, tuple)):
+            columns = column
+        else:
+            columns = [column]
+
+        cell = tc.cast(inner_coalesce(self, columns, row_index, datatype))
+        
+        if choices:
+            lc_choices = { choice.casefold(): choice 
+                            for choice in choices 
+                            if isinstance(choice, str) }
+            
+            if isinstance(cell.value, str):
+                if cell.value.casefold() in lc_choices:
+                    cell.value = lc_choices[cell.value.casefold()]
+                else:
+                    cell.warnings.append(f"'{cell.value}' was not one of the defined choices")
+            else:
+                if cell.value not in choices:
+                    cell.warnings.append(f"'{cell.value}' was not one of the defined choices")
+
+        return cell
+
         #}}}        
 
     def _read_data(self): 
@@ -246,20 +298,25 @@ class Sheet:
                 else:
                     local_values = {}
  
-        self.local_values = local_values
+        self.local_values = CI_dict(local_values)
 
         if column_header_row is None:
             self.dataframe = pd.DataFrame({None: [None]})
-            self.dictionary = self.dataframe.to_dict()
             self.rows = 1
             self.row_offset = None
         else:
             logger.debug(f"reading table from {self.sheet_source} starting at "
                     f"row {column_header_row}")
             self.dataframe = read_sheet(skiprows=column_header_row)
-            self.dictionary = self.dataframe.to_dict()
             self.rows = len(self.dataframe.index)
             self.row_offset = column_header_row
+        
+        self.tabledata = [ CI_dict(d) for d in self.dataframe.to_dict(orient='records') ]
+
+
+
+        #print(json.dumps(self.dataframe.to_dict(orient='records'), indent=4))
+        #print(json.dumps(self.tabledata, indent=4))
 
         return
 

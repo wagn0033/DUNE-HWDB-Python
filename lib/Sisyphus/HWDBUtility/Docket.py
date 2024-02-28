@@ -144,19 +144,17 @@ class Docket:
             # having an encoder in the sheet is an error.
 
             if encoder_name == '_AUTO_':
-                if (tmp:=sheet.coalesce("Encoder").value) is not None:
+                if (tmp:=sheet.coalesce(["Encoder"]).value) is not None:
                     encoder_name = tmp
 
             if encoder_name == '_AUTO_':
                 params = \
                 {
-                    "record_type": sheet.coalesce("Record Type").value,
-                    "part_type_id": sheet.coalesce("Part Type ID").value,
-                    "part_type_name": sheet.coalesce("Part Type Name").value,
-                    "test_name": sheet.coalesce("Test Name").value,
+                    "record_type": sheet.coalesce(["Record Type"]).value,
+                    "part_type_id": sheet.coalesce(["Part Type ID"]).value,
+                    "part_type_name": sheet.coalesce(["Part Type Name"]).value,
+                    "test_name": sheet.coalesce(["Test Name"]).value,
                 }
-                #Style.error.print("We will generate an encoder")
-                #Style.error.print(params)
 
                 auto_encoder = Encoder.create_auto_encoder(**params)
             

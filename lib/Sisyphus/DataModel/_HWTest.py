@@ -35,7 +35,7 @@ class HWTest:
         "Test Name": "test_name",
         "Serial Number": "serial_number",
         "External ID": "part_id",
-        "Test Comments": "comments",
+        "Comments": "comments",
         "Test Results": "test_data",
     }
     _property_to_column = {v: k for k, v in _column_to_property.items()}
@@ -100,21 +100,24 @@ class HWTest:
                     test_name=user_record.get("Test Name", None))
             new_hwtest._is_new = False
             new_hwtest._last_commit = hwdb_record
-            new_hwtest._current['part_id'] = hwdb_record['part_id']
     
         except ra.NotFound:
-            # This is fine. It just means that the item hasn't been added yet.
-            new_hwtest._is_new = True
-            new_hwtest._pending_item = True
+            if cls._is_unassigned(user_record.get("External ID", None)):
+                # This is fine. It just means that the item hasn't been added yet.
+                new_hwtest._is_new = True
+                new_hwtest._pending_item = True
+            else:
+                raise
 
         #Style.fg(0x00ff00).print("NEW DATA:", json.dumps(user_record['Test Results'], indent=4))
         #Style.fg(0x66ff00).print("OLD DATA:", json.dumps(new_hwtest._last_commit['test_data'], indent=4))
-      
-        merged = encoder.merge_records(
-                        [new_hwtest._last_commit['test_data']],
-                        [user_record['Test Results']],
-                        encoder.schema['members']['Test Results'])
-        Style.fg(0xff6600).print("RESULT", json.dumps(merged, indent=4))
+     
+        # TODO: get these to merge 
+        #merged = encoder.merge_records(
+        #                [new_hwtest._last_commit['test_data']],
+        #                [user_record['Test Results']],
+        #                encoder.schema['members']['Test Results'])
+        #Style.fg(0xff6600).print("RESULT", json.dumps(merged, indent=4))
 
  
         for col_name, prop_name in cls._column_to_property.items():
@@ -122,6 +125,7 @@ class HWTest:
                 logger.warning(f"{col_name} not in user_record")
             else:
                 new_hwtest._current[prop_name] = user_record.pop(col_name, None)
+        new_hwtest._current['part_id'] = new_hwtest._last_commit['part_id']
 
         if len(user_record) > 0:
             logger.warning(f"extra columns in user_record: {tuple(user_record.keys())}")
@@ -146,7 +150,9 @@ class HWTest:
             "count": 2
         }
 
-        if part_id is not None:
+        if cls._is_unassigned(part_id):
+            kwargs['part_id'] = None
+        else:
             kwargs["serial_number"] = None
 
         hwitem_raw = ut.fetch_hwitems(**kwargs)
@@ -208,6 +214,11 @@ class HWTest:
         current = self._current        
         last_commit = self._last_commit
 
+        if self._is_unassigned(current['part_id']):
+            print(current['part_id'])
+            print(last_commit['part_id'])
+            raise ValueError("test's part id is still unassigned")
+
         post_data = {
             "test_type": current['test_name'],
             "comments": current['comments'],
@@ -215,7 +226,7 @@ class HWTest:
         }
 
         #resp = ra.post_test(current['part_id'], post_data)
-        resp = ra.post_test(last_commit['part_id'], post_data)
+        resp = ra.post_test(current['part_id'], post_data)
         print(json.dumps(resp, indent=4))
         #}}}
 
@@ -237,7 +248,7 @@ class HWTest:
             ["Part Type ID", current['part_type_id']],
             ["Part Type Name", current['part_type_name']],
             ["Test Name", current['test_name']],
-            ["External ID", last_commit['part_id']],
+            ["External ID", current['part_id']],
             ["Serial Number", current['serial_number']],
         ]
 
@@ -250,7 +261,7 @@ class HWTest:
         table_data = [
             [ style_bold(s) for s in
             ['Property',        'Value'] ],
-            ['Comment',         current['comments']],
+            ['Comments',         current['comments']],
 
             #['Test Results',    
             #        json.dumps(current['test_data'], indent=4)]
@@ -283,7 +294,11 @@ class HWTest:
 
         return fp.getvalue()
         #}}}
-
+    
+    @staticmethod
+    def _is_unassigned(part_id):
+        unassigned = (None, '', '<unassigned>', '<tbd>', '<null>')
+        return (part_id is None) or (part_id.casefold() in unassigned)
 
     #}}}
 
