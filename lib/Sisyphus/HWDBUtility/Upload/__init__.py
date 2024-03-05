@@ -28,6 +28,8 @@ from Sisyphus.Utils.Terminal.Style import Style
 from Sisyphus.Utils.Terminal.BoxDraw import Table
 from Sisyphus.Utils.Terminal import BoxDraw
 
+from .JobManager import JobManager
+
 class Uploader():
     def __init__(self, docket=None, args=None):
         #{{{
@@ -43,6 +45,7 @@ class Uploader():
         #
         # Load the docket
         #
+        Style.notice.print("Processing Docket")
         if isinstance(docket, Docket):
             self.docket = docket
         elif isinstance(docket, str):
@@ -55,25 +58,32 @@ class Uploader():
         # 
         # Use the docket to get raw job data
         #
+        Style.notice.print("Loading Sheets")
         self.docket.load_sheets()
         self.docket.verify_encoders()
+        Style.notice.print("Encoding Sheets")
         self.raw_job_data = self.docket.apply_encoders()
 
+        self.jobmanager = JobManager(self.raw_job_data)
 
-        self.item_queue_new = []
-        self.item_queue_edit = []
-        self.test_queue_new = []
-        self.item_summary = {} # we'll write these as sheets
-        self.test_summary = {}
+        self.jobmanager.execute(self._submit)
 
+
+        # self.item_queue_new = []
+        # self.item_queue_edit = []
+        # self.test_queue_new = []
+        # self.item_summary = {} # we'll write these as sheets
+        # self.test_summary = {}
+        # # Turn the raw job data into actionable jobs
+        # #
+        # Style.info.print("Analyzing Jobs")
+        # self.process_raw_job_data()
         #
-        # Turn the raw job data into actionable jobs
-        #
-        self.process_raw_job_data()
-
-
-        self.execute_jobs()
+        # Style.info.print("Executing Jobs")
+        # self.execute_jobs()
+        
         #}}}
+
 
     #--------------------------------------------------------------------------
 
@@ -85,7 +95,7 @@ class Uploader():
     
     #--------------------------------------------------------------------------
 
-    def execute_jobs(self):
+    def old_execute_jobs(self):
         #{{{
         def update_part_id(part_type_id, part_id, serial_number):
             # find any tests with the same part_type and serial_number
@@ -103,7 +113,7 @@ class Uploader():
             else:
                 Style.notice.print("\nCreating new item (SIMULATED):")
 
-            print(new_item)
+            #print(new_item)
 
             new_item.validate()
             if self._submit:
@@ -120,7 +130,7 @@ class Uploader():
                 Style.notice.print("\nEditing an item:")
             else:
                 Style.notice.print("\nEditing an item (SIMULATED):")
-            print(edited_item)
+            #print(edited_item)
 
             edited_item.validate()
             if self._submit:
@@ -133,7 +143,7 @@ class Uploader():
                 Style.notice.print("\nMerging tests:")
             else:
                 Style.notice.print("\nMerging tests (SIMULATED):")
-            print(merge_test)
+            #print(merge_test)
 
             if self._submit:
                 merge_test.update()

@@ -79,6 +79,10 @@ class HWTest:
         #print(user_record.get("Part Type Name", None))
         #print(user_record.get("Test Name", None))
 
+        #if user_record.get("Serial Number") == "3H0154":
+        #    raise RuntimeError("testing error handling")
+
+
         new_hwtest = HWTest(
                 part_type_id=user_record.get("Part Type ID", None),
                 part_type_name=user_record.get("Part Type Name", None),

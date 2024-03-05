@@ -16,6 +16,8 @@ from Sisyphus.Utils.Terminal.Style import Style
 from Sisyphus.Utils.Terminal.BoxDraw import Table
 from Sisyphus.Utils.Terminal import BoxDraw
 from Sisyphus.Utils import utils
+
+from Sisyphus.Utils.utils import preserve_order, restore_order, serialize_for_display
 import io
 import json
 import sys
@@ -128,7 +130,7 @@ class HWItem:
         if not AreYouSure:
             raise ValueError("Don't create new HWItems this way "
                             "unless you know what you're doing!")
-
+        
         self._part_type = ut.fetch_component_type(part_type_id, part_type_name)
         self._last_commit = {k: None for k in self._property_to_column.keys()}
         self._last_commit['part_type_id'] = self._part_type['ComponentType']['part_type_id']
@@ -146,7 +148,7 @@ class HWItem:
     #--------------------------------------------------------------------------
 
     @classmethod
-    def fromUserData(cls, user_record):
+    def fromUserData(cls, user_record, encoder=None):
         #{{{ method
         #{{{ docstring
         """Create a HWItem from user data
@@ -217,6 +219,7 @@ class HWItem:
         the enclosing list.
         """
         #}}} docstring
+
         new_hwitem = HWItem(
                 part_type_id=user_record.get("Part Type ID", None),
                 part_type_name=user_record.get("Part Type Name", None),
@@ -240,7 +243,6 @@ class HWItem:
                     serial_number=user_record.get("Serial Number", None))
             new_hwitem._is_new = False
             new_hwitem._last_commit = hwdb_record
-
         except ra.NotFound:
             if cls._is_unassigned(user_record.get("External ID", None)):
                 # This is fine. It just means that it's new!
@@ -258,6 +260,48 @@ class HWItem:
             logger.warning(f"extra columns in user_record: {tuple(user_record.keys())}")
 
         new_hwitem.normalize()
+
+        # if the serial number has changed, we need to check whether it's
+        # already in use, since we didn't search on it because we already
+        # had the part_id. If it's in use, it's not necessarily a problem,
+        # if the item using it is also changing to something else. Just
+        # search for it and record it for later.
+        new_SN = new_hwitem._current["serial_number"]
+        existing_SN = new_hwitem._last_commit["serial_number"]
+        new_hwitem._sn_conflicts = None
+
+        if new_hwitem._is_new:
+            # in this case, it's a new item, and we've already confirmed that the SN
+            # is not in use, so we don't need to do anything.
+            pass
+        elif existing_SN is None and new_SN is None:
+            # No problem here
+            pass
+        elif new_SN is None:
+            # This is fine. We can always set the serial number to None, even
+            # if it's None elsewhere.
+            pass
+        elif existing_SN == new_SN:
+            # in this case, it's a new item, and we've already confirmed that the SN
+            # if we're not changing the SN, then we're fine, even if the SN
+            # is used in multiple places
+            pass
+        else:
+            # This is the case where we need to do some work.
+            try:
+
+                more_records = ut.fetch_hwitems(
+                            part_type_id=new_hwitem._current['part_type_id'],
+                            serial_number=new_SN)
+
+                new_hwitem._sn_conflicts = list(more_records.keys())
+            except ra.NotFound:
+                pass 
+
+        
+        #csn, nsn = new_hwitem._last_commit['serial_number'], new_hwitem._current['serial_number']
+        #print(csn, nsn, new_hwitem._current['comments'])
+        #print('\n\n\n')
 
         return new_hwitem
         #}}} method
@@ -304,7 +348,7 @@ class HWItem:
             kwargs['part_id'] = None
         else:
             kwargs["serial_number"] = None
-
+        
         hwitem_raw = ut.fetch_hwitems(**kwargs)
 
         # Raise an exception if no records are found, or more than one is found.

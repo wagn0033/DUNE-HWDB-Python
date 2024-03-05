@@ -4,10 +4,10 @@
 source_1 = \
 {
     "Source Name": "Biff",
-    "Files": ["Biff.xlsx"],
+    "Files": ["Biff-SN-errors.xlsx"],
     "Sheets":
     [
-        "Biff-Items", "Biff-Tests", "Biff-Item_Images", "Biff-Test_Images"
+        "Biff-Items", "Biff-Tests", #"Biff-Item_Images", "Biff-Test_Images"
     ],
     "Values":
     {
@@ -56,9 +56,9 @@ contents = \
     "Docket Name": "Dingbat",
     "Sources":
     [
-        #source_1,
+        source_1,
         #source_2,
-        source_3,
+        #source_3,
     ],
     "Encoders":
     [

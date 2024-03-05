@@ -45,7 +45,7 @@ class Docket:
             raise ValueError("Must provide a definition or a filename")
 
         if filename:
-            Style.info.print(f"Creating Docket from filename '{filename}'")
+            #Style.info.print(f"Creating Docket from filename '{filename}'")
 
             suffix = filename.split('.')[-1].casefold()
             with open(filename, "r") as fp:
@@ -71,7 +71,8 @@ class Docket:
             else:
                 raise ValueError(f"Unrecognized docket file type: '{suffix}'")
         else:
-            Style.info.print(f"Creating Docket from definition")
+            #Style.info.print(f"Creating Docket from definition")
+            pass
 
         self._raw = definition
         self.docket_name = casefold_get(self._raw, "Docket Name", (filename or "unnamed"))
@@ -86,7 +87,7 @@ class Docket:
 
     def load_sheets(self):
         #{{{
-        Style.notice.print("(Docket) Loading Sheets...")
+        #Style.notice.print("(Docket) Loading Sheets...")
 
         self.sheets = []
         
@@ -104,7 +105,13 @@ class Docket:
             #    msg.append(f"'{source['Sheet Name']}'")
             #Style.notice.print("|".join(msg))
 
-            Style.notice.print("Loading", trace)
+            if 'Sheet Name' in source:
+                sheet_description = f"{source['Files'][0]} | {source['Sheet Name']}"
+            else:    
+                sheet_description = f"{source['Files'][0]}"
+
+            Style.info.print(f"    \u2022 Loading {sheet_description}")
+            
             #Style.warning.print(json.dumps(source, indent=4))
             aggregate, conflicts = merge_dict(self.values, source.get('Values', {}))
 

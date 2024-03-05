@@ -647,11 +647,11 @@ class Encoder:
         global_warnings = {}
         row_warnings = {} 
 
-        Style.info.print(f"Encoding sheet '{sheet.description()}' with encoder '{self.name}'")
+        Style.info.print(f"    \u2022Encoding sheet '{sheet.description()}' with encoder '{self.name}'")
         print()
 
         for row_index in range(sheet.rows):
-            print(f"\x1b[1FProcessing row {row_index+1} of {sheet.rows}\x1b[K")
+            print(f"\x1b[1F        Processing row {row_index+1} of {sheet.rows}\x1b[K")
             key, group_value = encode_group(sheet, row_index, self.schema)
 
             if key not in result:
@@ -659,21 +659,21 @@ class Encoder:
             else:
                 result[key] = self.merge_indexed_records(result[key], group_value)
             
-        print(f"\x1b[1F", end='')
+        print(f"\x1b[1F        {len(result)} records found in {sheet.rows} rows\x1b[K")
 
         if global_warnings:
-            Style.warning.print("The following warnings occurred with the values passed to the sheet:")
+            Style.warning.print("        The following warnings occurred with the values passed to the sheet:")
             for loc_col, msg in global_warnings.items():
-                Style.warning.print(f"    {msg}")
+                Style.warning.print(f"            \u2022 {msg}")
         if header_warnings:
-            Style.warning.print("The following warnings occurred in the header of the sheet:")
+            Style.warning.print("        The following warnings occurred in the header of the sheet:")
             for loc_col, msg in header_warnings.items():
-                Style.warning.print(f"    {msg}")
+                Style.warning.print(f"            \u2022 {msg}")
         if row_warnings:
-            Style.warning.print("The following warnings occurred in the main body of the sheet:")
+            Style.warning.print("        The following warnings occurred in the main body of the sheet:")
             for loc_row, row_info in row_warnings.items():
                 for loc_col, msg in row_info.items():
-                    Style.warning.print(f"    in row {loc_row}, field '{loc_col}': {msg}")
+                    Style.warning.print(f"            \u2022 in row {loc_row}, field '{loc_col}': {msg}")
 
 
         return result

@@ -55,7 +55,7 @@ src_test_bpssummary = {
 
 contents["Sources"].append(src_item)
 #contents["Sources"].append(src_test_netconf)
-#contents["Sources"].append(src_test_bpssummary)
+contents["Sources"].append(src_test_bpssummary)
 
 # Append some encoders
 enc_item = {
