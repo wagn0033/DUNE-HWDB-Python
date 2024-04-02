@@ -7,6 +7,7 @@ Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 
+import Sisyphus
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
 from Sisyphus.Utils.utils import preserve_order, restore_order, serialize_for_display
@@ -222,6 +223,14 @@ class HWTest:
             print(current['part_id'])
             print(last_commit['part_id'])
             raise ValueError("test's part id is still unassigned")
+
+        test_data = utils.preserve_order(current['test_data'])
+
+        if "_meta" not in test_data:
+            test_data["_meta"] = {}
+        test_data["_meta"]["HWDB Utility Version"] = Sisyphus.version
+
+        #print(json.dumps(test_data, indent=4))
 
         post_data = {
             "test_type": current['test_name'],

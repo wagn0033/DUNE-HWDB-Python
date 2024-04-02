@@ -220,6 +220,8 @@ class HWItem:
         """
         #}}} docstring
 
+        logger.debug(f"user_record: {user_record}")
+
         new_hwitem = HWItem(
                 part_type_id=user_record.get("Part Type ID", None),
                 part_type_name=user_record.get("Part Type Name", None),
@@ -268,28 +270,13 @@ class HWItem:
         # search for it and record it for later.
         new_SN = new_hwitem._current["serial_number"]
         existing_SN = new_hwitem._last_commit["serial_number"]
-        new_hwitem._sn_conflicts = None
 
-        if new_hwitem._is_new:
-            # in this case, it's a new item, and we've already confirmed that the SN
-            # is not in use, so we don't need to do anything.
-            pass
-        elif existing_SN is None and new_SN is None:
-            # No problem here
-            pass
-        elif new_SN is None:
-            # This is fine. We can always set the serial number to None, even
-            # if it's None elsewhere.
-            pass
-        elif existing_SN == new_SN:
-            # in this case, it's a new item, and we've already confirmed that the SN
-            # if we're not changing the SN, then we're fine, even if the SN
-            # is used in multiple places
-            pass
-        else:
-            # This is the case where we need to do some work.
+        new_hwitem._sn_conflicts = []
+        
+        if (not new_hwitem._is_new) and (new_SN is not None) and (existing_SN != new_SN):
+            # Find the conflicts, only if we're changing the SN, and we're 
+            # changing it to something besides None
             try:
-
                 more_records = ut.fetch_hwitems(
                             part_type_id=new_hwitem._current['part_type_id'],
                             serial_number=new_SN)
@@ -632,14 +619,24 @@ class HWItem:
                     manufacturer_name=current['manufacturer_name'],
                     manufacturer=current['manufacturer'])
             if len(manu) == 0:
-                raise ra.NotFound("No Manufacturers match the criteria given.")
+                msg = ("No manufacturers match the criteria given: "
+                        f"ID: {current['manufacturer_id']}, "
+                        f"Name: {current['manufacturer_name']}, "
+                        f"Repr: {current['manufacturer']}")
+                logger.error(msg)
+                raise ra.NotFound(msg)
             elif len(manu) == 1:
                 current['manufacturer_id'] = manu[0]['id']
                 current['manufacturer_name'] = manu[0]['name']
                 current['manufacturer'] = manu[0]['combined']
             else:
-                raise ra.AmbiguousParameters("The fields for Manufacturer do not uniquely "
-                            "identify a single Manufacturer")
+                msg = ("The fields for Manufacturer do not uniquely identify a "
+                        "single manufacturer: "
+                        f"ID: {current['manufacturer_id']}, "
+                        f"Name: {current['manufacturer_name']}, "
+                        f"Repr: {current['manufacturer']}")
+                logger.error(msg)
+                raise ra.AmbiguousParameters(msg)
         elif not self.is_new():
             current['manufacturer_id'] = last_commit['manufacturer_id'] 
             current['manufacturer_name'] = last_commit['manufacturer_name']
@@ -907,7 +904,7 @@ class HWItem:
                 if last_val == current_val:
                     row.append(current_val)
                 else:
-                    stylized = '\n'.join([style_green(line) for line in current_val.split('\n')])
+                    stylized = '\n'.join([style_green(line) for line in str(current_val).split('\n')])
                     row.append(stylized)
                     #row.append(Style.fg(0x55ff55)(current_val))
                 return row

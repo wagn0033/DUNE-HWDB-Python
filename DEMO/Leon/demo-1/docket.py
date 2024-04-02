@@ -158,7 +158,12 @@ contents["Encoders"].append(enc_item)
 contents["Encoders"].append(enc_test_netconf)
 contents["Encoders"].append(enc_test_bpssummary)
 
-
+# The following code is not necessary. It merely displays the resulting JSON
+# version of the docket, if this script is run directly. It may be useful for
+# troubleshooting.
+if __name__ == '__main__':
+    import json
+    print(json.dumps(contents, indent=4))
 
 
 

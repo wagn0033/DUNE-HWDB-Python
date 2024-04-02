@@ -168,7 +168,7 @@ class Encoder:
             converted into 'datasheet' or 'collection' groups.
         """
         #......................................................................
-
+        
         def make_prefix_variants(schema_key, column, prefix):
             
             if column is None:
@@ -189,7 +189,10 @@ class Encoder:
                         naked.append(column)
                         prefixed.append(prefix + column)
                 columns = list(CI_dict.fromkeys(prefixed + naked).keys())
-            
+        
+            # strip out duplicates
+            columns = list({k: None for k in columns})
+    
             return columns
 
 
@@ -227,7 +230,6 @@ class Encoder:
                 # If this has a "value", then this is just a constant that doesn't
                 # actually depend on what's in the sheet. 
                 if KW_VALUE in field_def:
-
                     node[KW_VALUE] = field_def.pop(KW_VALUE)
                     # TODO: check if there are any leftover keys
                     continue
@@ -392,6 +394,8 @@ class Encoder:
                 user_field_def = sch_in[schema_key]
                 if type(user_field_def) is str:
                     sch_out[schema_key] = {**default_field_def, KW_TYPE: user_field_def}
+                elif KW_VALUE in user_field_def:
+                    sch_out[schema_key] = {KW_TYPE: "null,any", **user_field_def}
                 else:
                     sch_out[schema_key] = {**default_field_def, **user_field_def}
                 
@@ -440,7 +444,7 @@ class Encoder:
             schema: the schema of an encoder, or a subnode in the schema that
                 looks like a schema (mostly by having a 'members' node) 
         """
-        #breakpoint()
+        
         record = deepcopy(record)
         if schema is None:
             schema = self.schema
@@ -647,7 +651,7 @@ class Encoder:
         global_warnings = {}
         row_warnings = {} 
 
-        Style.info.print(f"    \u2022Encoding sheet '{sheet.description()}' with encoder '{self.name}'")
+        Style.info.print(f"    \u2022 Encoding sheet '{sheet.description()}' with encoder '{self.name}'")
         print()
 
         for row_index in range(sheet.rows):
@@ -684,6 +688,8 @@ class Encoder:
     def encode(self, sheet):
         #{{{
         """Encode a spreadsheet using the stored schema"""
+
+        logger.info(json.dumps(self.schema, indent=4))
 
         encoded_data = self.encode_indexed(sheet)
         deindexed = self.deindex(encoded_data)

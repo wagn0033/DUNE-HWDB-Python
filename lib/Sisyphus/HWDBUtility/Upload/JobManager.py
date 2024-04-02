@@ -26,10 +26,11 @@ jdump = lambda s: green.print(json.dumps(serialize_for_display(s), indent=4))
 _lock = mp.threading.Lock()
 
 _debug_no_async = False
+_num_threads = 25
 
 class JobManager:
 
-    def __init__(self, job_requests, num_threads=25):
+    def __init__(self, job_requests, num_threads=_num_threads):
         #{{{
         self.thread_pool = mp.Pool(processes=num_threads)
 
@@ -93,13 +94,66 @@ class JobManager:
 
     def execute(self, submit=False):
 
-        sn_index = {}
+        #sn_index = {}
+        #
+        #for job_num in sorted(self.item_jobs.keys()):
+        #    job = self.item_jobs[job_num]
+        #    pt_index = sn_index.setdefault(job.part_type_id, {})
+        #    
+        #    # TODO: check for serial number conficts
+        #    # print(job_num, (job.part_type_id, job.part_id, job.serial_number, job._sn_conflicts))
 
-        for job_num in sorted(self.item_jobs.keys()):
-            job = self.item_jobs[job_num]
-            print(job_num, (job.part_type_id, job.part_id, job.serial_number, job._sn_conflicts))
+        def update_part_id(part_type_id, part_id, serial_number):
+            # find any tests with the same part_type and serial_number
+            # but don't have the part_id updated yet and update them.
+            for merge_test in self.test_jobs:
+                if HWTest._is_unassigned(merge_test._current['part_id']):
+                    if (merge_test._current['part_type_id'] == part_type_id
+                            and merge_test._current['serial_number'] == serial_number):
+                        merge_test._current['part_id'] = part_id
+    
+        # .....................................................................
 
+        def execute_item_jobs():
+            for job_index in sorted(self.item_jobs.keys()):
+                job = self.item_jobs[job_index]
+                print(f"Item Job Number: {job_index}")
+                print(job)
 
+                if submit:
+                    print(f"adding/updating item {job_index}")
+                    
+                    # store this value, because it will change after updating
+                    is_new = job.is_new()
+
+                    # update the job
+                    job.update_core()
+                    job.update_enabled()
+
+                    if is_new:
+                        print(f"item assigned PID {job.part_id}")
+                    
+                        # update the part id in tests
+                        # (this is only necessary for new items, because old items
+                        # will already have their part id's looked up)
+                        # TODO: what if the user has changed the serial number??
+                        update_part_id(job.part_type_id, job.part_id, job.serial_number)
+                else:
+                    print(f"adding/updating item {job_index} (simulated)")
+
+        # .....................................................................
+       
+        def execute_test_jobs(): 
+            for job_index in sorted(self.test_jobs.keys()):
+                job = self.test_jobs[job_index]
+                print(f"Test Job Number: {job_index}")
+                print(job)
+                job.update()
+
+        # .....................................................................
+
+        execute_item_jobs()
+        execute_test_jobs()
 
     def error_callback(self, *args, **kwargs):
         #print("error callback:", args, kwargs)
@@ -150,11 +204,11 @@ class JobManager:
     def display_job_queue_status(self):
         #{{{
         if hasattr(self, "_exception"):
-            print("[display_job_queue_status: ignoring because of exceptions]")
+            #print("[display_job_queue_status: ignoring because of exceptions]")
             return
 
         if not hasattr(self, "_job_types_found"):
-            Style.notice.print("Queueing Job Requests:")
+            Style.notice.print("Queueing Job Requests")
             self._job_types_found = 0
 
         if self._job_types_found:
@@ -164,22 +218,22 @@ class JobManager:
 
         if self.item_job_total:
             job_types_found += 1
-            print(f"    \u2022 Item Jobs: {len(self.item_jobs)} / "
+            Style.info.print(f"    \u2022 Item Jobs: {len(self.item_jobs)} / "
                     f"{self.item_job_total}\x1b[K")
         
         if self.test_job_total:
             job_types_found += 1
-            print(f"    \u2022 Test Jobs: {len(self.test_jobs)} / "
+            Style.info.print(f"    \u2022 Test Jobs: {len(self.test_jobs)} / "
                     f"{self.test_job_total}\x1b[K")
         
         if self.item_image_job_total:
             job_types_found += 1
-            print(f"    \u2022 Item Image Jobs: {len(self.item_image_jobs)} / "
+            Style.info.print(f"    \u2022 Item Image Jobs: {len(self.item_image_jobs)} / "
                     f"{self.item_image_job_total}\x1b[K")
         
         if self.test_image_job_total:
             job_types_found += 1
-            print(f"    \u2022 Test Image Jobs: {len(self.test_image_jobs)} / "
+            Style.info.print(f"    \u2022 Test Image Jobs: {len(self.test_image_jobs)} / "
                     f"{self.test_image_job_total}")
 
         self._job_types_found = job_types_found
