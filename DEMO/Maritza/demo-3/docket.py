@@ -28,6 +28,7 @@ contents["Values"].update(
         "Part Type Name": "Z.Sandbox.HWDBUnitTest.fribble",
     })
 
+'''
 # Append some sources
 src_item = {
         "Source Name": "Item Source",
@@ -68,6 +69,37 @@ contents["Sources"].append(src_dnsc)
 contents["Sources"].append(src_char)
 contents["Sources"].append(src_noise)
 contents["Sources"].append(src_mass)
+'''
+
+src_combined = {
+        "Source Name": "SiPM Combined",
+        "Files": "SiPM_bundle.xlsx",
+        "Sheets":
+        [
+            {
+                "Sheet Name": "SiPM-item-manifest",
+                "Encoder": "Item Encoder",
+            },
+            {
+                "Sheet Name": "Dark-Noise-SiPM-Counts",
+                "Encoder": "Dark Noise SiPM Counts Encoder",
+            },
+            {
+                "Sheet Name": "IV-SiPM-Characterization",
+                "Encoder": "IV SiPM Characterization Encoder",
+            },
+            {
+                "Sheet Name": "IV-SiPM-Noise-Test",
+                "Encoder": "IV SiPM Noise Test Encoder",
+            },
+            {
+                "Sheet Name": "SiPM-Mass-Test",
+                "Encoder": "SiPM Mass Test Encoder",
+            },
+        ]
+    }
+
+contents["Sources"].append(src_combined)
 
 # Append some encoders
 enc_item = {

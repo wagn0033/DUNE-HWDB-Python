@@ -291,7 +291,7 @@ def cast_list(cell):
     cell = deepcopy(cell)
     try:
         value = json.loads(str(cell.value))
-        if type(L) is list:
+        if type(value) is list:
             cell.value = value
             return cell
     except json.JSONDecodeError as err:

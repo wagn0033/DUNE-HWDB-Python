@@ -31,7 +31,7 @@ contents["Values"].update(
 # Append some sources
 src_item = {
         "Source Name": "Item Source",
-        "Files": "SiPM-item-manifest.xlsx",
+        "Files": "truncated_SiPM-item-manifest.xlsx",
         "Encoder": "Item Encoder",
         "Values":
         {
@@ -41,25 +41,25 @@ src_item = {
 
 src_dnsc = {
         "Source Name": "Dark Noise SiPM Counts",
-        "Files": "Dark-noise-SiPM-counts.xlsx",
+        "Files": "truncated_Dark-noise-SiPM-counts.xlsx",
         "Encoder": "Dark Noise SiPM Counts Encoder",
     }
 
 src_char = {
         "Source Name": "IV SiPM Characterization",
-        "Files": "IV-SiPM-characterization.xlsx",
+        "Files": "truncated_IV-SiPM-characterization.xlsx",
         "Encoder": "IV SiPM Characterization Encoder",
     }
 
 src_noise = {
         "Source Name": "IV SiPM Noise Test",
-        "Files": "IV-SiPM-noise-test.xlsx",
+        "Files": "truncated_IV-SiPM-noise-test.xlsx",
         "Encoder": "IV SiPM Noise Test Encoder",
     }
 
 src_mass = {
         "Source Name": "SiPM Mass Test",
-        "Files": "SiPM-mass-test-results.xlsx",
+        "Files": "truncated_SiPM-mass-test-results.xlsx",
         "Encoder": "SiPM Mass Test Encoder",
     }
 
@@ -77,6 +77,11 @@ enc_item = {
         "Part Type ID": "Z00100300029",
         "Schema":
         {
+            #"Serial Number":
+            #{
+            #    "type": "null,string",
+            #    "column": "SiPM_Strip_ID",
+            #},
             "Manufacturer Name":
             {
                 "column": "Manufacturer",  

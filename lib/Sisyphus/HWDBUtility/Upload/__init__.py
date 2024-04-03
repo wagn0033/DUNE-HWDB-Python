@@ -45,7 +45,7 @@ class Uploader():
         #
         # Load the docket
         #
-        Style.notice.print("Processing Docket")
+        #Style.notice.print("Processing Docket")
         if isinstance(docket, Docket):
             self.docket = docket
         elif isinstance(docket, str):

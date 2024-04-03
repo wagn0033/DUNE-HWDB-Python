@@ -240,7 +240,7 @@ class HWTest:
 
         #resp = ra.post_test(current['part_id'], post_data)
         resp = ra.post_test(current['part_id'], post_data)
-        print(json.dumps(resp, indent=4))
+        #print(json.dumps(resp, indent=4))
         #}}}
 
     def __str__(self):

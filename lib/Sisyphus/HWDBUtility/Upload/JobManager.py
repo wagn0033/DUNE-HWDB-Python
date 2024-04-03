@@ -106,7 +106,7 @@ class JobManager:
         def update_part_id(part_type_id, part_id, serial_number):
             # find any tests with the same part_type and serial_number
             # but don't have the part_id updated yet and update them.
-            for merge_test in self.test_jobs:
+            for merge_test in self.test_jobs.values():
                 if HWTest._is_unassigned(merge_test._current['part_id']):
                     if (merge_test._current['part_type_id'] == part_type_id
                             and merge_test._current['serial_number'] == serial_number):
@@ -115,14 +115,14 @@ class JobManager:
         # .....................................................................
 
         def execute_item_jobs():
+            if self.item_jobs:
+                Style.info.print(f"    \u2022 Executing item jobs")
             for job_index in sorted(self.item_jobs.keys()):
                 job = self.item_jobs[job_index]
                 print(f"Item Job Number: {job_index}")
-                print(job)
+                #print(job)
 
                 if submit:
-                    print(f"adding/updating item {job_index}")
-                    
                     # store this value, because it will change after updating
                     is_new = job.is_new()
 
@@ -131,7 +131,7 @@ class JobManager:
                     job.update_enabled()
 
                     if is_new:
-                        print(f"item assigned PID {job.part_id}")
+                        #print(f"item assigned PID {job.part_id}")
                     
                         # update the part id in tests
                         # (this is only necessary for new items, because old items
@@ -144,13 +144,19 @@ class JobManager:
         # .....................................................................
        
         def execute_test_jobs(): 
+            if self.test_jobs:
+                Style.info.print(f"    \u2022 Executing test jobs")
             for job_index in sorted(self.test_jobs.keys()):
                 job = self.test_jobs[job_index]
                 print(f"Test Job Number: {job_index}")
-                print(job)
-                job.update()
+                #print(job)
+
+                if submit:
+                    job.update()
 
         # .....................................................................
+        
+        Style.notice.print("Executing Jobs")
 
         execute_item_jobs()
         execute_test_jobs()
