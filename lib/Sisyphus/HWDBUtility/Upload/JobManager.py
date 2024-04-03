@@ -18,6 +18,7 @@ from Sisyphus.DataModel import HWTest
 import multiprocessing.dummy as mp # multiprocessing interface, but uses threads instead
 import json
 from uuid import uuid4 as uuid
+import time
 
 green = Style.fg(0x00ff00)
 jdump = lambda s: green.print(json.dumps(serialize_for_display(s), indent=4))
@@ -116,11 +117,12 @@ class JobManager:
 
         def execute_item_jobs():
             if self.item_jobs:
-                Style.info.print(f"    \u2022 Executing item jobs")
+                Style.info.print(f"    \u2022 Item Jobs: 0 / {len(self.item_jobs)}\x1b[K")
+            else:
+                return
+
             for job_index in sorted(self.item_jobs.keys()):
                 job = self.item_jobs[job_index]
-                print(f"Item Job Number: {job_index}")
-                #print(job)
 
                 if submit:
                     # store this value, because it will change after updating
@@ -131,32 +133,48 @@ class JobManager:
                     job.update_enabled()
 
                     if is_new:
-                        #print(f"item assigned PID {job.part_id}")
-                    
                         # update the part id in tests
                         # (this is only necessary for new items, because old items
                         # will already have their part id's looked up)
                         # TODO: what if the user has changed the serial number??
                         update_part_id(job.part_type_id, job.part_id, job.serial_number)
                 else:
-                    print(f"adding/updating item {job_index} (simulated)")
+                    time.sleep(0.01)
+                
+                Style.info.print(f"\x1b[F    \u2022 Item Jobs: {job_index} / "
+                            f"{len(self.item_jobs)}\x1b[K")
+        
 
         # .....................................................................
        
         def execute_test_jobs(): 
             if self.test_jobs:
-                Style.info.print(f"    \u2022 Executing test jobs")
+                Style.info.print(f"    \u2022 Test Jobs: 0 / {len(self.test_jobs)}\x1b[K")
+            else:
+                return
+            
             for job_index in sorted(self.test_jobs.keys()):
                 job = self.test_jobs[job_index]
-                print(f"Test Job Number: {job_index}")
-                #print(job)
 
                 if submit:
                     job.update()
+                else:
+                    time.sleep(0.01)
+
+                Style.info.print(f"\x1b[F    \u2022 Test Jobs: {job_index} / "
+                            f"{len(self.test_jobs)}\x1b[K")
 
         # .....................................................................
         
-        Style.notice.print("Executing Jobs")
+        if submit:
+            Style.notice.print(f"Executing Jobs")
+        else:
+            Style.notice.print(f"Executing Jobs (SIMULATED! Use '--submit' to commit to the HWDB)")
+                
+        if (not self.item_jobs and not self.test_jobs and not self.item_image_jobs
+                        and not self.test_image_jobs):
+            Style.error.print("    No jobs to execute")
+            return
 
         execute_item_jobs()
         execute_test_jobs()

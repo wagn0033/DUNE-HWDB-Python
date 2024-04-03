@@ -68,6 +68,8 @@ class Uploader():
 
         self.jobmanager.execute(self._submit)
 
+        Style.notice.print("Finished.")
+        print()
 
         # self.item_queue_new = []
         # self.item_queue_edit = []
