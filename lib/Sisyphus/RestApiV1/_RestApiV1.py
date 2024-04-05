@@ -597,7 +597,7 @@ def post_hwitem(part_type_id, data, **kwargs):
             "subcomponents": {<str:func_pos>: <str:part_id>}
         }
 
-        Structure of returned data:
+        Structure of returned response:
         {
             "component_id": <int>,
             "data": "Created",
@@ -629,7 +629,7 @@ def patch_hwitem(part_id, data, **kwargs):
             "specifications": {...},
         }
 
-    Structure of returned data:
+    Structure of returned response:
         {
             "component_id": 44757,
             "data": "Created",
@@ -672,7 +672,7 @@ def patch_hwitem_enable(part_id, data, **kwargs):
             "enabled": <bool>,
         }
 
-    Structure of returned data:
+    Structure of returned response:
         {
             "component_id": 44757,
             "data": "Created",
@@ -713,6 +713,81 @@ def patch_subcomponents(part_id, data, **kwargs):
     url = f"https://{config.rest_api}/{path}"
     
     resp = _patch(url, data=data, **kwargs)
+    return resp
+    #}}}
+
+
+#-----------------------------------------------------------------------------
+
+def get_hwitem_locations(part_id, **kwargs):
+    #{{{
+    """Get a list of locations for a HWItem
+
+    Structure of returned response:
+        {
+            "data": [
+                {
+                    "arrived": "2024-04-04T07:06:47.947419-05:00",
+                    "comments": "arrived at U-Minn",
+                    "created": "2024-04-04T07:06:54.107014-05:00",
+                    "creator": "Alex Wagner",
+                    "id": 2,
+                    "link": {
+                        "href": "/cdbdev/api/v1/locations/2",
+                        "rel": "details"
+                    },
+                    "location": "University of Minnesota Twin Cities"
+                }
+            ],
+            "link": {
+                "href": "/cdbdev/api/v1/components/Z00100300022-00020/locations",
+                "rel": "self"
+            },
+            "status": "OK"
+        }    
+    """
+
+    logger.debug(f"<get_hwitem_locations> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}/locations"
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _get(url, **kwargs) 
+    return resp
+    #}}}
+
+#-----------------------------------------------------------------------------
+
+def post_hwitem_location(part_id, data, **kwargs):
+    #{{{
+    """Add the current location for a HWItem
+
+    Structure for "data":
+        {
+            "location": 
+            {
+                "id": <int>,
+            },
+            "arrived": <str: ISO 8601 datetime>,
+            "comments": <str>
+        }
+
+    Structure of returned response:
+
+        {
+            "data": "Created",
+            "id": 2,
+            "status": "OK"
+        }
+
+    NOTE: "id" appears to be an oid internal to the HWDB and isn't 
+    of any particular use when using the REST API.
+    """
+    
+    logger.debug(f"<post_hwitem_location> part_id={part_id}")
+    path = f"api/v1/components/{sanitize(part_id)}/locations"
+    url = f"https://{config.rest_api}/{path}"
+    
+    resp = _post(url, data, **kwargs) 
     return resp
     #}}}
 
@@ -1055,7 +1130,7 @@ def post_test_type(part_type_id, data, **kwargs):
             "specifications": <dict>
         }
 
-    Structure for returned data:
+    Structure for returned response:
         {
             'data': 'Created', 
             'name': <str>, 
@@ -1090,7 +1165,7 @@ def patch_test_type(part_type_id, data, **kwargs):
             "specifications": <dict>
         }
 
-    Structure for returned data:
+    Structure for returned response:
         {
             'data': 'Created', 
             'name': <str>, 
