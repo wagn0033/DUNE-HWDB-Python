@@ -117,7 +117,9 @@ def image2text(source,
     use_bw_text = True
 
     frames = []
-    num_frames = full_image.n_frames if get_frames else 1
+    num_frames = 1
+    if get_frames and hasattr(full_image, "n_frames"):
+        num_frames = full_image.n_frames
 
     for frame_num in range(num_frames):
 

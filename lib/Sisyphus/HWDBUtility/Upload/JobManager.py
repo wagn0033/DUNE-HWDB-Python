@@ -19,6 +19,8 @@ import multiprocessing.dummy as mp # multiprocessing interface, but uses threads
 import json
 from uuid import uuid4 as uuid
 import time
+from datetime import datetime
+
 
 green = Style.fg(0x00ff00)
 jdump = lambda s: green.print(json.dumps(serialize_for_display(s), indent=4))
@@ -31,8 +33,10 @@ _num_threads = 25
 
 class JobManager:
 
-    def __init__(self, job_requests, num_threads=_num_threads):
+    def __init__(self, parent, job_requests, num_threads=_num_threads):
         #{{{
+        self.parent = parent
+        logger.debug(f"initializing JobManager with num_threads={num_threads}")
         self.thread_pool = mp.Pool(processes=num_threads)
 
         if _debug_no_async:

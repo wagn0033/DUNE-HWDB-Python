@@ -429,7 +429,7 @@ def get_test_image_list(part_id, test_id, **kwargs):
 
 #-----------------------------------------------------------------------------
 
-def post_test_image(test_id, data, filename, **kwargs):
+def post_test_image(oid, image_payload, **kwargs):
     #{{{
     """Add an image to a given test oid
     
@@ -517,10 +517,7 @@ def get_hwitem(part_id, **kwargs):
                     "name": "Alex Wagner",
                     "username": "awagner"
                 },
-                "status": {
-                    "id": 1,
-                    "name": "available"
-                },
+                "enabled": false,
                 "institution": {
                     "id": 186,
                     "name": "University of Minnesota Twin Cities"
@@ -661,8 +658,7 @@ def post_bulk_hwitems(part_type_id, data, **kwargs):
     #}}}
 
 #-----------------------------------------------------------------------------
-
-# PROBABLY OBSOLETE
+   
 def patch_hwitem_enable(part_id, data, **kwargs):
     #{{{
     """Enables/disables an HWItem
@@ -688,43 +684,6 @@ def patch_hwitem_enable(part_id, data, **kwargs):
     """
     logger.debug(f"<patch_hwitem_enable> part_id={part_id}")
     path = f"api/v1/components/{sanitize(part_id)}/enable"
-    url = f"https://{config.rest_api}/{path}"
-
-    resp = _patch(url, data=data, **kwargs)
-    return resp
-    #}}}
-
-#-----------------------------------------------------------------------------   
-
-def patch_hwitem_status(part_id, data, **kwargs):
-    #{{{
-    """Enables/disables an HWItem
-
-    Structure for "data":
-        {
-            "comments": <str>,
-            "component": {
-                "part_id": <str>
-            },
-            "status": {
-                "id": <int>
-            }
-        }
-
-    Structure of returned response:
-        {
-            "component_id": 150964,
-            "data": "Created",
-            "new_status": "available",
-            "part_id": "Z00100300022-00064",
-            "status": "OK"
-        }
-
-    Note: at the time of this writing, "comments" overwrites the comment for
-    the item itself!
-    """
-    logger.debug(f"<patch_hwitem_enable> part_id={part_id}")
-    path = f"api/v1/components/{sanitize(part_id)}/status"
     url = f"https://{config.rest_api}/{path}"
 
     resp = _patch(url, data=data, **kwargs)

@@ -51,7 +51,7 @@ class HWItem:
         "Comments": "comments",
         "Subcomponents": "subcomponents",
         "Specifications": "specifications",
-        "Enabled": "enabled",
+        "Status": "status",
     }
     _property_to_column = {v: k for k, v in _column_to_property.items()}
     #}}}
@@ -184,7 +184,7 @@ class HWItem:
             "Manufacturer ID": 7,
             "Manufacturer Name": "Hajime Inc",
             "Comments": "generated 2023-10-17 09:39:48",
-            "Enabled": true,
+            "Status": "Available",
             "Specifications": [
                 {
                     "Height": 97.42,
@@ -370,7 +370,7 @@ class HWItem:
             "country_code": country_info['code'],
             "country": country_info['combined'],
             "comments": it["comments"],
-            "enabled": it["enabled"],
+            "status": it["status"]["id"],
         })
         #hwdb_record["country"] = (f"({hwdb_record['country_code']}) "
         #                            f"{hwdb_record['country_name']}")
@@ -431,7 +431,7 @@ class HWItem:
         """Update the 'core' properties of this HWItem in the HWDB
 
         The 'core' properties are those properties that can be updated by the
-        main REST API call, and does not include 'enabled' or subcomponents.
+        main REST API call, and does not include subcomponents.
         """ 
 
         last_commit = self._last_commit
@@ -445,6 +445,7 @@ class HWItem:
                 "serial_number": current['serial_number'],
                 "manufacturer": {"id": current['manufacturer_id']},
                 "specifications": utils.preserve_order(current['specifications']),
+                "status": {"id": current['status']},
                 "comments": current['comments'],
                 #"subcomponents": current['subcomponents']
             }
@@ -458,15 +459,12 @@ class HWItem:
 
             current["part_id"] = resp["part_id"]
            
-            # A new item is always disabled until explicitly enabled 
-            last_commit["enabled"] = False
-
             fields_to_copy = [
                 "part_id", "part_type_name", "part_type_id", "serial_number",
                 "comments", "country", "country_name", "country_code",
                 "institution", "institution_id", "institution_name",
                 "manufacturer", "manufacturer_id", "manufacturer_name",
-                "specifications"
+                "specifications", "status"
             ]
 
             for field in fields_to_copy:
@@ -478,6 +476,7 @@ class HWItem:
                 "serial_number": current['serial_number'],
                 "manufacturer": {"id": current['manufacturer_id']},
                 "specifications": utils.preserve_order(current['specifications']),
+                "status": {"id": current['status']},
                 "comments": current['comments'],
             }        
             
@@ -487,19 +486,13 @@ class HWItem:
             logger.info("Patching item")
             resp = ra.patch_hwitem(part_id=current['part_id'], data=patch_data)
             
-            # TODO: is the REST API supposed to reset "enabled"? Well, it does,
-            # so we might as well reflect that in our "last_commit"
-            last_commit["enabled"] = False
-            
             fields_to_copy = [
                 "serial_number", "comments", "manufacturer", "manufacturer_id", 
-                "manufacturer_name", "specifications"
+                "manufacturer_name", "specifications", "status"
             ]
             
             for field in fields_to_copy:
                 last_commit[field] = current[field]
-
-        #self.update_enabled()
 
 
         #}}}
@@ -513,7 +506,7 @@ class HWItem:
         if self.enabled_has_changed():
             current = self._current     
             resp = ut.enable_hwitem(current['part_id'], 
-                        enable=current['enabled'], 
+                        enable=(current['enabled']==1), 
                         comments=current['comments'])  
 
 
@@ -673,11 +666,25 @@ class HWItem:
                 if v == "<null>":
                     current["specifications"][k] = None
 
-        # Normalize ENABLED
-        if not self.is_new() and current['enabled'] is None:
-            current['enabled'] = last_commit['enabled']
-        if current['enabled'] == '<null>':
-            current['enabled'] = False
+        # Normalize STATUS
+        #print(json.dumps(current, indent=4))
+        #print(json.dumps(last_commit, indent=4))
+        if not self.is_new() and current['status'] is None:
+            current['status'] = last_commit['status']
+        if current['status'] == '<null>':
+            current['status'] = 1
+        elif isinstance(current['status'], str):
+            stat_str = current['status'].casefold()
+            if stat_str in ['available', '1']: 
+                current['status'] = 1
+            elif stat_str in ['unavailable', 'not available', '2']:
+                current['status'] = 2
+            elif stat_str in ['defunct', 'permanently not available', '3']:
+                current['status'] = 3
+            else:
+                logger.warning(f"Status string '{stat_str}' is not valid. This will likely fail "
+                        "when updating the HWDB.")
+
         #}}}
 
     #--------------------------------------------------------------------------
@@ -771,9 +778,10 @@ class HWItem:
         last_commit = self._last_commit
     
         if self.is_new():
-            return current['enabled']
+            # The default should be 1, so return True if it's set to anything else
+            return current['status'] != 1
 
-        if current['enabled'] != last_commit['enabled']:
+        if current['status'] != last_commit['status']:
             return True
 
         return False

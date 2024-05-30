@@ -8,7 +8,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 import sys, os
 import json
 import argparse
-from datetime import datetime, timezone
+#from datetime import datetime, timezone
 from copy import deepcopy
 
 import multiprocessing.dummy as mp # multiprocessing interface, but uses threads instead
@@ -29,6 +29,8 @@ from Sisyphus.Utils.Terminal.BoxDraw import Table
 from Sisyphus.Utils.Terminal import BoxDraw
 
 from .JobManager import JobManager
+
+from datetime import datetime
 
 class Uploader():
     def __init__(self, docket=None, args=None):
@@ -64,7 +66,7 @@ class Uploader():
         Style.notice.print("Encoding Sheets")
         self.raw_job_data = self.docket.apply_encoders()
 
-        self.jobmanager = JobManager(self.raw_job_data)
+        self.jobmanager = JobManager(self, self.raw_job_data)
 
         self.jobmanager.execute(self._submit)
 

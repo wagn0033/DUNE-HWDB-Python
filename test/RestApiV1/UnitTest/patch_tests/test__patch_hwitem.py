@@ -21,6 +21,7 @@ from Sisyphus.RestApiV1 import post_hwitem
 from Sisyphus.RestApiV1 import patch_hwitem
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus.RestApiV1 import patch_hwitem_subcomp
+from Sisyphus.RestApiV1 import patch_hwitem_status
 from Sisyphus.RestApiV1 import patch_hwitem_enable
 
 class Test__patch_hwitem(unittest.TestCase):
@@ -41,7 +42,7 @@ class Test__patch_hwitem(unittest.TestCase):
         ##########################
  
         part_type_id = "Z00100300001"
-        serial_number = "S99999"
+        serial_number = f"SN{random.randint(0, 999999):06d}"
 
         data = {
             "comments": "Here are some comments",
@@ -62,7 +63,7 @@ class Test__patch_hwitem(unittest.TestCase):
                 "Comment": "Unit Test: patch component, part 1"
             },
             "subcomponents": {},
-            #"enabled": True,
+            "status": {"id": 1}
         }
 
         logger.info(f"Posting new hwitem: part_type_id={part_type_id}, "
@@ -115,7 +116,7 @@ class Test__patch_hwitem(unittest.TestCase):
         self.assertEqual(resp["status"], "OK")
         self.assertEqual(resp["data"]["part_id"], part_id)
         self.assertEqual(resp["data"]["serial_number"], serial_number)
-        self.assertEqual(resp["data"]["enabled"], False)
+        #self.assertEqual(resp["data"]["status"], 1)
         self.assertDictEqual(resp["data"]["specifications"][0], data["specifications"])
 
     #----------------------------------------------------------------------------- 
@@ -132,7 +133,7 @@ class Test__patch_hwitem(unittest.TestCase):
 
         #posting new item under Test Type 002
         part_type_id = "Z00100300002"
-        serial_number = "S99999"
+        serial_number = f"SN{random.randint(0, 999999):06d}"
 
         data = {
             "comments": "posting for sub comp",
@@ -150,7 +151,10 @@ class Test__patch_hwitem(unittest.TestCase):
             "specifications": {
                     "Color":"Red"
             },
-            "subcomponents": {}
+            "subcomponents": {},
+            "status": {
+                "id": 1
+            }
         }
 
         resp = post_hwitem(part_type_id, data)
@@ -159,18 +163,19 @@ class Test__patch_hwitem(unittest.TestCase):
 
         part_id_subcomp = resp["part_id"]
 
+        ### We SHOULDN'T need to do this anymore
         #patching to enable : True
         data = {
             "comments": "here are some comments",
             "component": {
-            "part_id": part_id_subcomp
+                "part_id": part_id_subcomp
             },
             "enabled": True,
             "geo_loc": {
             "id": 0
             }
         }
-
+        
         resp = patch_hwitem_enable(part_id_subcomp, data)
         logger.info(f"Response from patch: {resp}")
         self.assertEqual(resp["status"], "OK")

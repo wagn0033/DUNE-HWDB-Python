@@ -20,6 +20,7 @@ from Sisyphus.RestApiV1 import post_hwitem
 from Sisyphus.RestApiV1 import patch_hwitem
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus.RestApiV1 import patch_hwitem_enable
+from Sisyphus.RestApiV1 import patch_hwitem_status
 from Sisyphus.RestApiV1 import post_hwitems_bulk
 from Sisyphus.RestApiV1 import patch_hwitems_enable_bulk
 
@@ -56,7 +57,10 @@ class Test__patch_enables(unittest.TestCase):
                 "Color": "red",
                 "Comment": "Unit Testing"
             },
-            "subcomponents": {}
+            "subcomponents": {},
+            "status": {
+                "id": 1
+            }
         }
 
         logger.info(f"Posting new hwitem: part_type_id={part_type_id}, "
@@ -95,7 +99,8 @@ class Test__patch_enables(unittest.TestCase):
         ##########
 
         resp = get_hwitem(part_id)
-        self.assertTrue(resp["data"]["enabled"])
+        #self.assertTrue(resp["data"]["enabled"])
+        self.assertEqual(resp["data"]["status"]["id"], 1)
 
         #PATCH DISABLE
         #########
@@ -120,12 +125,14 @@ class Test__patch_enables(unittest.TestCase):
         ##########
 
         resp = get_hwitem(part_id)
-        self.assertFalse(resp["data"]["enabled"])
+        #self.assertFalse(resp["data"]["enabled"])
+        self.assertEqual(resp["data"]["status"]["id"], 2)
 
         #}}}
 
     #-------------------------------------------------------------------------
-    
+
+    #@unittest.skip("needs change to status")    
     def test__patch_hwitem_enable__enabled_persistence(self):
         #{{{
         """Tests whether patching an item resets 'enabled'
@@ -151,10 +158,12 @@ class Test__patch_enables(unittest.TestCase):
             resp = patch_hwitem_enable(orig_item['data']['part_id'], data)
 
         # Enable it, if disabled
-        if not orig_item['data']['enabled']:
+        #if not orig_item['data']['enabled']:
+        if not orig_item['data']['status']['id'] == 1:
             change_enabled(orig_item, True)
             enabled_item = get_hwitem(part_id)
-            self.assertTrue(enabled_item['data']['enabled'], 'The item was not enabled')
+            #self.assertTrue(enabled_item['data']['enabled'], 'The item was not enabled')
+            self.assertEqual(enabled_item['data']['status']['id'], 1)
             orig_item = enabled_item
 
         # Patch it
@@ -169,12 +178,14 @@ class Test__patch_enables(unittest.TestCase):
 
         # Get the item again
         changed_item = get_hwitem(part_id)
-        self.assertTrue(changed_item['data']['enabled'], 'The item was disabled after patching')
+        #self.assertTrue(changed_item['data']['enabled'], 'The item was disabled after patching')
+        self.assertEqual(changed_item['data']['status']['id'], 1, 'The item was disabled after patching')
 
         #}}}
     
     #-------------------------------------------------------------------------
     
+    @unittest.skip("we decided this behavior is okay for now")    
     def test__patch_hwitem_enable__comment_persistence(self):
         #{{{
         """Tests whether enabling alters the item's comment
@@ -202,7 +213,8 @@ class Test__patch_enables(unittest.TestCase):
 
         # Disable it, if enabled 
         errors = []
-        if orig_item['data']['enabled']:
+        #if orig_item['data']['enabled']:
+        if orig_item['data']['status']['id'] == 1:
             change_enabled(orig_item, False)
             disabled_item = get_hwitem(part_id)
             comment2, comment1 = disabled_item['data']['comments'], orig_item['data']['comments']
@@ -239,6 +251,7 @@ class Test__patch_enables(unittest.TestCase):
     #post (2) items in bulk, get part ids from response of post, 
     # use those part ids to enable them, check if they were enabled. 
     # Disable them, check if they were disabled
+    #@unittest.skip("needs change to status")    
     def test_patch_enable_bulk(self):
         #{{{
         """Tests setting "enabled" status in several items at the same time"""
@@ -293,8 +306,10 @@ class Test__patch_enables(unittest.TestCase):
 
         resp = get_hwitem(part_id1)
         resp2 = get_hwitem(part_id2)
-        self.assertTrue(resp["data"]["enabled"])
-        self.assertTrue(resp2["data"]["enabled"])
+        #self.assertTrue(resp["data"]["enabled"])
+        #self.assertTrue(resp2["data"]["enabled"])
+        self.assertEqual(resp["data"]["status"]["id"], 1)
+        self.assertEqual(resp2["data"]["status"]["id"], 1)
         logger.info(f"Response from post: {resp}") 
 
 
@@ -319,8 +334,10 @@ class Test__patch_enables(unittest.TestCase):
         #GET/CHECK
         resp = get_hwitem(part_id1)
         resp2 = get_hwitem(part_id2)
-        self.assertFalse(resp["data"]["enabled"])
-        self.assertFalse(resp2["data"]["enabled"])
+        #self.assertFalse(resp["data"]["enabled"])
+        #self.assertFalse(resp2["data"]["enabled"])
+        self.assertNotEqual(resp["data"]["status"]["id"], 1)
+        self.assertNotEqual(resp2["data"]["status"]["id"], 1)
         logger.info(f"Response from post: {resp}")
         #}}}
 

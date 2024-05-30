@@ -76,7 +76,7 @@ default_schema_fields_by_record_type = \
         "Manufacturer ID": {KW_TYPE:"null,integer", KW_COLUMN:"Manufacturer ID", KW_DEFAULT:None},
         "Manufacturer Name": {KW_TYPE:"null,string", KW_COLUMN:"Manufacturer Name", KW_DEFAULT:None},
         "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""}, # SEE NOTE!
-        "Enabled": {KW_TYPE:"boolean", KW_COLUMN:"Enabled", KW_DEFAULT:True},
+        "Status": {KW_TYPE:"null,any", KW_COLUMN:"Status", KW_DEFAULT:"1"},
         "Subcomponents": {KW_TYPE:"collection", KW_MEMBERS: {}},
         "Specifications": {KW_TYPE:"datasheet", KW_MEMBERS: {}},
     },
@@ -689,7 +689,7 @@ class Encoder:
         #{{{
         """Encode a spreadsheet using the stored schema"""
 
-        logger.info(json.dumps(self.schema, indent=4))
+        #logger.info(json.dumps(self.schema, indent=4))
 
         encoded_data = self.encode_indexed(sheet)
         deindexed = self.deindex(encoded_data)
@@ -843,7 +843,7 @@ class Encoder:
                 
                 else:
                     encoder_def["Schema"]["Specifications"][k] = {
-                                "type": "null,any",
+                                "type": "null,json,any",
                                 "default": v,
                                 "column": f"S:{k}" 
                             }

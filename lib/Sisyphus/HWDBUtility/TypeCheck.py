@@ -319,9 +319,11 @@ def cast_json(cell):
     #{{{
     cell = deepcopy(cell)
     try:
+        logger.info(f"trying to cast {cell.value} as json")
         cell.value = json.loads(str(cell.value))
         return cell
     except json.JSONDecodeError as err:
+        logger.info(f"failed to cast as json")
         pass    
     cell.warnings.append(f"cannot interpret '{cell.value}' as json")
     return cell
@@ -402,7 +404,7 @@ def cast(cell):
         elif typedef in ('dict', 'obj', 'object'):
             cell = cast_dict(cell)
         elif typedef in ('json',):
-            cell = cast_any(cell)
+            cell = cast_json(cell)
         elif typedef in ('any'):
             cell = cast_any(cell)
         else:

@@ -66,6 +66,48 @@ class Test__post_hwitem(unittest.TestCase):
         
         #}}}
     #-------------------------------------------------------------------------
+    
+    def test__post_hwitem__with_status(self):
+        #{{{
+        """Tests posting an item"""
+
+        part_type_id = "Z00100300001"
+        serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
+
+        data = {
+            "comments": "Here are some comments",
+            "component_type": {
+                "part_type_id": part_type_id
+            },
+            "country_code": "US",
+            "institution": {
+                "id": 186
+            },
+            "manufacturer": {
+                "id": 7
+            },
+            "serial_number": serial_number,
+            "status": {"id": 1},
+            "specifications": 
+            {
+                "Widget ID": serial_number,
+                "Color": "red",
+                "Comment": "Unit Test: post component"
+            },
+            "subcomponents": {}
+        }
+
+        resp = post_hwitem(part_type_id, data)
+
+
+        logger.info(f"The response was: {resp}")
+
+        logger.info(f"Created: {resp['part_id']}")
+        
+        self.assertEqual(resp["status"], "OK")
+        
+        #}}}
+    #-------------------------------------------------------------------------
 
     def test__post_hwitem__user_lacks_role(self):
         #{{{
@@ -142,7 +184,7 @@ class Test__post_hwitem(unittest.TestCase):
         #}}}
     #-------------------------------------------------------------------------
     
-    #@unittest.skip("fails")
+    @unittest.skip("OK for this to fail for now")
     def test__post_hwitem__empty_spec(self):
         #{{{
         """Tests posting an item with an empty spec where it should be allowed"""

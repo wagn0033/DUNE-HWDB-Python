@@ -63,10 +63,10 @@ src_mass = {
         "Encoder": "SiPM Mass Test Encoder",
     }
 
-contents["Sources"].append(src_item)
-contents["Sources"].append(src_dnsc)
-contents["Sources"].append(src_char)
-contents["Sources"].append(src_noise)
+#contents["Sources"].append(src_item)
+#contents["Sources"].append(src_dnsc)
+#contents["Sources"].append(src_char)
+#contents["Sources"].append(src_noise)
 contents["Sources"].append(src_mass)
 
 # Append some encoders

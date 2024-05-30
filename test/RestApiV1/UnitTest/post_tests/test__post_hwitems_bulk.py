@@ -40,7 +40,8 @@ class Test__post_hwitems_bulk(unittest.TestCase):
             },
             "manufacturer": {
                 "id": 7
-            }
+            },
+            #"status": {"id": 3} # bulk doesn't allow this yet.
         }
 
         logger.info(f"Posting bulk components: part_type_id={part_type_id}, ")
