@@ -8,7 +8,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
 import os
 
-version = 'v1.2.1.dev.2024.04.11a'
+version = 'v1.2.1.dev.2024.07.20a'
 
 project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), "../.."))
 
@@ -23,7 +23,8 @@ def display_header():
     
     columns = 66
     padding = 4
-    bgcolor = 0x111111
+    #bgcolor = 0x111111
+    bgcolor = 0x000000
 
     filepath = get_path("resources/images/DUNE-short.png")
     img_text = Image.image2text(filepath, columns=columns-2*padding, background=bgcolor).split("\n")

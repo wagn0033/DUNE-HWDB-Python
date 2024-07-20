@@ -9,6 +9,7 @@ import PIL.Image
 import shutil
 import io
 from Sisyphus.Utils.Terminal.Colors import color
+from random import randint
 
 def image2text(source, 
             columns=None, lines=None,
@@ -113,6 +114,44 @@ def image2text(source,
         # Return the best trial, but we don't need the score or index anymore
         return min(trials)[2:]
 
+    def encode_char(fore, back, char):
+        colormode = 24
+
+        if colormode == 24:
+            seq = (f"\033[48;2;{back[0]};{back[1]};{back[2]}"
+                   f";38;2;{fore[0]};{fore[1]};{fore[2]}m{char}")
+            return seq
+
+        def dither(comp):
+            if comp < 95:
+                return (comp + randint(0, 94)) // 95
+            else:
+                return 1 + (comp - 95 + randint(0, 39)) // 40
+
+        def nearest(comp):
+            if comp < 47:
+                return 0
+            elif comp < 115:
+                return 1
+            elif comp < 155:
+                return 2
+            elif comp < 195:
+                return 3
+            elif comp < 235:
+                return 4
+            else:
+                return 5
+
+        picker = nearest
+
+        fr, fg, fb = ( picker(c) for c in fore )
+        br, bg, bb = ( picker(c) for c in back )
+        fc = 16 + 36 * fr + 6 * fg + fb
+        bc = 16 + 36 * br + 6 * bg + bb
+
+        seq = (f"\033[48;5;{bc};38;5;{fc}m{char}")
+        return seq
+
     use_alternate_block_types = False
     use_bw_text = True
 
@@ -169,8 +208,11 @@ def image2text(source,
                     fore, back, char = back, fore, char2
 
      
-                line_content.append(f"\033[48;2;{back[0]};{back[1]};{back[2]}"
-                              f";38;2;{fore[0]};{fore[1]};{fore[2]}m{char}")
+                #line_content.append(f"\033[48;2;{back[0]};{back[1]};{back[2]}"
+                #              f";38;2;{fore[0]};{fore[1]};{fore[2]}m{char}")
+                seq = encode_char(fore, back, char)
+                line_content.append(seq)
+
 
             line_content.append("\033[0m")
             output.append(str.join('', line_content))

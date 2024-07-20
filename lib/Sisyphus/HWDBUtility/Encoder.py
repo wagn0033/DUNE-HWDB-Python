@@ -76,7 +76,7 @@ default_schema_fields_by_record_type = \
         "Manufacturer ID": {KW_TYPE:"null,integer", KW_COLUMN:"Manufacturer ID", KW_DEFAULT:None},
         "Manufacturer Name": {KW_TYPE:"null,string", KW_COLUMN:"Manufacturer Name", KW_DEFAULT:None},
         "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""}, # SEE NOTE!
-        "Status": {KW_TYPE:"null,any", KW_COLUMN:"Status", KW_DEFAULT:"1"},
+        "Status": {KW_TYPE:"string", KW_COLUMN:"Status", KW_DEFAULT:"1"},
         "Subcomponents": {KW_TYPE:"collection", KW_MEMBERS: {}},
         "Specifications": {KW_TYPE:"datasheet", KW_MEMBERS: {}},
     },
