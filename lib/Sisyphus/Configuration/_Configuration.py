@@ -279,6 +279,9 @@ class Config:
     def _extract_pem(self, p12_file, password):
         #{{{
         #print(p12_file)
+
+        import ssl
+        use_legacy = ssl.OPENSSL_VERSION.startswith("OpenSSL 3")
        
         self.temp_pem_file = tempfile.NamedTemporaryFile(
             mode='w+b', 
@@ -293,16 +296,21 @@ class Config:
         
         #print(dir(self.temp_pem_file))
         #print(self.temp_pem_file)
-        
+    
+        tokens =  [
+                    "openssl",
+                    "pkcs12",
+                    "-in", p12_file,
+                    #"-out", outfile,
+                    "-nodes",
+                    "-passin", f"pass:{password}",
+                ]
+    
+        if use_legacy:
+            tokens.append("-legacy")
+
         gen_pem = subprocess.Popen(
-                            [
-                                "openssl",
-                                "pkcs12",
-                                "-in", p12_file,
-                                #"-out", outfile,
-                                "-nodes",
-                                "-passin", f"pass:{password}",
-                            ],
+                            tokens,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
         
