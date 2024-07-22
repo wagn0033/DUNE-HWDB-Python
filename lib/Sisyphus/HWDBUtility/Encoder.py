@@ -99,8 +99,8 @@ default_schema_fields_by_record_type = \
 
         # for record_type 'Item Image' or 'Test Image':
         "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""},
-        "Source File": {KW_TYPE:"null,string", KW_COLUMN:"File", KW_DEFAULT:None},
-        "File Name": {KW_TYPE:"null,string", KW_COLUMN:"Rename", KW_DEFAULT:None},
+        "Image File": {KW_TYPE:"null,string", KW_COLUMN:"Image File", KW_DEFAULT:None},
+        "Save As": {KW_TYPE:"null,string", KW_COLUMN:"Save As", KW_DEFAULT:None},
     },
     "Test Image":
     {
@@ -112,8 +112,8 @@ default_schema_fields_by_record_type = \
 
         # for record_type 'Item Image" or 'Test Image':
         "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""},
-        "Source File": {KW_TYPE:"null,string", KW_COLUMN:"File", KW_DEFAULT:None},
-        "File Name": {KW_TYPE:"null,string", KW_COLUMN:"Rename", KW_DEFAULT:None},
+        "Image File": {KW_TYPE:"null,string", KW_COLUMN:"File", KW_DEFAULT:None},
+        "Save As": {KW_TYPE:"null,string", KW_COLUMN:"Save As", KW_DEFAULT:None},
     }
 }
 #}}}
@@ -854,8 +854,8 @@ class Encoder:
                             "default": "<null>" 
                         }
 
-            #logger.warning(json.dumps(encoder_def, indent=4))
-
+            logger.info(f"default item encoder created:\n{json.dumps(encoder_def, indent=4)}")
+            
             return encoder_def
 
         #......................................................................
@@ -889,6 +889,8 @@ class Encoder:
                             "column": f"T:{k}"
                         }
 
+            logger.info(f"default test encoder created:\n{json.dumps(encoder_def, indent=4)}")
+            
             return encoder_def
         
         #......................................................................
@@ -903,6 +905,8 @@ class Encoder:
                         "Schema": {}
                     }
 
+            logger.info(f"default item image encoder created:\n{json.dumps(encoder_def, indent=4)}")
+            
             return encoder_def
         
         #......................................................................

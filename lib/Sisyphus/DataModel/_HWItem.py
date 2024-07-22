@@ -285,7 +285,6 @@ class HWItem:
             except ra.NotFound:
                 pass 
 
-        
         #csn, nsn = new_hwitem._last_commit['serial_number'], new_hwitem._current['serial_number']
         #print(csn, nsn, new_hwitem._current['comments'])
         #print('\n\n\n')
@@ -503,31 +502,124 @@ class HWItem:
     def update_enabled(self):
         """Update the 'enabled' property of this HWItem in the HWDB"""
 
+        logger.info(f"Committing item:\n{self}")
+
         if self.enabled_has_changed():
             current = self._current     
             resp = ut.enable_hwitem(current['part_id'], 
                         enable=(current['enabled']==1), 
                         comments=current['comments'])  
 
+    #--------------------------------------------------------------------------
+    
+    def release_subcomponents(self):
+        """Release subcomponents used by this item
+
+        Only subcomponents that are going to be swapped for a different
+        one should be released. This is so that other items can pick it
+        up if they want
+        """
+
+        self.normalize_subcomponents()
+
+        old_subcomps = self._last_commit['subcomponents']
+        new_subcomps = self._current['subcomponents']
+
+        dicts_are_equal = True
+        release_dict = {}
+        keys = set(old_subcomps).union(set(new_subcomps))
+        for key in keys:
+            if old_subcomps.get(key, None) != new_subcomps.get(key, None):
+                dicts_are_equal = False
+                release_dict[key] = None
+            else:
+                release_dict[key] = old_subcomps.get(key, None)
+        if dicts_are_equal:
+            logger.debug(f"{self.part_id}: No changes in subcomps")
+            return
+
+        payload = {
+            "component": {"part_id": self.part_id},
+            "subcomponents": release_dict,
+        }
+
+        resp = ra.patch_subcomponents(self.part_id, payload)
 
     #--------------------------------------------------------------------------
+
+    def normalize_subcomponents(self):
+        """Look up any subcomponents that are using a serial number instead of a part id"""
+
+        def is_valid_part_id(part_type_id, s):
+            if type(s) is not str:
+                return False
+            pattern = re.compile(''.join([part_type_id, '-', '[0-9]{5}']))
+            if pattern.match(s):
+                return True
+            return False
+
+        #print(json.dumps(self._last_commit, indent=4))
+        #print(json.dumps(self._current, indent=4))
+
+
+        subcomp_def = self._part_type["ComponentType"]["connectors"]
+        old_subcomps = self._last_commit['subcomponents']
+        new_subcomps = self._current['subcomponents']
+
+        if old_subcomps is None:
+            old_subcomps = self._last_commit['subcomponents'] = {}
+
+        for func_pos, part_type_id in subcomp_def.items():
+            #print(f"Functional Position: {func_pos}")
+            #print(f"Part Type ID: {part_type_id}")
+            last_part_id = old_subcomps.setdefault(func_pos, None)
+            next_part_id = new_subcomps.setdefault(func_pos, None) # note, could be a serial number!
+            #print(f"Last Committed Part ID: {old_subcomps[func_pos]}")
+            #print(f"New Part ID: {new_subcomps[func_pos]}")
+            
+            if next_part_id in (None, ""):
+                new_subcomps[func_pos] = None
+
+            elif not is_valid_part_id(part_type_id, next_part_id):                
+                lookup = ut.fetch_hwitems(part_type_id=part_type_id, serial_number=next_part_id)
+
+                if len(lookup) == 0:
+                    raise ra.NotFound(f"Could not attach subcomponent '{next_part_id}' to "
+                            f"{self.part_id} because the serial number cannot be found.")
+                elif len(lookup) > 1:
+                    raise ra.AmbiguousParameters("Could not attach subcomponent '{next_part_id}' to "
+                            f"{self.part_id} because the serial number is ambiguous.")
+                
+                # We found it! So we can change our new one to be a part_id.
+                new_part_id = new_subcomps[func_pos] = list(lookup.keys())[0] 
+
+
+    #--------------------------------------------------------------------------
+    
     def update_subcomponents(self):
-        """Update the subcomponents for this HWItem, if able
+        """Update the subcomponents for this HWItem"""
+        
+        old_subcomps = self._last_commit['subcomponents']
+        new_subcomps = self._current['subcomponents']
 
-        Use subcomponents_updatable to check first before calling this
-        method.
-        """
+        dicts_are_equal = True
+        release_dict = {}
+        keys = set(old_subcomps).union(set(new_subcomps))
+        for key in keys:
+            if old_subcomps.get(key, None) != new_subcomps.get(key, None):
+                dicts_are_equal = False
+                break
+        if dicts_are_equal:
+            logger.debug(f"{self.part_id}: No changes in subcomps")
+            return
 
-    #--------------------------------------------------------------------------
-    def subcomponents_updatable(self):
-        """Check if the subcomponents for this HWItem are available
+        payload = {
+            "component": {"part_id": self.part_id},
+            "subcomponents": new_subcomps,
+        }
 
-        Subcomponents are not updatable if:
-            (1) They haven't been added to the HWDB yet
-            (2) They aren't enabled in the HWDB yet
-            (3) They already are attached to another HWItem and need to be
-                released first
-        """
+        resp = ra.patch_subcomponents(self.part_id, payload)
+
     #--------------------------------------------------------------------------
     
     def normalize(self):
@@ -543,6 +635,18 @@ class HWItem:
         the existing values. If the field is explicitly "<null>", however,
         use this as an indicator to actually set it to null instead.
         """
+
+        def literal_null_check(s):
+            # check if 's' is <null> or <empty> and return None or "" in
+            # its place. Otherwise just return 's' as-is.
+            if s == "<null>":
+                return None
+            elif s == "<empty>":
+                return ""
+            elif s == "<nan>":
+                return float('nan')
+            else:
+                return s
 
         last_commit = self._last_commit
         current = self._current
@@ -641,37 +745,41 @@ class HWItem:
         # Normalize SERIAL NUMBER
         if not self.is_new() and current['serial_number'] is None:
             current['serial_number'] = last_commit['serial_number']
-        if current['serial_number'] == "<null>":
-            current['serial_number'] = None
+        #if current['serial_number'] == "<null>":
+        #    current['serial_number'] = None
+        current['serial_number'] = literal_null_check(current['serial_number'])
 
         # Normalize COMMENTS
         if not self.is_new() and current['comments'] is None:
             current['comments'] = last_commit['comments']
-        if current['comments'] == '<null>':
-            current['comments'] = None
+        #if current['comments'] == '<null>':
+        #    current['comments'] = None
+        current['comments'] = literal_null_check(current['comments'])
 
         # Normalize SUBCOMPONENTS
         if not self.is_new():
             for k, v in current["subcomponents"].items():
                 if v is None:
                     current['subcomponents'][k] = last_commit['subcomponents'].get(k, None)
-                if v == "<null>":
-                    current["subcomponents"][k] = None
+                #if v == "<null>":
+                #    current["subcomponents"][k] = None
+                current['subcomponents'][k] = literal_null_check(current['subcomponents'][k])
 
         # Normalize SPECIFICATIONS
         if not self.is_new():
             for k, v in current["specifications"].items():
                 if v is None:
                     current['specifications'][k] = last_commit['specifications'].get(k, None)
-                if v == "<null>":
-                    current["specifications"][k] = None
+                #if v == "<null>":
+                #    current["specifications"][k] = None
+                current['specifications'][k] = literal_null_check(current['specifications'][k])
 
         # Normalize STATUS
         #print(json.dumps(current, indent=4))
         #print(json.dumps(last_commit, indent=4))
         if not self.is_new() and current['status'] is None:
             current['status'] = last_commit['status']
-        if current['status'] == '<null>':
+        if current['status'] in ('<null>', '<empty>', '<nan>'):
             current['status'] = 1
         elif isinstance(current['status'], str):
             stat_str = current['status'].casefold()
@@ -926,10 +1034,11 @@ class HWItem:
                     json.dumps(current['subcomponents'], indent=4)))
 
             table_data.append(add_row('Specifications',
-                    json.dumps(latest['specifications'], indent=4),
-                    json.dumps(current['specifications'], indent=4)))
+                    json.dumps(restore_order(latest['specifications']), indent=4),
+                    json.dumps(restore_order(current['specifications']), indent=4)))
             
-            table_data.append(add_row('Enabled', latest['enabled'], current['enabled']))
+            #table_data.append(add_row('Enabled', latest['enabled'], current['enabled']))
+            table_data.append(add_row('Status', latest['status'], current['status']))
 
             table = Table(table_data)
             table.set_row_border(1, BoxDraw.BORDER_STRONG)
@@ -951,7 +1060,7 @@ class HWItem:
 
     @staticmethod
     def _is_unassigned(part_id):
-        unassigned = (None, '', '<unassigned>', '<tbd>', '<null>')
+        unassigned = (None, '', '<unassigned>', '<null>')
         return (part_id is None) or (part_id.casefold() in unassigned)
 
 

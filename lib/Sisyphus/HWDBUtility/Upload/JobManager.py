@@ -10,7 +10,8 @@ logger = config.getLogger(__name__)
 
 from Sisyphus.Utils.utils import preserve_order, restore_order, serialize_for_display
 from Sisyphus.Utils.Terminal.Style import Style
-
+import Sisyphus.RestApiV1 as ra
+import Sisyphus.RestApiV1.Utilities as ut
 from Sisyphus.DataModel import HWItem
 from Sisyphus.DataModel import HWTest
 
@@ -120,34 +121,97 @@ class JobManager:
         # .....................................................................
 
         def execute_item_jobs():
-            if self.item_jobs:
-                Style.info.print(f"    \u2022 Item Jobs: 0 / {len(self.item_jobs)}\x1b[K")
-            else:
-                return
-
-            for job_index in sorted(self.item_jobs.keys()):
-                job = self.item_jobs[job_index]
-
-                if submit:
-                    # store this value, because it will change after updating
-                    is_new = job.is_new()
-
-                    # update the job
-                    job.update_core()
-                    job.update_enabled()
-
-                    if is_new:
-                        # update the part id in tests
-                        # (this is only necessary for new items, because old items
-                        # will already have their part id's looked up)
-                        # TODO: what if the user has changed the serial number??
-                        update_part_id(job.part_type_id, job.part_id, job.serial_number)
-                else:
-                    time.sleep(0.01)
+            #{{{
+            # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+            
+            def execute_item_core():
+                # Update the "core" part of the item, i.e., all but subcomponents
                 
-                Style.info.print(f"\x1b[F    \u2022 Item Jobs: {job_index} / "
-                            f"{len(self.item_jobs)}\x1b[K")
+                if self.item_jobs:
+                    Style.info.print(f"    \u2022 Item Jobs: 0 / {len(self.item_jobs)}\x1b[K")
+                else:
+                    return
+
+                logger.info(f"{self.item_jobs}")
+                
+                for job_index in sorted(self.item_jobs.keys()):
+                    job = self.item_jobs[job_index]
+
+                    if submit:
+                        # store this value, because it will change after updating
+                        is_new = job.is_new()
+
+                        # update the job
+                        job.update_core()
+                        job.update_enabled()
+
+                        if is_new:
+                            # update the part id in tests
+                            # (this is only necessary for new items, because old items
+                            # will already have their part id's looked up)
+                            # TODO: what if the user has changed the serial number??
+                            update_part_id(job.part_type_id, job.part_id, job.serial_number)
+                    else:
+                        time.sleep(0.01)
+                    
+                    Style.info.print(f"\x1b[F    \u2022 Item Jobs: {job_index} / "
+                                f"{len(self.item_jobs)}\x1b[K")
+       
+            # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+            
+            def execute_item_clear_subcomponents():
+                # Clear any subcomponents that have changed.
+                # We do this instead of just attaching the new ones directly 
+                # because it's possible for an item to want to attach a subcomp
+                # that another item currently owns but is planning to change to
+                # a different one.
+
+                if self.item_jobs:
+                    Style.info.print(f"    \u2022 Evaluating subcomponents: 0 / {len(self.item_jobs)}\x1b[K")
+                else:
+                    return
+
+                for job_index in sorted(self.item_jobs.keys()):
+                    job = self.item_jobs[job_index]
+
+                    if submit:
+                        job.release_subcomponents()
+
+                    else:
+                        time.sleep(0.01)
+                    
+                    Style.info.print(f"\x1b[F    \u2022 Evaluating subcomponents: {job_index} / "
+                                f"{len(self.item_jobs)}\x1b[K")
+
+
+            # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+            
+            def execute_item_attach_subcomponents():
+                
         
+                if self.item_jobs:
+                    Style.info.print(f"    \u2022 Updating subcomponents: 0 / {len(self.item_jobs)}\x1b[K")
+                else:
+                    return
+
+                for job_index in sorted(self.item_jobs.keys()):
+                    job = self.item_jobs[job_index]
+
+                    if submit:
+                        job.update_subcomponents()
+
+                    else:
+                        time.sleep(0.01)
+                    
+                    Style.info.print(f"\x1b[F    \u2022 Updating subcomponents: {job_index} / "
+                                f"{len(self.item_jobs)}\x1b[K")
+
+            # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+            
+            execute_item_core()
+            execute_item_clear_subcomponents()
+            execute_item_attach_subcomponents()
+            #}}}
 
         # .....................................................................
        
@@ -170,6 +234,50 @@ class JobManager:
 
         # .....................................................................
         
+        def execute_item_image_jobs():
+            if self.item_image_jobs:
+                Style.info.print(f"    \u2022 Item Image Jobs: 0 / {len(self.item_image_jobs)}\x1b[K")
+            else:
+                return
+
+            logger.info(f"{self.item_image_jobs}")
+
+            for job_index in sorted(self.item_image_jobs.keys()):
+                job = self.item_image_jobs[job_index]
+
+                if submit:
+
+                    if job['Data']['External ID'] is None:
+
+                        resp = ut.fetch_hwitems(
+                                        job['Part Type ID'],
+                                        job['Part Type Name'], 
+                                        job['Data']['External ID'],
+                                        job['Data']['Serial Number'])
+                        #print(json.dumps(resp, indent=4))
+                        job['Data']['External ID'] = list(resp)[0]
+
+                    #print(job['Part Type ID'], 
+                    #    job['Part Type Name'], 
+                    #    job['Data']['External ID'],
+                    #    job['Data']['Serial Number'],
+                    #    job['Data']['Comments'], 
+                    #    sep='\n')
+
+                    data = {"comments": job['Data']['Comments']}
+                    resp = ra.post_hwitem_image(
+                            job['Data']['External ID'], 
+                            data, 
+                            job['Data']['Image File'])
+
+                else:
+                    time.sleep(0.01)
+                
+                Style.info.print(f"\x1b[F    \u2022 Item Image Jobs: {job_index} / "
+                            f"{len(self.item_image_jobs)}\x1b[K")
+
+        # .....................................................................
+        
         if submit:
             Style.notice.print(f"Executing Jobs")
         else:
@@ -182,6 +290,7 @@ class JobManager:
 
         execute_item_jobs()
         execute_test_jobs()
+        execute_item_image_jobs()
 
     def error_callback(self, *args, **kwargs):
         #print("error callback:", args, kwargs)
@@ -224,8 +333,21 @@ class JobManager:
 
 
     def add_item_image(self, job_request):
-        print('add item image')
-    
+        #print('add item image')
+        #print(job_request)   
+        def async_add_item_image(job_request):
+            with _lock:
+                self.item_image_job_count += 1
+                item_image_job_number = self.item_image_job_count
+                self.display_job_queue_status()
+
+            with _lock:
+                self.item_image_jobs[item_image_job_number] = job_request
+                self.display_job_queue_status()
+                 
+        self._apply(async_add_item_image, (job_request,), {}, self.regular_callback, self.error_callback)
+
+
     def add_test_image(self, job_request):
         print('add test image')
 

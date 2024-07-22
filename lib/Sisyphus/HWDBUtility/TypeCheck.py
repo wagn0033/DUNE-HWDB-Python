@@ -6,6 +6,10 @@ Copyright (c) 2024 Regents of the University of Minnesota
 Author:
     Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
+!!!!!!!!!!!!
+NOTICE: These comments were written a while ago and may not be current!
+!!!!!!!!!!!!
+
 casting types
 -------------
 any
@@ -319,11 +323,9 @@ def cast_json(cell):
     #{{{
     cell = deepcopy(cell)
     try:
-        logger.info(f"trying to cast {cell.value} as json")
         cell.value = json.loads(str(cell.value))
         return cell
     except json.JSONDecodeError as err:
-        logger.info(f"failed to cast as json")
         pass    
     cell.warnings.append(f"cannot interpret '{cell.value}' as json")
     return cell
@@ -367,16 +369,17 @@ def cast(cell):
     # We really needed there to be two kinds of nulls. One that's just a plain 
     # old ordinary null, and another that means that if you're editing an item,
     # keep the current value. Treat "<null>" as the second kind.
-    if isinstance(type(cell.value), str):
-        if cell.value.casefold() == "<null>":
+    
+    if type(cell.value) in (str,):
+        if cell.value.casefold() in ("<null>", "<unassigned>"):
             cell.value = "<null>"
             return cell
         elif cell.value.casefold() == "<empty>":
             cell.value = "<empty>"
             return cell
-
-    #if cell.datatype == "null,str":
-    #    breakpoint()
+        elif cell.value.casefold() == "<nan>":
+            cell.value = "<nan>"
+            return cell
 
     type_chain = cell.datatype.lower().split(',')
 
