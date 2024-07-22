@@ -764,6 +764,10 @@ class HWItem:
                 #if v == "<null>":
                 #    current["subcomponents"][k] = None
                 current['subcomponents'][k] = literal_null_check(current['subcomponents'][k])
+        else:
+            if current["subcomponents"] is not None:
+                for k, v in current["subcomponents"].items():
+                    current['subcomponents'][k] = literal_null_check(current['subcomponents'][k])
 
         # Normalize SPECIFICATIONS
         if not self.is_new():
@@ -773,7 +777,7 @@ class HWItem:
                 #if v == "<null>":
                 #    current["specifications"][k] = None
                 current['specifications'][k] = literal_null_check(current['specifications'][k])
-
+                logger.warning(current['specifications'][k])
         # Normalize STATUS
         #print(json.dumps(current, indent=4))
         #print(json.dumps(last_commit, indent=4))
