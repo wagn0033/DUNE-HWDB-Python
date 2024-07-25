@@ -16,6 +16,8 @@ from Sisyphus.Utils import UnitTest as unittest
 
 import os
 import json
+import time
+from datetime import datetime
 
 from Sisyphus.RestApiV1 import get_component_type
 from Sisyphus.RestApiV1 import get_hwitems
@@ -25,13 +27,27 @@ from Sisyphus.RestApiV1 import get_component_types
 
 class Test__get_component_type(unittest.TestCase):
     """Test RestApiV1 functions related to Component Types"""
+
+    def setUp(self):
+        self.start_time = time.time()
+        print("\n")
+        print(f"\nTest started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    def tearDown(self):
+        end_time = time.time()
+        duration = end_time - self.start_time
+        print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Test duration: {duration:.2f} seconds")
  
     #-----------------------------------------------------------------------------    
 
     def test_get_component_type(self):
         """Get component type"""
+        print("\n=== Testing to get a component type ===")
+        print("GET /api/v1/component-types/{part_type_id}")
         
         part_type_id = 'Z00100300001'
+        print(f"Retrieving component type for part_type_id: {part_type_id}")
         
         resp = get_component_type(part_type_id)
         logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
@@ -43,9 +59,12 @@ class Test__get_component_type(unittest.TestCase):
 
     def test_get_hwitems(self):
         """Get a list of items"""
+        print("\n=== Testing to get a list of items ===")
+        print("GET /api/v1/component-types/{part_type_id}/components")
 
         part_type_id = 'Z00100110001'
         page, size = 1, 20
+        print(f"Retrieving items for part_type_id: {part_type_id}, page: {page}, size: {size}")
 
         resp = get_hwitems(part_type_id, page=page, size=size)            
         logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
@@ -58,8 +77,11 @@ class Test__get_component_type(unittest.TestCase):
     
     def test_component_type_connectors(self):
         """Get subcomponents for component type"""
-        
+        print("\n=== Testing to get subcomponents for component type ===")
+        print("GET /api/v1/component-types/{part_type_id}/connectors")
+
         part_type_id = 'Z00100300001' 
+        print(f"Retrieving connectors for part_type_id: {part_type_id}")
         
         resp = get_component_type_connectors(part_type_id)
         logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
@@ -71,8 +93,11 @@ class Test__get_component_type(unittest.TestCase):
     
     def test_component_type_specifications(self):
         """Get specification definition for component type"""
+        print("\n=== Testing to get specification definition for component type ===")
+        print("GET /api/v1/component-types/{part_type_id}/specifications")
     
         part_type_id = 'Z00100300001'
+        print(f"Retrieving specifications for part_type_id: {part_type_id}")
         
         resp = get_component_type_specifications(part_type_id)
         logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
@@ -84,13 +109,14 @@ class Test__get_component_type(unittest.TestCase):
     #-----------------------------------------------------------------------------    
     
     def test_component_types_by_proj_sys(self):
-        """Get a list of component types by project and system"""    
+        """Get a list of component types by project and system"""  
+        print("\n=== Testing to get a list of component types by project and system ===")  
+        print("GET /api/v1/component-types/{project_id}/{system_id}")
     
         proj_id = 'Z'
         sys_id = 1
-
         page, size = 1, 100
-        fields = [] 
+        print(f"Retrieving component types for project: {proj_id}, system: {sys_id}, page: {page}, size: {size}")
 
         resp = get_component_types(proj_id, sys_id, page=page, size=size)
         logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
@@ -99,17 +125,18 @@ class Test__get_component_type(unittest.TestCase):
         self.assertIsInstance(resp['data'][0]['category'], str)
         self.assertIsInstance(resp['data'][0]['creator']['id'], int)
 
-
     #-----------------------------------------------------------------------------    
     
     def test_component_types_by_proj_sys_subsys(self):
         """Get a list of component types by project, system, and subsystem"""
+        print("\n=== Testing to get a list of component types by project, system, and subsystem ===")
+        print("GET /api/v1/component-types/{project_id}/{system_id}/{subsystem_id}")
             
         proj_id = 'Z'
         sys_id = 1
         subsys_id = 1
         page, size = 1, 100
-        fields = []
+        print(f"Retrieving component types for project: {proj_id}, system: {sys_id}, subsystem: {subsys_id}, page: {page}, size: {size}")
 
         resp = get_component_types(proj_id, sys_id, subsys_id, page=page, size=size)
         logger.info(f"server response:\n{json.dumps(resp, indent=4)}")

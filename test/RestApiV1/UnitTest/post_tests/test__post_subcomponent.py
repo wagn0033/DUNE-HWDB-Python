@@ -17,6 +17,8 @@ import os
 import json
 import unittest
 import random
+import time
+from datetime import datetime
 
 from Sisyphus.RestApiV1 import post_hwitem
 from Sisyphus.RestApiV1 import patch_hwitem_enable
@@ -25,16 +27,23 @@ from Sisyphus.RestApiV1 import patch_hwitem_subcomp
 class Test__post_subcomponent(unittest.TestCase):
     """Tests adding subcomponents to an item"""
     
-    # post an item under the part type id will be the subcomponent, 
-    # retrieve part id and enable it. post containter item with subcomponent, 
-    # check status. Patch the container item to remove subcomponent, check status.
+    def setUp(self):
+        self.start_time = time.time()
+        print("\n")
+        print(f"\nTest started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    def tearDown(self):
+        end_time = time.time()
+        duration = end_time - self.start_time
+        print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Test duration: {duration:.2f} seconds")
+
     def test_post_subcomponent(self):
-        """Tests adding subcomponents to an item
+        print("\n=== Testing to add subcomponents to an Item ===")
+        print("POST /api/v1/component-types/{part_type_id}/components")
 
-        Posts items and creates parent/child relationships between them.
-        """
 
-        #posting new item under Test Type 002
+        # Posting new item under Test Type 002
         part_type_id = "Z00100300002"
         serial_number = "S99999"
 
@@ -62,6 +71,7 @@ class Test__post_subcomponent(unittest.TestCase):
         self.assertEqual(resp["status"], "OK")
 
         part_id_subcomp = resp["part_id"]
+        print(f"A new subcomponent Item with part_id {part_id_subcomp} has been created")
 
         data = {
             "comments": "here are some comments",
@@ -77,8 +87,9 @@ class Test__post_subcomponent(unittest.TestCase):
         resp = patch_hwitem_enable(part_id_subcomp, data)
         logger.info(f"Response from patch: {resp}")
         self.assertEqual(resp["status"], "OK")
+        print(f"The subcomponent Item with part_id {part_id_subcomp} has been enabled")
 
-        #posting hwitem with subcomponent
+        # Posting hwitem with subcomponent
         part_type_id = "Z00100300001"
         serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
         data = {
@@ -107,8 +118,9 @@ class Test__post_subcomponent(unittest.TestCase):
         self.assertEqual(resp["status"], "OK")
 
         part_id_container = resp["part_id"]
+        print(f"A new container Item with part_id {part_id_container} has been created with subcomponent {part_id_subcomp}")
 
-         #removing subcomponent from container
+        # Removing subcomponent from container
         data = {
             "component": {
                 "part_id": part_id_container
@@ -121,9 +133,7 @@ class Test__post_subcomponent(unittest.TestCase):
         resp = patch_hwitem_subcomp(part_id_container, data)
         logger.info(f"Response from patch: {resp}")
         self.assertEqual(resp["status"], "OK")
-        
-#=================================================================================
+        print(f"The subcomponent {part_id_subcomp} has been removed from the container Item {part_id_container}")
 
 if __name__ == "__main__":
     unittest.main(argv=config.remaining_args)
-

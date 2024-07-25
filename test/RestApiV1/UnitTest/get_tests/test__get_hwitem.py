@@ -16,15 +16,31 @@ from Sisyphus.Utils import UnitTest as unittest
 import os
 import json
 import unittest
+import time
+from datetime import datetime
 
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus import RestApiV1 as ra
 
 class Test__get_hwitems(unittest.TestCase):
     """Test RestApiV1 functions related to Items"""
- 
+
+    def setUp(self):
+        self.start_time = time.time()
+        print("\n")
+        print(f"\nTest started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    def tearDown(self):
+        end_time = time.time()
+        duration = end_time - self.start_time
+        print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Test duration: {duration:.2f} seconds")
+
     def test_normal_item(self):
         """Get an item"""
+        print("\n=== Testing to get an item ===")
+        print("GET /api/v1/components/{part_id}")
+        print("Retrieving item with part_id: Z00100300001-00021")
 
         try:
             file_path = os.path.join(os.path.dirname(__file__), '..','ExpectedResponses', 
@@ -45,9 +61,6 @@ class Test__get_hwitems(unittest.TestCase):
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
 
-
-    #-----------------------------------------------------------------------------     
-        
     def test_broken_item(self):
         """Get 'corrupt' item
 
@@ -56,6 +69,9 @@ class Test__get_hwitems(unittest.TestCase):
         return an HTML page with a 500 error. This has been fixed. This test
         will check that the fix is still working.
         """        
+        print("\n=== Testing to get 'corrupt' item ===")
+        print("GET /api/v1/components/{part_id}")
+        print("Retrieving 'corrupt' item with part_id: Z00100200017-00001")
 
         try:
             resp = get_hwitem("Z00100200017-00001")
@@ -68,12 +84,11 @@ class Test__get_hwitems(unittest.TestCase):
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
 
-
-    #----------------------------------------------------------------------------- 
-    
-    #check if getting an invalid item throws an error
     def test_invalid_item(self):
-        """Attempt to get an invalid item"""        
+        """Attempt to get an invalid item"""   
+        print("\n=== Testing to get an invalid item ===")
+        print("GET /api/v1/components/{part_id}")     
+        print("Attempting to retrieve invalid item with part_id: Z99999999999-99999")
 
         try:
             with self.assertRaises(ra.exceptions.DatabaseError):
@@ -85,8 +100,5 @@ class Test__get_hwitems(unittest.TestCase):
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
     
-    
-    ##############################################################################                                
 if __name__ == "__main__":
     unittest.main(argv=config.remaining_args)
-

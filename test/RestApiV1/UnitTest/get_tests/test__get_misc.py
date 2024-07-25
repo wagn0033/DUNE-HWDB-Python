@@ -17,6 +17,8 @@ import unittest
 import os
 import json
 import sys
+import time
+from datetime import datetime
 
 from Sisyphus.RestApiV1 import get_countries
 from Sisyphus.RestApiV1 import whoami
@@ -33,17 +35,26 @@ from Sisyphus.RestApiV1 import get_subsystem
 from Sisyphus.RestApiV1 import get_subsystems
 import Sisyphus.RestApiV1 as ra
 
-#from Sisyphus.RestApiV1._RestApiV1 import _get
-
 class Test__get_misc(unittest.TestCase):
     """Test 'miscellaneous' RestApiV1 functions"""
 
-    #-----------------------------------------------------------------------------
+    def setUp(self):
+        self.start_time = time.time()
+        print("\n")
+        print(f"\nTest started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    #checks countries list
-    #by comparing to an expected json file
+    def tearDown(self):
+        end_time = time.time()
+        duration = end_time - self.start_time
+        print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Test duration: {duration:.2f} seconds")
+
+ #-----------------------------------------------------------------------------
+
     def test_get_countries(self):
-        """Get a list of countries"""
+        print("\n=== Testing to get a list of countries ===")
+        print("GET /api/v1/countries")
+        print("Retrieving list of countries")
 
         try:
             file_path = os.path.join(os.path.dirname(__file__),
@@ -60,13 +71,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
             
-    #-----------------------------------------------------------------------------
-
-    #checks structure of response: checks for string and integer where is expected 
-    # in response
     def test_whoami(self):
-        """Test 'whoami'"""
+        print("\n=== Testing 'whoami' ===")
+        print("GET /api/v1/users/whoami")
+        print("Retrieving current user information")
 
         try:
             resp = whoami() 
@@ -79,12 +90,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-
-    #-----------------------------------------------------------------------------
         
-    #checks structure of response: checks if the first entry is US
+ #-----------------------------------------------------------------------------
+
     def test_get_institutions(self):
-        """Get a list of institutions"""
+        print("\n=== Testing to get a list of institutions ===")
+        print("GET /api/v1/institutions")
+        print("Retrieving list of institutions")
 
         try:
             resp = get_institutions()
@@ -97,13 +109,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
 
-    #-----------------------------------------------------------------------------
-    
-    #checks structure of response: checks is the first entry is Homenick Ltd, and 
-    # that the last entry has an integer and string where it should be
     def test_get_manufacturers(self):
-        """Get a list of manufacturers"""
+        print("\n=== Testing to get a list of manufacturers ===")
+        print("GET /api/v1/manufacturers")
+        print("Retrieving list of manufacturers")
 
         try:
             resp = get_manufacturers()
@@ -119,12 +131,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
             
-    #-----------------------------------------------------------------------------
-    
-    #checks structure of response: checks if DUNE is the second entry
     def test_get_projects(self):
-        """Get a list of projects"""
+        print("\n=== Testing to get a list of projects ===")
+        print("GET /api/v1/projects")
+        print("Retrieving list of projects")
 
         try:
             resp = get_projects()
@@ -137,13 +150,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
 
-    #-----------------------------------------------------------------------------
-    
-    #checks structure of response: checks if integer and string is where it is 
-    # expected in response
     def test_get_roles(self):
-        """Get a list of roles"""
+        print("\n=== Testing to get a list of roles ===")
+        print("GET /api/v1/roles")
+        print("Retrieving list of roles")
 
         try:
             resp = get_roles()            
@@ -157,13 +170,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
 
-    #-----------------------------------------------------------------------------
-    
-    #checks structure of response: checks if integer and string is where it is 
-    # expected in response
     def test_get_users(self):
-        """Get a list of users"""
+        print("\n=== Testing to get a list of users ===")
+        print("GET /api/v1/users")
+        print("Retrieving list of users")
 
         try:
             resp = get_users()
@@ -178,12 +191,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
             
-    #-----------------------------------------------------------------------------
-
-    #compares response to expected json response 
     def test_get_user(self):
-        """Get a specific user"""
+        print("\n=== Testing to get a specific user ===")
+        print("GET /api/v1/users/{user_id}")
+        print("Retrieving user with ID: 13615")
 
         try:
             userid = 13615 #alex
@@ -200,20 +214,19 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
 
-    #-----------------------------------------------------------------------------
-    
-    #checks structure of response: if role id is correct and is assigned tester 
-    # in response
     def test_get_role(self):
-        """Get a specific role"""
+        print("\n=== Testing to get a specific role ===")
+        print("GET /api/v1/roles/{role_id}")
+        print("Retrieving role with ID: 4")
 
         try:
             role_id = 4
             resp = get_role(role_id)
 
             self.assertEqual(resp["status"], "OK")
-
             
             self.assertEqual(resp["data"]["id"],role_id )
             self.assertEqual(resp["data"]["name"], "tester")
@@ -222,12 +235,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
 
-    #-----------------------------------------------------------------------------
-
-    #checks structure of response: if integer is where is expected in response
-    def test_get_subsystems(self): 
-        """Get a list of subsystems from a project and system"""
+    def test_get_subsystems(self):
+        print("\n=== Testing to get a list of subsystems from a project and system ===")
+        print("GET /api/v1/subsystems/{project_id}/{system_id}")
+        print("Retrieving subsystems for project 'Z', system 1")
 
         try:
             proj_id = 'Z'
@@ -242,14 +256,15 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-    
-    #-----------------------------------------------------------------------------
+        
+ #-----------------------------------------------------------------------------
 
-    def test_get_subsystems(self):
-        """Get a list of subsystems from a project and system"""
+    def test_get_subsystems_empty(self):
+        print("\n=== Testing to get a list of subsystems from a non-existent project and system ===")
+        print("GET /api/v1/subsystems/{project_id}/{system_id}")
+        print("Retrieving subsystems for non-existent project 's', system 1")
 
         try:
-            #checking if it throws return empty list/error
             file_path2 = os.path.join(os.path.dirname(__file__), 
                     '..','ExpectedResponses', 'misc', 'empty_list.json')
             with open(file_path2 , 'r') as file:
@@ -268,12 +283,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
 
-    #-----------------------------------------------------------------------------
-    
-    #compares response to expected json response
-    def test_get_subsystem(self): 
-        """Get a specific subsystem""" 
+    def test_get_subsystem(self):
+        print("\n=== Testing to get a specific subsystem ===")
+        print("GET /api/v1/component-types/{project_id}/{system_id}/{subsystem_id}")
+        print("Retrieving subsystem for project 'Z', system 1, subsystem 1")
             
         try:
             proj_id = 'Z'
@@ -294,14 +310,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
     
-    #-----------------------------------------------------------------------------
-            
     def test_get_subsystem__bad(self):
-        """Attempt to get a nonexistent subsystem
-
-        This should raise a DatabaseError.
-        """
+        print("\n=== Testing to get a nonexistent subsystem (should raise error) ===")
+        print("GET /api/v1/component-types/{project_id}/{system_id}/{subsystem_id}")
+        print("Attempting to retrieve nonexistent subsystem for project 'Z', system 1, subsystem 9")
 
         try:
             proj_id = 'Z'
@@ -316,12 +331,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
 
-    #-----------------------------------------------------------------------------
-   
-    #checks structure of response: if string is where it is expected in response
     def test_get_systems(self):
-        """Get a list of systems from a project"""
+        print("\n=== Testing to get a list of systems from a project ===")
+        print("GET /api/v1/systems/{project_id}")
+        print("Retrieving systems for project 'Z'")
 
         try:
             proj_id = 'Z'
@@ -336,13 +352,12 @@ class Test__get_misc(unittest.TestCase):
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
         
-    #-----------------------------------------------------------------------------
-
+ #-----------------------------------------------------------------------------
+        
     def test_get_systems__nonexistent(self):
-        """Attempt to get a list of systems from a non-existent project
-
-        This should return an empty list and not raise an exception.
-        """
+        print("\n=== Testing to get a list of systems from a non-existent project (should return empty list) ===")
+        print("GET /api/v1/systems/{project_id}")
+        print("Attempting to retrieve systems for non-existent project 's'")
            
         try: 
             proj_id = 's'
@@ -356,13 +371,13 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+        
+ #-----------------------------------------------------------------------------
 
-    
-    #-----------------------------------------------------------------------------
-
-    #compares response to expected json response
     def test_get_system(self):
-        """Get a system"""
+        print("\n=== Testing to get a system ===")
+        print("GET /api/v1/component-types/{project_id}/{system_id}")
+        print("Retrieving system for project 'Z', system 1")
 
         try:
             file_path = os.path.join(os.path.dirname(__file__), 
@@ -389,6 +404,10 @@ class Test__get_misc(unittest.TestCase):
 
         This should raise a DatabaseError.
         """
+
+        print("\n=== Testing to get a non-existent system (should raise error) ===")
+        print("GET /api/v1/component-types/{project_id}/{system_id}")
+        print("Attempting to retrieve non-existent system for project 'X', system 80")
 
         try:
             #checking if it throws error

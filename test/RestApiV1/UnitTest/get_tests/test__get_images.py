@@ -28,7 +28,7 @@ from Sisyphus.Utils.Terminal.Image import image2text
 
 class Test__get_images(unittest.TestCase):
     """Test RestApiV1 functions related to getting images"""
-
+    
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -48,15 +48,11 @@ class Test__get_images(unittest.TestCase):
         
         # shutil.rmtree(cls.download_path)
 
-    #----------------------------------------------------------------------------- 
-    
     def test__get_component_type_image_list(self):
-        """Get a list of images stored for a component type
-
-        Tests that a particular component type in the database has at least
-        one image, and that the entries representing each image has the
-         correct fields.
-        """
+        """Get a list of images stored for a component type"""
+        print("\n=== Testing to get a list of images stored for a component type ===")
+        print("GET /api/v1/component-types/{part_type_id}/images")
+        print("Retrieving images for part_type_id: Z00100300006")
 
         try:
             expected_fields = {
@@ -83,14 +79,11 @@ class Test__get_images(unittest.TestCase):
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
     
-    #----------------------------------------------------------------------------- 
-    
     def test__get_hwitem_image_list(self):
-        """Get a list of images stored for an item
-
-        Tests that a particular item in the database has at least one image,
-        and that the entries representing each image has the correct fields.
-        """
+        """Get a list of images stored for an item"""
+        print("\n=== Testing to get a list of images stored for an item ===")
+        print("GET /api/v1/components/{part_id}/images")
+        print("Retrieving images for part_id: Z00100300006-00001")
 
         try:
             expected_fields = {
@@ -117,7 +110,5 @@ class Test__get_images(unittest.TestCase):
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
     
-    ##############################################################################                                
 if __name__ == "__main__":
     unittest.main(argv=config.remaining_args)
-

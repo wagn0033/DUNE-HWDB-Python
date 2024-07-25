@@ -58,7 +58,9 @@ class Test__post_images(unittest.TestCase):
     def test__post_hwitem_image(self):
         #{{{
         """Post an image for an item"""
-    
+        # print("\n=== Testing to post an image for an item ===")
+        # print("POST /api/v1/components/{part_id}/images")
+
         part_id = "Z00100300006-00001"
 
         upload_file = generate_image(self.template_path, self.upload_path)
