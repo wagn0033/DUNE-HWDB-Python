@@ -5,3 +5,4 @@ scratch
 **/*.~lock.*\#
 **/.DS_Store
 test/RestApiV1/UnitTest/post_tests/images/upload/*
+lib/Sisyphus/backup-__init__.py

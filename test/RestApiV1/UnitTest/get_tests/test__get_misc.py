@@ -13,7 +13,6 @@ from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
 from Sisyphus.Utils import UnitTest as unittest
 
-import unittest
 import os
 import json
 import sys
@@ -38,49 +37,38 @@ import Sisyphus.RestApiV1 as ra
 class Test__get_misc(unittest.TestCase):
     """Test 'miscellaneous' RestApiV1 functions"""
 
-    def setUp(self):
-        self.start_time = time.time()
-        print("\n")
-        print(f"\nTest started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-    def tearDown(self):
-        end_time = time.time()
-        duration = end_time - self.start_time
-        print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Test duration: {duration:.2f} seconds")
-
- #-----------------------------------------------------------------------------
+    #-----------------------------------------------------------------------------
 
     def test_get_countries(self):
         print("\n=== Testing to get a list of countries ===")
         print("GET /api/v1/countries")
         print("Retrieving list of countries")
 
-        try:
-            file_path = os.path.join(os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'misc', 'countries.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
-            
-            resp = get_countries()
-             
-            self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+        file_path = os.path.join(os.path.dirname(__file__),
+                '..','ExpectedResponses', 'misc', 'countries.json')
+        with open(file_path, 'r') as file:
+            expected_resp = json.load(file)
+        
+        resp = get_countries()
+         
+        self.assertEqual(resp["status"], "OK")
+        self.assertDictEqual(resp, expected_resp)
 
         except AssertionError as err:
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
             
+    #-----------------------------------------------------------------------------
+
+    #checks structure of response: checks for string and integer where is expected 
+    # in response
     def test_whoami(self):
         print("\n=== Testing 'whoami' ===")
         print("GET /api/v1/users/whoami")
         print("Retrieving current user information")
 
-        try:
-            resp = whoami() 
+        resp = whoami() 
 
             self.assertEqual(resp["status"], "OK")
             self.assertIsInstance(resp["data"]["full_name"], str)
@@ -90,50 +78,52 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
 
+    #-----------------------------------------------------------------------------
+        
+    #checks structure of response: checks if the first entry is US
     def test_get_institutions(self):
         print("\n=== Testing to get a list of institutions ===")
         print("GET /api/v1/institutions")
         print("Retrieving list of institutions")
 
-        try:
-            resp = get_institutions()
-            
-            self.assertEqual(resp["status"], "OK")
-            self.assertEqual(resp['data'][0]['country']['code'], "US")
-            self.assertEqual(resp['data'][0]['country']['name'], "United States")
+        resp = get_institutions()
+        
+        self.assertEqual(resp["status"], "OK")
+        self.assertEqual(resp['data'][0]['country']['code'], "US")
+        self.assertEqual(resp['data'][0]['country']['name'], "United States")
         
         except AssertionError as err:
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
 
+    #-----------------------------------------------------------------------------
+    
+    #checks structure of response: checks is the first entry is Homenick Ltd, and 
+    # that the last entry has an integer and string where it should be
     def test_get_manufacturers(self):
         print("\n=== Testing to get a list of manufacturers ===")
         print("GET /api/v1/manufacturers")
         print("Retrieving list of manufacturers")
 
-        try:
-            resp = get_manufacturers()
-            
-            self.assertEqual(resp["status"], "OK")
-            self.assertEqual(resp['data'][0]['id'], 1)
-            self.assertEqual(resp['data'][0]['name'], "Homenick Ltd")
+        resp = get_manufacturers()
+        
+        self.assertEqual(resp["status"], "OK")
+        self.assertEqual(resp['data'][0]['id'], 1)
+        self.assertEqual(resp['data'][0]['name'], "Homenick Ltd")
 
-            self.assertIsInstance(resp['data'][-1]['id'], int)
-            self.assertIsInstance(resp['data'][-1]['name'], str)
+        self.assertIsInstance(resp['data'][-1]['id'], int)
+        self.assertIsInstance(resp['data'][-1]['name'], str)
             
         except AssertionError as err:
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
             
+    #-----------------------------------------------------------------------------
+    
+    #checks structure of response: checks if DUNE is the second entry
     def test_get_projects(self):
         print("\n=== Testing to get a list of projects ===")
         print("GET /api/v1/projects")
@@ -150,29 +140,32 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
 
+    #-----------------------------------------------------------------------------
+    
+    #checks structure of response: checks if integer and string is where it is 
+    # expected in response
     def test_get_roles(self):
         print("\n=== Testing to get a list of roles ===")
         print("GET /api/v1/roles")
         print("Retrieving list of roles")
 
-        try:
-            resp = get_roles()            
+        resp = get_roles()            
 
-            self.assertEqual(resp["status"], "OK")
-            self.assertIsInstance(resp["data"][-1]["id"], int)
-            self.assertIsInstance(resp["data"][0]["component_types"][0]["name"], str)
-            self.assertIsInstance(resp["data"][0]["users"][0]["user_id"], int)
+        self.assertEqual(resp["status"], "OK")
+        self.assertIsInstance(resp["data"][-1]["id"], int)
+        self.assertIsInstance(resp["data"][0]["component_types"][0]["name"], str)
+        self.assertIsInstance(resp["data"][0]["users"][0]["user_id"], int)
             
         except AssertionError as err:
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
 
+    #-----------------------------------------------------------------------------
+    
+    #checks structure of response: checks if integer and string is where it is 
+    # expected in response
     def test_get_users(self):
         print("\n=== Testing to get a list of users ===")
         print("GET /api/v1/users")
@@ -191,42 +184,44 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
             
+    #-----------------------------------------------------------------------------
+
+    #compares response to expected json response 
     def test_get_user(self):
         print("\n=== Testing to get a specific user ===")
         print("GET /api/v1/users/{user_id}")
         print("Retrieving user with ID: 13615")
 
-        try:
-            userid = 13615 #alex
-            file_path = os.path.join(os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'misc', 'alex_whoami.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
-            resp = get_user(userid)
+        userid = 13615 #alex
+        file_path = os.path.join(os.path.dirname(__file__),
+                '..','ExpectedResponses', 'misc', 'alex_whoami.json')
+        with open(file_path, 'r') as file:
+            expected_resp = json.load(file)
+        resp = get_user(userid)
 
-            self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp, expected_resp)
+        self.assertEqual(resp["status"], "OK")
+        self.assertDictEqual(resp, expected_resp)
 
         except AssertionError as err:
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
 
+    #-----------------------------------------------------------------------------
+    
+    #checks structure of response: if role id is correct and is assigned tester 
+    # in response
     def test_get_role(self):
         print("\n=== Testing to get a specific role ===")
         print("GET /api/v1/roles/{role_id}")
         print("Retrieving role with ID: 4")
 
-        try:
-            role_id = 4
-            resp = get_role(role_id)
+        role_id = 4
+        resp = get_role(role_id)
 
             self.assertEqual(resp["status"], "OK")
+
             
             self.assertEqual(resp["data"]["id"],role_id )
             self.assertEqual(resp["data"]["name"], "tester")
@@ -235,36 +230,34 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
+
+    #-----------------------------------------------------------------------------
 
     def test_get_subsystems(self):
         print("\n=== Testing to get a list of subsystems from a project and system ===")
         print("GET /api/v1/subsystems/{project_id}/{system_id}")
         print("Retrieving subsystems for project 'Z', system 1")
 
-        try:
-            proj_id = 'Z'
-            sys_id = 1
-            
-            resp = get_subsystems(proj_id, sys_id)
+        proj_id = 'Z'
+        sys_id = 1
+        
+        resp = get_subsystems(proj_id, sys_id)
 
-            self.assertEqual(resp["status"], "OK")
-            self.assertIsInstance(resp["data"][0]["creator"]["id"],int )
+        self.assertEqual(resp["status"], "OK")
+        self.assertIsInstance(resp["data"][0]["creator"]["id"],int )
         
         except AssertionError as err:
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
+    
+    #-----------------------------------------------------------------------------
 
-    def test_get_subsystems_empty(self):
-        print("\n=== Testing to get a list of subsystems from a non-existent project and system ===")
-        print("GET /api/v1/subsystems/{project_id}/{system_id}")
-        print("Retrieving subsystems for non-existent project 's', system 1")
+    def test_get_subsystems(self):
+        """Get a list of subsystems from a project and system"""
 
         try:
+            #checking if it throws return empty list/error
             file_path2 = os.path.join(os.path.dirname(__file__), 
                     '..','ExpectedResponses', 'misc', 'empty_list.json')
             with open(file_path2 , 'r') as file:
@@ -273,35 +266,33 @@ class Test__get_misc(unittest.TestCase):
             proj_id = 's'
             sys_id = 1            
 
-            resp = get_subsystems(proj_id, sys_id)          
-            logger.debug(f"server response:\n{json.dumps(resp, indent=4)}")
-
-            self.assertEqual(resp["status"], "OK")
-            #self.assertDictEqual(error_resp, err_expected_resp)
+        resp = get_subsystems(proj_id, sys_id)          
+        logger.debug(f"server response:\n{json.dumps(resp, indent=4)}")
+        
+        self.assertEqual(resp["status"], "OK")
+        self.assertListEqual(resp["data"], [])
         
         except AssertionError as err:
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
+
+    #-----------------------------------------------------------------------------
+    
+    #compares response to expected json response
+    def test_get_subsystem(self): 
+        """Get a specific subsystem""" 
+            
+        proj_id = 'Z'
+        sys_id = 1
+        subsys_id = 1
         
- #-----------------------------------------------------------------------------
+        resp = get_subsystem(proj_id, sys_id, subsys_id)
 
-    def test_get_subsystem(self):
-        print("\n=== Testing to get a specific subsystem ===")
-        print("GET /api/v1/component-types/{project_id}/{system_id}/{subsystem_id}")
-        print("Retrieving subsystem for project 'Z', system 1, subsystem 1")
-            
-        try:
-            proj_id = 'Z'
-            sys_id = 1
-            subsys_id = 1
-            
-            resp = get_subsystem(proj_id, sys_id, subsys_id)
-
-            file_path = os.path.join(os.path.dirname(__file__),
-                    '..','ExpectedResponses', 'misc', 'projZsys1subsys1.json')
-            with open(file_path, 'r') as file:
-                expected_resp = json.load(file)
+        file_path = os.path.join(os.path.dirname(__file__),
+                '..','ExpectedResponses', 'misc', 'projZsys1subsys1.json')
+        with open(file_path, 'r') as file:
+            expected_resp = json.load(file)
 
             self.assertEqual(resp["status"], "OK")
             self.assertDictEqual(expected_resp, resp)
@@ -310,59 +301,57 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
     
+    #-----------------------------------------------------------------------------
+            
     def test_get_subsystem__bad(self):
         print("\n=== Testing to get a nonexistent subsystem (should raise error) ===")
         print("GET /api/v1/component-types/{project_id}/{system_id}/{subsystem_id}")
         print("Attempting to retrieve nonexistent subsystem for project 'Z', system 1, subsystem 9")
 
-        try:
-            proj_id = 'Z'
-            sys_id = 1
-            subsys_id = 9
+        proj_id = 'Z'
+        sys_id = 1
+        subsys_id = 9
 
-            with self.assertRaises(ra.exceptions.DatabaseError):
-                logger.warning("NOTE: The following subtest raises an exception. This is normal.")
-                resp = get_subsystem(proj_id, sys_id, subsys_id)
+        with self.assertRaises(ra.exceptions.DatabaseError):
+            logger.warning("NOTE: The following subtest raises an exception. This is normal.")
+            resp = get_subsystem(proj_id, sys_id, subsys_id)
 
         except AssertionError as err:
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
 
+    #-----------------------------------------------------------------------------
+   
+    #checks structure of response: if string is where it is expected in response
     def test_get_systems(self):
         print("\n=== Testing to get a list of systems from a project ===")
         print("GET /api/v1/systems/{project_id}")
         print("Retrieving systems for project 'Z'")
 
-        try:
-            proj_id = 'Z'
-            
-            resp = get_systems(proj_id)
-            
-            self.assertEqual(resp["status"], "OK")
-            self.assertIsInstance(resp["data"][0]["comments"], str)
+        proj_id = 'Z'
+        
+        resp = get_systems(proj_id)
+        
+        self.assertEqual(resp["status"], "OK")
+        self.assertIsInstance(resp["data"][0]["comments"], str)
         
         except AssertionError as err:
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
         
- #-----------------------------------------------------------------------------
-        
+    #-----------------------------------------------------------------------------
+
     def test_get_systems__nonexistent(self):
         print("\n=== Testing to get a list of systems from a non-existent project (should return empty list) ===")
         print("GET /api/v1/systems/{project_id}")
         print("Attempting to retrieve systems for non-existent project 's'")
            
-        try: 
-            proj_id = 's'
+        proj_id = 's'
 
-            resp = get_systems(proj_id)
+        resp = get_systems(proj_id)
 
             self.assertEqual(resp["status"], "OK")
             self.assertEqual(resp["pagination"]["total"], 0)
@@ -371,33 +360,28 @@ class Test__get_misc(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err
-        
- #-----------------------------------------------------------------------------
+
+    
+    #-----------------------------------------------------------------------------
 
     def test_get_system(self):
         print("\n=== Testing to get a system ===")
         print("GET /api/v1/component-types/{project_id}/{system_id}")
         print("Retrieving system for project 'Z', system 1")
 
-        try:
-            file_path = os.path.join(os.path.dirname(__file__), 
-                    '..','ExpectedResponses', 'misc', 'projZsy.json')
-            with open(file_path , 'r') as file:
-                expected_resp = json.load(file)
-            proj_id = 'Z'
-            sys_id = 1
+        file_path = os.path.join(os.path.dirname(__file__), 
+                '..','ExpectedResponses', 'misc', 'projZsy.json')
+        with open(file_path , 'r') as file:
+            expected_resp = json.load(file)
+        proj_id = 'Z'
+        sys_id = 1
 
-            resp = get_system(proj_id, sys_id)
-            
-            self.assertEqual(resp["status"], "OK")
-            self.assertDictEqual(resp,expected_resp)
+        resp = get_system(proj_id, sys_id)
         
-        except AssertionError as err:
-            logger.error(f"Assertion Error: {repr(err)}")
-            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
-            raise err
-
-    #-----------------------------------------------------------------------------
+        self.assertEqual(resp["status"], "OK")
+        self.assertDictEqual(resp,expected_resp)
+        
+    #-------------------------------------------------------------------------
     
     def test_get_system__bad(self):
         """Attempt to get a non-existent system
@@ -409,22 +393,16 @@ class Test__get_misc(unittest.TestCase):
         print("GET /api/v1/component-types/{project_id}/{system_id}")
         print("Attempting to retrieve non-existent system for project 'X', system 80")
 
-        try:
-            #checking if it throws error
-            proj_id = 'X'
-            sys_id = 80
+        #checking if it throws error
+        proj_id = 'X'
+        sys_id = 80
 
-            with self.assertRaises(ra.exceptions.DatabaseError):
-                logger.warning("NOTE: The following subtest raises an exception. This is normal.")
-                resp = get_system(proj_id, sys_id)
-            #self.assertEqual(error_resp["status"], "ERROR")
+        with self.assertRaises(ra.exceptions.DatabaseError):
+            logger.warning("NOTE: The following subtest raises an exception. This is normal.")
+            resp = get_system(proj_id, sys_id)
+        #self.assertEqual(error_resp["status"], "ERROR")
         
-        except AssertionError as err:
-            logger.error(f"Assertion Error: {repr(err)}")
-            logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
-            raise err
-
-##############################################################################
+#=============================================================================
 
 if __name__ == "__main__":
     unittest.main(argv=config.remaining_args)

@@ -28,6 +28,8 @@ from patch_tests.test__patch_hwitems_bulk import *
 from patch_tests.test__patch_enables import *
 from patch_tests.test__patch_hwitem import *
 
+from spec_tests.test__specifications import *
+
 class RealTimeTestResult(unittest.TextTestResult):
     """
     def startTest(self, test):
@@ -56,12 +58,4 @@ class RealTimeTestRunner(unittest.TextTestRunner):
     resultclass = RealTimeTestResult
 
 if __name__ == "__main__":
-    #test suite
-    suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])
-    
-    #custom runner
-    runner = RealTimeTestRunner(verbosity=1, stream=sys.stdout)
-    result = runner.run(suite)
-
-    #exit with status code
-    sys.exit(not result.wasSuccessful())
+    unittest.main(argv=config.remaining_args)

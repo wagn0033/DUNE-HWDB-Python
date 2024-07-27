@@ -9,14 +9,10 @@ Authors:
 Test RestApiV1 functions related to getting images
 """
 
-from Sisyphus.Configuration import config
-logger = config.getLogger(__name__)
-
 from Sisyphus.Utils import UnitTest as unittest
 
 import os, shutil
 import json
-import unittest
 
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus.RestApiV1 import get_hwitem_image_list
@@ -48,19 +44,20 @@ class Test__get_images(unittest.TestCase):
         
         # shutil.rmtree(cls.download_path)
 
+    #----------------------------------------------------------------------------- 
+    
     def test__get_component_type_image_list(self):
         """Get a list of images stored for a component type"""
         print("\n=== Testing to get a list of images stored for a component type ===")
         print("GET /api/v1/component-types/{part_type_id}/images")
         print("Retrieving images for part_type_id: Z00100300006")
 
-        try:
-            expected_fields = {
-                "comments", "created", "creator", "image_id", "image_name",
-                "library", "link"
-            }
+        expected_fields = {
+            "comments", "created", "creator", "image_id", "image_name",
+            "library", "link"
+        }
 
-            resp = get_component_type_image_list("Z00100300006")
+        resp = get_component_type_image_list("Z00100300006")
 
             # We'll only test that there's at least one image, and that
             # we don't raise an exception when we fetch it.             
@@ -78,6 +75,8 @@ class Test__get_images(unittest.TestCase):
             logger.error(f"Assertion Error: {repr(err)}")
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
+    
+    #----------------------------------------------------------------------------- 
     
     def test__get_hwitem_image_list(self):
         """Get a list of images stored for an item"""
@@ -85,13 +84,12 @@ class Test__get_images(unittest.TestCase):
         print("GET /api/v1/components/{part_id}/images")
         print("Retrieving images for part_id: Z00100300006-00001")
 
-        try:
-            expected_fields = {
-                "comments", "created", "creator", "image_id", "image_name",
-                "library", "link"
-            }
+        expected_fields = {
+            "comments", "created", "creator", "image_id", "image_name",
+            "library", "link"
+        }
 
-            resp = get_hwitem_image_list("Z00100300006-00001")
+        resp = get_hwitem_image_list("Z00100300006-00001")
 
             # We'll only test that there's at least one image, and that
             # we don't raise an exception when we fetch it.             
@@ -110,5 +108,7 @@ class Test__get_images(unittest.TestCase):
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
     
+    ##############################################################################                                
 if __name__ == "__main__":
     unittest.main(argv=config.remaining_args)
+

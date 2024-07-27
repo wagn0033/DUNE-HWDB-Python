@@ -2,14 +2,19 @@
 # -*- coding: utf-8 -*-
 """
 bin/configure.py
-Copyright (c) 2022 Regents of the University of Minnesota
+Copyright (c) 2024 Regents of the University of Minnesota
 Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 
 import sys
 import argparse
+import Sisyphus
 import Sisyphus.Configuration as Config
+from Sisyphus.Configuration import config
+logger = config.getLogger(__name__)
 import Sisyphus.RestApiV1 as ra
+from Sisyphus.Utils.Terminal import Image
+from Sisyphus.Utils.Terminal.Style import Style
 
 def parse(command_line_args=sys.argv):
     parser = argparse.ArgumentParser(
@@ -105,11 +110,35 @@ def show_summary(config):
     check_result = check_server(config)
     sys.stdout.write(f"\rserver check: {check_result}\033[K\n")
 
-
     print()
-    
+
+#def display_header():
+#    columns = 66
+#    padding = 4
+#    bgcolor = 0x111111
+#
+#    filepath = Sisyphus.get_path("resources/images/DUNE-short.png")
+#    img_text = Image.image2text(filepath, columns=columns-2*padding, background=bgcolor).split("\n")
+#    padding = Style.bg(bgcolor)(" "*padding)
+#    joiner = padding + "\n" + padding
+#
+#    print(padding, end="")
+#    print(joiner.join(img_text), end="")
+#    print(padding)
+#    Style.notice.bold().print(f"DUNE HWDB Utility {Sisyphus.version}".center(columns))
+#
+#    if Config.config.newer_version_exists():
+#        url = "https://github.com/DUNE/DUNE-HWDB-Python/releases/latest"
+#        latest_version = Config.config.get_latest_release_version()
+#        Style.notice.print(
+#                f"Notice: a newer version of this software ({latest_version}) is available. To \n"
+#                "download this version, go to:")
+#        Style.link.print(url)
+ 
 def main():
-    
+    logger.info(f"Starting {__name__}")
+    Sisyphus.display_header() 
+
     args, unknowns = parse()
     
     if args.reset:
@@ -119,6 +148,7 @@ def main():
     
     Config.config.save()
     show_summary(Config.config)
+    logger.info(f"Finished {__name__} and exiting.")
 
 if __name__ == '__main__':    
     sys.exit(main())

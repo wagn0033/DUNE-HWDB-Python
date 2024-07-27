@@ -19,8 +19,10 @@ import time
 from datetime import datetime
 
 from Sisyphus.RestApiV1 import post_hwitem
+from Sisyphus.RestApiV1 import patch_hwitem
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus.RestApiV1 import patch_hwitem_enable
+from Sisyphus.RestApiV1 import patch_hwitem_status
 from Sisyphus.RestApiV1 import post_hwitems_bulk
 from Sisyphus.RestApiV1 import patch_hwitems_enable_bulk
 
@@ -64,7 +66,10 @@ class Test__patch_enables(unittest.TestCase):
                 "Color": "red",
                 "Comment": "Unit Testing"
             },
-            "subcomponents": {}
+            "subcomponents": {},
+            "status": {
+                "id": 1
+            }
         }
 
         logger.info(f"Posting new hwitem: part_type_id={part_type_id}, serial_number={serial_number}")
@@ -97,7 +102,6 @@ class Test__patch_enables(unittest.TestCase):
         # GET/CHECK
         resp = get_hwitem(part_id)
         self.assertTrue(resp["data"]["enabled"])
-        print(f"The item with PID {part_id} has been enabled")
 
         # PATCH DISABLE
         data["enabled"] = False
@@ -108,11 +112,16 @@ class Test__patch_enables(unittest.TestCase):
         # GET/CHECK
         resp = get_hwitem(part_id)
         self.assertFalse(resp["data"]["enabled"])
-        print(f"The item with PID {part_id} has been disabled")
 
+        #}}}
+
+    #-------------------------------------------------------------------------
+
+    #post (2) items in bulk, get part ids from response of post, 
+    # use those part ids to enable them, check if they were enabled. 
+    # Disable them, check if they were disabled
     def test_patch_enable_bulk(self):
-        print("\n=== Testing to create multiple Items and toggle their enabled status in bulk ===")
-        print("PATCH /api/v1/components/bulk-enable")
+        """Tests setting "enabled" status in several items at the same time"""
 
         # POST bulk
         part_type_id = "Z00100300001"
@@ -163,7 +172,7 @@ class Test__patch_enables(unittest.TestCase):
         resp2 = get_hwitem(part_id2)
         self.assertTrue(resp["data"]["enabled"])
         self.assertTrue(resp2["data"]["enabled"])
-        print(f"The items with PIDs {part_id1} and {part_id2} have been enabled")
+        logger.info(f"Response from post: {resp}") 
 
         # DISABLE
         data = {
@@ -187,7 +196,9 @@ class Test__patch_enables(unittest.TestCase):
         resp2 = get_hwitem(part_id2)
         self.assertFalse(resp["data"]["enabled"])
         self.assertFalse(resp2["data"]["enabled"])
-        print(f"The items with PIDs {part_id1} and {part_id2} have been disabled")
+        logger.info(f"Response from post: {resp}")
+
+#=================================================================================
 
 if __name__ == "__main__":
     unittest.main(argv=config.remaining_args)

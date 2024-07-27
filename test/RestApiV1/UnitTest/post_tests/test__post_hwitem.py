@@ -15,7 +15,6 @@ from Sisyphus.Utils import UnitTest as unittest
 
 import os
 import json
-import unittest
 import random
 import time
 from datetime import datetime
@@ -69,11 +68,17 @@ class Test__post_hwitem(unittest.TestCase):
 
         resp = post_hwitem(part_type_id, data)
 
+
         logger.info(f"The response was: {resp}")
+
+        logger.info(f"Created: {resp['part_id']}")
         
         self.assertEqual(resp["status"], "OK")
-        print(f"A new Item with part_type_id {part_type_id} and serial_number {serial_number} has been created")
+        
+        #}}}
+    #-------------------------------------------------------------------------
 
+    #@unittest.skip("fails")
     def test__post_hwitem__empty_spec(self):
         print("\n=== Testing to post a new Item with empty specifications ===")
         print("POST /api/v1/component-types/{part_type_id}/components")
@@ -135,13 +140,12 @@ class Test__post_hwitem(unittest.TestCase):
         }
 
         with self.assertRaises(ra.BadSpecificationFormat):
-            logger.warning("NOTE: The following subtest raises an exception. This is normal.")
             resp = post_hwitem(part_type_id, data)
         print("Test passed: BadSpecificationFormat exception raised as expected")
 
     def test__post_hwitem__extra_spec(self):
-        print("\n=== Testing to post a new Item with extra specifications ===")
-        print("POST /api/v1/component-types/{part_type_id}/components")
+        #{{{
+        """Tests posting an item with extra fields in the spec, which should be allowed"""
 
         part_type_id = "Z00100300001"
         serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
@@ -169,12 +173,15 @@ class Test__post_hwitem(unittest.TestCase):
             "subcomponents": {}
         }
 
-        resp = post_hwitem(part_type_id, data)
+        with self.assertRaises(ra.BadSpecificationFormat):
+            resp = post_hwitem(part_type_id, data)
 
-        logger.info(f"The response was: {resp}")
+        #logger.info(f"The response was: {resp}")
         
         self.assertEqual(resp["status"], "OK")
-        print(f"A new Item with part_type_id {part_type_id} and extra specifications has been created")
+        #}}}
+
+    #-------------------------------------------------------------------------
 
     def test__post_hwitem__sparse(self):
         print("\n=== Testing to post a new Item with missing optional data ===")
@@ -228,9 +235,9 @@ class Test__post_hwitem(unittest.TestCase):
         }
 
         with self.assertRaises(ra.BadDataFormat):
-            logger.warning("NOTE: The following subtest raises an exception. This is normal.")
             resp = post_hwitem(part_type_id, data)
         print("Test passed: BadDataFormat exception raised as expected")
 
 if __name__ == "__main__":
     unittest.main(argv=config.remaining_args)
+

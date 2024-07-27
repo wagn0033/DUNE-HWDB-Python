@@ -8,7 +8,7 @@ Author:
 """
 
 from Sisyphus.Configuration import config
-logger = config.getLogger(__name__)
+#logger = config.getLogger(__name__)
 
 # Import everything from unittest so that one could import our
 # module in its place and still have access to the base functionality
@@ -24,16 +24,19 @@ import io, traceback
 
 class TestCase(unittest.TestCase):
     """Extends unittest.TestCase to automatically log test cases"""
-    logger = logger
+    logger = config.getLogger(__name__)
 
     def setUp(self):
+        """Logs entry into each test case"""
+
         self.maxDiff = 0x10000
         self.logger.info(f"[TEST {self._testMethodName}]")
         if self._testMethodDoc is not None:
             doc_first_line = self._testMethodDoc.split('\n', 1)[0]
-            self.logger.info(f"__doc__: {doc_first_line}")
+            self.logger.info(f"description: '{doc_first_line}'")
 
     def tearDown(self):
+        """Logs exit from each test case, and any errors found"""
 
         # The last thing on self._outcome.errors tells what test
         # was just run, and the reason for the failure if it failed.
@@ -59,8 +62,57 @@ class TestCase(unittest.TestCase):
             traceback.print_exception(None, exc, tb, limit=-10, file=fp)
             tb_str = fp.getvalue()
 
-        logger.error(f"The test raised an error. Details follow.\n{tb_str}")
+        self.logger.error(f"The test raised an error. Details follow.\n{tb_str}")
 
         self.logger.error(f"[FAIL {self._testMethodName}]")
 
-LoggedTestCase = TestCase
+    def assertRaises(self, *args, **kwargs):
+        """Context manager that expects an exception and fails if it does not occur
+
+        This function logs a warning message that an exception is
+        (probably) about to occur, and that this is intentional.
+        The purpose of this is to keep the tester who is examining
+        the logs from being concerned that something needs to be 
+        fixed.
+
+        After logging the warning, this function returns the 
+        context manager of the parent class. See the documentation
+        for unittest.TestCase.assertRaises for more information.
+        """
+
+        self.logger.warning("The next assertion should raise "
+                "an exception. This is normal.")
+        
+        return super().assertRaises(*args, **kwargs)
+
+class TestProgram(unittest.TestProgram):
+    """Extends unittest.TestProgram to cooperate with Configuration module
+
+    For most executables in the DUNE HWDB Python Utility, the
+    Configuration module can consume some command line arguments
+    to alter the executable's behavior for the duration of the 
+    call. For example, the user can add --dev or --prod to 
+    switch servers. However, unittest will not recognize these
+    options and will exit with an error if it sees them, so 
+    we will allow Configuration to consume these, and we will
+    explicitly pass what is left over, rather than let unittest
+    default to using the entire sys.argv argument list.
+
+    See the documentation for unittest.TestProgram for more
+    information on the parent class.
+    """
+
+    logger = config.getLogger(__name__)
+    
+    def __init__(self, *args, **kwargs):
+        self.logger.info("Entering TestProgram framework")
+
+        kwargs["argv"] = config.remaining_args
+        super().__init__(*args, **kwargs)    
+
+main = TestProgram
+
+
+if __name__ == "__main__":
+    main(module=None)
+
