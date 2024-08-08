@@ -10,6 +10,7 @@ Test RestApiV1 functions related to getting images
 """
 
 from Sisyphus.Utils import UnitTest as unittest
+from Sisyphus.Configuration import config
 
 import os, shutil
 import json
@@ -21,6 +22,8 @@ from Sisyphus.RestApiV1 import get_image
 from Sisyphus import RestApiV1 as ra
 
 from Sisyphus.Utils.Terminal.Image import image2text
+
+logger = config.getLogger(__name__)
 
 class Test__get_images(unittest.TestCase):
     """Test RestApiV1 functions related to getting images"""
@@ -57,7 +60,8 @@ class Test__get_images(unittest.TestCase):
             "library", "link"
         }
 
-        resp = get_component_type_image_list("Z00100300006")
+        try:
+            resp = get_component_type_image_list("Z00100300006")
 
             # We'll only test that there's at least one image, and that
             # we don't raise an exception when we fetch it.             
@@ -89,7 +93,8 @@ class Test__get_images(unittest.TestCase):
             "library", "link"
         }
 
-        resp = get_hwitem_image_list("Z00100300006-00001")
+        try:
+            resp = get_hwitem_image_list("Z00100300006-00001")
 
             # We'll only test that there's at least one image, and that
             # we don't raise an exception when we fetch it.             
@@ -108,7 +113,6 @@ class Test__get_images(unittest.TestCase):
             logger.info(f"server response:\n{json.dumps(resp, indent=4)}")
             raise err 
     
-    ##############################################################################                                
+##############################################################################                                
 if __name__ == "__main__":
     unittest.main(argv=config.remaining_args)
-
