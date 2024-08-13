@@ -8,10 +8,17 @@ Authors:
 """
 
 import sys
-from Sisyphus.Utils import UnitTest as unittest
-from Sisyphus.Configuration import config
+import os
+from datetime import datetime
+import time
 import traceback
 from io import StringIO
+
+
+
+
+from Sisyphus.Utils import UnitTest as unittest
+from Sisyphus.Configuration import config
 
 
 from get_tests.test__get_hwitem import *
@@ -32,8 +39,6 @@ from patch_tests.test__patch_hwitem import *
 
 from spec_tests.test__specifications import *
 
-
-
 class RealTimeTestResult(unittest.TextTestResult):
     def __init__(self, stream, descriptions, verbosity):
         super(RealTimeTestResult, self).__init__(stream, descriptions, verbosity)
@@ -45,11 +50,12 @@ class RealTimeTestResult(unittest.TextTestResult):
         self._original_stdout = sys.stdout
         self._original_stderr = sys.stderr
         self.test_number = 0
+        self.test_results = []
 
     def startTest(self, test):
         super(RealTimeTestResult, self).startTest(test)
         self.test_number += 1
-        self.stream.write(f"\nTest #{self.test_number}: {test.__class__.__name__}.{test._testMethodName}\n")
+        test.test_number = self.test_number  
         self.stream.flush()
         sys.stdout = self._stdout_buffer
         sys.stderr = self._stderr_buffer
@@ -68,6 +74,7 @@ class RealTimeTestResult(unittest.TextTestResult):
 
     def addSuccess(self, test):
         super(RealTimeTestResult, self).addSuccess(test)
+        self.test_results.append((self.test_number, "Passed", test.__class__.__name__, test._testMethodName))
         if self.showAll:
             self.stream.write("OK\n")
         else:
@@ -76,6 +83,7 @@ class RealTimeTestResult(unittest.TextTestResult):
 
     def addError(self, test, err):
         super(RealTimeTestResult, self).addError(test, err)
+        self.test_results.append((self.test_number, "Failed", test.__class__.__name__, test._testMethodName))
         if self.showAll:
             self.stream.write("ERROR\n")
             self._print_error_details(test, err)
@@ -85,6 +93,7 @@ class RealTimeTestResult(unittest.TextTestResult):
 
     def addFailure(self, test, err):
         super(RealTimeTestResult, self).addFailure(test, err)
+        self.test_results.append((self.test_number, "Failed", test.__class__.__name__, test._testMethodName))
         if self.showAll:
             self.stream.write("FAIL\n")
             self._print_error_details(test, err)
@@ -98,7 +107,16 @@ class RealTimeTestResult(unittest.TextTestResult):
         self.stream.write(self.separator2 + '\n')
         self.stream.write(''.join(traceback.format_exception(*err)) + '\n')
         self.stream.flush()
+
+    def print_summary(self):
+        total_tests = len(self.test_results)
+        failed_tests = sum(1 for result in self.test_results if result[1] == "Failed")
         
+        self.stream.write(f"\n{failed_tests} Failed out of {total_tests} Tests:\n")
+        for test_num, status, class_name, method_name in self.test_results:
+            self.stream.write(f"Test #{test_num}: {status} : {class_name}.{method_name}\n")
+        self.stream.flush()
+
 class RealTimeTestRunner(unittest.TextTestRunner):
     resultclass = RealTimeTestResult
 
@@ -112,15 +130,18 @@ class RealTimeTestRunner(unittest.TextTestRunner):
     def _makeResult(self):
         return self.resultclass(self.stream, self.descriptions, self.verbosity)
 
+    def run(self, test):
+        result = super(RealTimeTestRunner, self).run(test)
+        result.print_summary()
+        return result
+
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])
 
     total_tests = suite.countTestCases()
     
-    # Run the tests with the custom runner
     runner = RealTimeTestRunner(verbosity=2, stream=sys.stdout)
     print(f"Running {total_tests} tests:\n")
     result = runner.run(suite)
 
-    result = runner.run(suite)
     sys.exit(not result.wasSuccessful())

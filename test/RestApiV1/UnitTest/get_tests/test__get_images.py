@@ -14,6 +14,8 @@ from Sisyphus.Configuration import config
 
 import os, shutil
 import json
+import time
+from datetime import datetime
 
 from Sisyphus.RestApiV1 import get_hwitem
 from Sisyphus.RestApiV1 import get_hwitem_image_list
@@ -28,6 +30,17 @@ logger = config.getLogger(__name__)
 class Test__get_images(unittest.TestCase):
     """Test RestApiV1 functions related to getting images"""
     
+    def setUp(self):
+        self.start_time = time.time()
+        print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
+        print(f"Test started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    def tearDown(self):
+        end_time = time.time()
+        duration = end_time - self.start_time
+        print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Test duration: {duration:.2f} seconds")
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -38,9 +51,11 @@ class Test__get_images(unittest.TestCase):
         shutil.rmtree(cls.download_path, ignore_errors=True)
         os.makedirs(cls.download_path)
 
+
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()   
+
        
         # Uncomment the next line if you want it to delete the directory
         # after it's done. 

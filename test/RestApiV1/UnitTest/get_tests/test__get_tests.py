@@ -25,6 +25,16 @@ from Sisyphus.RestApiV1 import get_test_type_by_oid
 
 class Test__get_tests(unittest.TestCase):
     """Test RestApi functions related to Item Tests"""
+    def setUp(self):
+        self.start_time = time.time()
+        print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
+        print(f"Test started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    def tearDown(self):
+        end_time = time.time()
+        duration = end_time - self.start_time
+        print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Test duration: {duration:.2f} seconds")
 
     def setUp(self):
         self.start_time = time.time()

@@ -19,7 +19,8 @@ import unittest
 import random
 import matplotlib as mpl
 from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
-import datetime
+from datetime import datetime
+import time
 
 from Sisyphus.RestApiV1 import get_hwitem
 #from Sisyphus.RestApiV1 import get_hwitem_image_list
@@ -33,6 +34,17 @@ from Sisyphus.Utils.Terminal.Image import image2text
 
 class Test__post_images(unittest.TestCase):
     """Test RestApiV1 functions related to getting images"""
+
+    def setUp(self):
+        self.start_time = time.time()
+        print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
+        print(f"Test started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    def tearDown(self):
+        end_time = time.time()
+        duration = end_time - self.start_time
+        print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Test duration: {duration:.2f} seconds")    
 
     @classmethod
     def setUpClass(cls):

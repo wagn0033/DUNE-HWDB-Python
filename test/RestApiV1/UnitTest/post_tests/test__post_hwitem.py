@@ -27,8 +27,8 @@ class Test__post_hwitem(unittest.TestCase):
     
     def setUp(self):
         self.start_time = time.time()
-        print("\n")
-        print(f"\nTest started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
+        print(f"Test started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     def tearDown(self):
         end_time = time.time()

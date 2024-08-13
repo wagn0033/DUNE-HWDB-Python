@@ -15,6 +15,8 @@ Test RestApiV1 functions related to Items
 import os
 import json
 import unittest
+import time
+from datetime import datetime
 
 from Sisyphus.Utils import UnitTest as unittest
 from Sisyphus.RestApiV1 import get_hwitem
@@ -25,8 +27,8 @@ class Test__get_hwitems(unittest.TestCase):
 
     def setUp(self):
         self.start_time = time.time()
-        print("\n")
-        print(f"\nTest started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
+        print(f"Test started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     def tearDown(self):
         end_time = time.time()
