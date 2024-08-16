@@ -37,7 +37,7 @@ class Test__post_subcomponent(unittest.TestCase):
         duration = end_time - self.start_time
         print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Test duration: {duration:.2f} seconds")
-
+    
     def test_post_subcomponent(self):
         print("\n=== Testing to add subcomponents to an Item ===")
         print("POST /api/v1/component-types/{part_type_id}/components")

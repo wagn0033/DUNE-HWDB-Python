@@ -36,6 +36,7 @@ import Sisyphus.RestApiV1 as ra
 
 class Test__get_misc(unittest.TestCase):
     """Test 'miscellaneous' RestApiV1 functions"""
+    
     def setUp(self):
         self.start_time = time.time()
         print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
@@ -46,7 +47,7 @@ class Test__get_misc(unittest.TestCase):
         duration = end_time - self.start_time
         print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Test duration: {duration:.2f} seconds")
-
+    
     def test_get_countries(self):
         print("\n=== Testing to get a list of countries ===")
         print("GET /api/v1/countries")

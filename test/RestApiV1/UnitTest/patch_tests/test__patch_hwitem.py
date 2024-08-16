@@ -28,7 +28,7 @@ from Sisyphus.RestApiV1 import patch_hwitem_enable
 
 class Test__patch_hwitem(unittest.TestCase):
     """Tests updating an item"""
-    
+     
     def setUp(self):
         self.start_time = time.time()
         print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
@@ -39,7 +39,7 @@ class Test__patch_hwitem(unittest.TestCase):
         duration = end_time - self.start_time
         print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Test duration: {duration:.2f} seconds")
-
+    
     def test_patch_hwitem(self):
         print("\n=== Testing to create and update an Item ===")
         print("PATCH /api/v1/components/{part_id}")

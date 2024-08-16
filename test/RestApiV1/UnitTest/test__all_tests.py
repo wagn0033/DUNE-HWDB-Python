@@ -40,6 +40,7 @@ from patch_tests.test__patch_hwitem import *
 from spec_tests.test__specifications import *
 
 class RealTimeTestResult(unittest.TextTestResult):
+
     def __init__(self, stream, descriptions, verbosity):
         super(RealTimeTestResult, self).__init__(stream, descriptions, verbosity)
         self.stream = stream
@@ -51,27 +52,37 @@ class RealTimeTestResult(unittest.TextTestResult):
         self._original_stderr = sys.stderr
         self.test_number = 0
         self.test_results = []
-
+        self.test_start_time = None
+    
     def startTest(self, test):
         super(RealTimeTestResult, self).startTest(test)
         self.test_number += 1
-        test.test_number = self.test_number  
-        self.stream.flush()
+        test.test_number = self.test_number
+        #self.test_start_time = time.time()
+        #self.stream.write(f"\nTest #{self.test_number}: {test.__class__.__name__}.{test._testMethodName}\n")
+        #self.stream.write(f"Test started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        #self.stream.flush()
         sys.stdout = self._stdout_buffer
         sys.stderr = self._stderr_buffer
 
     def stopTest(self, test):
         sys.stdout = self._original_stdout
         sys.stderr = self._original_stderr
-        self.stream.write(self._stdout_buffer.getvalue())
+        test_output = self._stdout_buffer.getvalue()
+        if test_output.strip():  # Only print if there's actual output
+            self.stream.write(test_output)
         self.stream.write(self._stderr_buffer.getvalue())
+        #end_time = time.time()
+        #duration = end_time - self.test_start_time
+        #self.stream.write(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        #self.stream.write(f"Test duration: {duration:.2f} seconds\n")
         self._stdout_buffer.seek(0)
         self._stdout_buffer.truncate()
         self._stderr_buffer.seek(0)
         self._stderr_buffer.truncate()
         self.stream.flush()
         super(RealTimeTestResult, self).stopTest(test)
-
+    
     def addSuccess(self, test):
         super(RealTimeTestResult, self).addSuccess(test)
         self.test_results.append((self.test_number, "Passed", test.__class__.__name__, test._testMethodName))

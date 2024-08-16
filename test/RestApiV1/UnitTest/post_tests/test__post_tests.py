@@ -25,7 +25,7 @@ from Sisyphus.RestApiV1 import post_test_type, post_test
 
 class Test__post_tests(unittest.TestCase):
     """Test POST methods in RestApiV1"""
-
+    
     def setUp(self):
         self.start_time = time.time()
         print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
@@ -36,7 +36,7 @@ class Test__post_tests(unittest.TestCase):
         duration = end_time - self.start_time
         print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Test duration: {duration:.2f} seconds")
-
+    
     @unittest.skip("adds too much data to be run daily")
     def test_post_test_type(self):
         print("\n=== Testing to post a new test type ===")

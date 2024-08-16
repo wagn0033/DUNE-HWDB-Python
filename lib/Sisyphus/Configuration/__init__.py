@@ -7,3 +7,4 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 
 from ._Configuration import *
+from ._Configuration import *

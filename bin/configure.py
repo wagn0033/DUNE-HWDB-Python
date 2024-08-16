@@ -10,11 +10,8 @@ import sys
 import argparse
 import Sisyphus
 import Sisyphus.Configuration as Config
-from Sisyphus.Configuration import config
-logger = config.getLogger(__name__)
-import Sisyphus.RestApiV1 as ra
-from Sisyphus.Utils.Terminal import Image
-from Sisyphus.Utils.Terminal.Style import Style
+
+
 
 def parse(command_line_args=sys.argv):
     parser = argparse.ArgumentParser(
@@ -41,34 +38,8 @@ def parse(command_line_args=sys.argv):
                         help='set this profile to be the default') 
     args = parser.parse_known_args(command_line_args)
     return args
-
-def check_server(config):
-    # we wait until here to import because we want to process arguments and 
-    # update the configuration before accessing the HWDB.
-    from Sisyphus.RestApiV1 import session, whoami
-
-    # if the config is invalid or incomplete, "session" will be None
-    if session is None:
-        msg = "Server check not attempted"
-        config.logger.info(msg)
-    else:
-        try:
-            resp = whoami(timeout=10)
-        except ra.CertificateError as err:
-            msg = "The server does not recognize the certificate"
-            config.logger.error(msg)
-            config.logger.info(f"The exception was: {err}")
-        except Exception as err:
-            msg = "Failed to contact server to validate certificate"
-            config.logger.error(msg)
-            config.logger.info(f"The exception was: {err}")
-        else:
-            user = f"{(resp['data']['full_name'])} ({resp['data']['username']})"
-            msg = f"REST API 'whoami' returned {user}"
-            config.logger.info(msg)
-    return msg
-
-
+    
+  
 def show_summary(config):
     print()
     print("Configuration Summary:")
@@ -102,39 +73,8 @@ def show_summary(config):
         if config.cert_has_expired:
             print("cert status:  Expired")
         else:
-            print(f"cert status:  Expires in {config.cert_days_left} days")
+            print(f"cert status: Expires in {config.cert_days_left} days")
     
-    #print(f"server check: {check_server(config)}")
-    sys.stdout.write("server check: (please wait)")
-    sys.stdout.flush()
-    check_result = check_server(config)
-    sys.stdout.write(f"\rserver check: {check_result}\033[K\n")
-
-    print()
-
-#def display_header():
-#    columns = 66
-#    padding = 4
-#    bgcolor = 0x111111
-#
-#    filepath = Sisyphus.get_path("resources/images/DUNE-short.png")
-#    img_text = Image.image2text(filepath, columns=columns-2*padding, background=bgcolor).split("\n")
-#    padding = Style.bg(bgcolor)(" "*padding)
-#    joiner = padding + "\n" + padding
-#
-#    print(padding, end="")
-#    print(joiner.join(img_text), end="")
-#    print(padding)
-#    Style.notice.bold().print(f"DUNE HWDB Utility {Sisyphus.version}".center(columns))
-#
-#    if Config.config.newer_version_exists():
-#        url = "https://github.com/DUNE/DUNE-HWDB-Python/releases/latest"
-#        latest_version = Config.config.get_latest_release_version()
-#        Style.notice.print(
-#                f"Notice: a newer version of this software ({latest_version}) is available. To \n"
-#                "download this version, go to:")
-#        Style.link.print(url)
- 
 def main():
     logger.info(f"Starting {__name__}")
     Sisyphus.display_header() 

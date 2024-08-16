@@ -26,7 +26,7 @@ from Sisyphus.RestApiV1 import get_hwitem
 
 class Test__patch_hwitems_bulk(unittest.TestCase):
     """Test bulk update of items"""
-
+    
     def setUp(self):
         self.start_time = time.time()
         print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
@@ -37,7 +37,7 @@ class Test__patch_hwitems_bulk(unittest.TestCase):
         duration = end_time - self.start_time
         print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Test duration: {duration:.2f} seconds")
-
+    
     def test_patch_hwitems_bulk(self):
         print("\n=== Testing to create multiple Items and update them in bulk ===")
         print("PATCH /api/v1/component-types/{part_type_id}/bulk-update")

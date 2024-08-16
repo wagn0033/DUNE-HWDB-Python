@@ -28,7 +28,7 @@ from Sisyphus.RestApiV1 import patch_hwitems_enable_bulk
 
 class Test__patch_enables(unittest.TestCase):
     """Tests setting "enabled" status in item"""
-
+    
     def setUp(self):
         self.start_time = time.time()
         print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
@@ -39,7 +39,7 @@ class Test__patch_enables(unittest.TestCase):
         duration = end_time - self.start_time
         print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Test duration: {duration:.2f} seconds")
-
+    
     def test__patch_hwitem_enable(self):
         print("\n=== Testing to create an Item and toggle its enabled status ===")
         print("PATCH /api/v1/components/{part_id}/enable")
