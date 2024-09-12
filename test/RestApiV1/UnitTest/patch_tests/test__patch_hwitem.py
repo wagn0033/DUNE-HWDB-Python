@@ -16,6 +16,8 @@ from Sisyphus.Utils import UnitTest as unittest
 import os
 import json
 import random
+import time
+from datetime import datetime
 
 from Sisyphus.RestApiV1 import post_hwitem
 from Sisyphus.RestApiV1 import patch_hwitem
@@ -26,21 +28,23 @@ from Sisyphus.RestApiV1 import patch_hwitem_enable
 
 class Test__patch_hwitem(unittest.TestCase):
     """Tests updating an item"""
+     
+    def setUp(self):
+        self.start_time = time.time()
+        print(f"\nTest #{getattr(self, 'test_number', 'N/A')}: {self.__class__.__name__}.{self._testMethodName}")
+        print(f"Test started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    def tearDown(self):
+        end_time = time.time()
+        duration = end_time - self.start_time
+        print(f"Test ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Test duration: {duration:.2f} seconds")
     
-    #-----------------------------------------------------------------------------
-
-    #post new item, retrieve part id from post response, patch them item using 
-    # part id, check if it was patched by checking the structure
     def test_patch_hwitem(self):
-        """Tests updating an item
-
-        Creates a new item, patches it, and retrieves it to compare with
-        submitted data.
-        """
+        print("\n=== Testing to create and update an Item ===")
+        print("PATCH /api/v1/components/{part_id}")
 
         # Part 1, post a component
-        ##########################
- 
         part_type_id = "Z00100300001"
         serial_number = f"SN{random.randint(0, 999999):06d}"
 
@@ -63,11 +67,10 @@ class Test__patch_hwitem(unittest.TestCase):
                 "Comment": "Unit Test: patch component, part 1"
             },
             "subcomponents": {},
-            "status": {"id": 1}
+            #"enabled": True,
         }
 
-        logger.info(f"Posting new hwitem: part_type_id={part_type_id}, "
-                    f"serial_number={serial_number}")
+        logger.info(f"Posting new hwitem: part_type_id={part_type_id}, serial_number={serial_number}")
         resp = post_hwitem(part_type_id, data)
         logger.info(f"Response from post: {resp}") 
         self.assertEqual(resp["status"], "OK")
@@ -75,15 +78,12 @@ class Test__patch_hwitem(unittest.TestCase):
         component_id = resp["component_id"]
         part_id = resp["part_id"]
 
-        logger.info(f"New hwitem result: part_id={part_id}, component_id={component_id}") 
+        print(f"A new PID, {part_id}, has been created")
 
         # Part 2, patch it
-        ####################
-
-        serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
+        new_serial_number = f"SN{random.randint(0x00000000, 0xFFFFFFFF):08X}"
         
-        logger.info(f"Attempting to patch hwitem: part_id={part_id}, "
-                    f"serial_number={serial_number}")
+        logger.info(f"Attempting to patch hwitem: part_id={part_id}, serial_number={new_serial_number}")
 
         data = {
             "comments": "this component has been patched",
@@ -91,10 +91,9 @@ class Test__patch_hwitem(unittest.TestCase):
                 "id": 7
             },
             "part_id": part_id,
-            "serial_number": serial_number,
-            #"enabled": True,
+            "serial_number": new_serial_number,
             "specifications": {
-                "Widget ID": serial_number,
+                "Widget ID": new_serial_number,
                 "Color": "green",
                 "Comment": "Unit Test: patch component, part 2"
             },
@@ -104,9 +103,9 @@ class Test__patch_hwitem(unittest.TestCase):
         logger.info(f"Response from patch: {resp}")
         self.assertEqual(resp["status"], "OK")
 
-        # Part 3, get it and check that the data has been updated
-        ###########################################################
+        print(f"The item with PID {part_id} has been updated with new serial number {new_serial_number}")
 
+        # Part 3, get it and check that the data has been updated
         logger.info(f"getting hwitem for comparison: part_id={part_id}")
         
         resp = get_hwitem(part_id)
@@ -116,22 +115,16 @@ class Test__patch_hwitem(unittest.TestCase):
         self.assertEqual(resp["status"], "OK")
         self.assertEqual(resp["data"]["part_id"], part_id)
         self.assertEqual(resp["data"]["serial_number"], serial_number)
-        #self.assertEqual(resp["data"]["status"], 1)
+        self.assertEqual(resp["data"]["enabled"], False)
         self.assertDictEqual(resp["data"]["specifications"][0], data["specifications"])
 
-    #----------------------------------------------------------------------------- 
-    
-    #post an item under the part type id will be the subcomponent, 
-    # retrieve part id and enable it. Patch the container item with the 
-    # subcomponent , check status. Patch the container to remove subcomponent, 
-    # check status
+        print(f"The updated item specifications: {json.dumps(resp['data']['specifications'][0], indent=2)}")
+
     def test_patch_hwitem_subcomp(self):
-        """Set subcomponents for an item
+        print("\n=== Testing to create a new sub-component link ===")
+        print("PATCH /api/v1/components/{part_id}/subcomponents")
 
-        This test involves several steps. See source code for details.
-        """
-
-        #posting new item under Test Type 002
+        # Posting new item under Test Type 002
         part_type_id = "Z00100300002"
         serial_number = f"SN{random.randint(0, 999999):06d}"
 
@@ -162,8 +155,8 @@ class Test__patch_hwitem(unittest.TestCase):
         self.assertEqual(resp["status"], "OK")
 
         part_id_subcomp = resp["part_id"]
+        print(f"A new sub-component PID, {part_id_subcomp}, has been created")
 
-        ### We SHOULDN'T need to do this anymore
         #patching to enable : True
         data = {
             "comments": "here are some comments",
@@ -179,9 +172,9 @@ class Test__patch_hwitem(unittest.TestCase):
         resp = patch_hwitem_enable(part_id_subcomp, data)
         logger.info(f"Response from patch: {resp}")
         self.assertEqual(resp["status"], "OK")
+        print(f"The sub-component PID, {part_id_subcomp}, has been enabled")
 
-
-        #linking subcomponent to container
+        # Linking subcomponent to container
         part_id_container = "Z00100300001-00360"
 
         data = {
@@ -196,8 +189,9 @@ class Test__patch_hwitem(unittest.TestCase):
         resp = patch_hwitem_subcomp(part_id_container, data)
         logger.info(f"Response from patch: {resp}")
         self.assertEqual(resp["status"], "OK")
+        print(f"The sub-component PID, {part_id_subcomp}, has been linked to container PID, {part_id_container}")
         
-        #removing subcomponent from container
+        # Removing subcomponent from container
         data = {
             "component": {
                 "part_id": part_id_container
@@ -210,8 +204,7 @@ class Test__patch_hwitem(unittest.TestCase):
         resp = patch_hwitem_subcomp(part_id_container, data)
         logger.info(f"Response from patch: {resp}")
         self.assertEqual(resp["status"], "OK")
+        print(f"The sub-component PID, {part_id_subcomp}, has been removed from container PID, {part_id_container}")
             
-#=================================================================================
-
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=config.remaining_args)

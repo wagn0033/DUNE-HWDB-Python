@@ -58,33 +58,16 @@ contents = \
     },
     "loggers": {
         "": {
-            "handlers": ["logfile"],
-            "level": "DEBUG",
-            "propagate": False
-        },
-        "__main__": {
-            "handlers": ["logfile"],
-            "level": "DEBUG",
-            "propagate": False
-        },
-        "chardet.universaldetector": {
-            "handlers": ["logfile"],
-            "level": "INFO",
-            "propagate": False
-        },
-        "chardet.charsetprober": {
-            "handlers": ["logfile"],
-            "level": "INFO",
-            "propagate": False
-        },
-        "numexpr.utils": {
+            # set the root level to WARNING, so we won't see all the
+            # lesser messages from other modules not part of this project
             "handlers": ["logfile"],
             "level": "WARNING",
             "propagate": False
         },
-        "urllib3.connectionpool": {
+        "Sisyphus": {
+            # set the level to DEBUG for "Sisyphus" and all descendants
             "handlers": ["logfile"],
-            "level": "INFO",
+            "level": "DEBUG",
             "propagate": False
         }
     }

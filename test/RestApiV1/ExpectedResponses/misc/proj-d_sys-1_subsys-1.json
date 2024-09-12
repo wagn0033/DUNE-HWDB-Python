@@ -1,0 +1,20 @@
+{
+  "data": {
+    "comments": null,
+    "created": "2022-05-08T18:39:31.930028-05:00",
+    "creator": {
+      "id": 3,
+      "name": "Vladimir Podstavkov",
+      "username": "podstvkv"
+    },
+    "project_id": "D",
+    "subsystem_id": 1,
+    "subsystem_name": "FD1",
+    "system_id": 1
+  },
+  "link": {
+    "href": "/cdbdev/api/v1/subsystems/D/1/1",
+    "rel": "self"
+  },
+  "status": "OK"
+}
