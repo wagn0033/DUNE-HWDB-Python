@@ -79,6 +79,14 @@ default_schema_fields_by_record_type = \
         "Status": {KW_TYPE:"string", KW_COLUMN:"Status", KW_DEFAULT:"1"},
         "Subcomponents": {KW_TYPE:"collection", KW_MEMBERS: {}},
         "Specifications": {KW_TYPE:"datasheet", KW_MEMBERS: {}},
+        "Location": {KW_TYPE:"null,string", KW_COLUMN:"Location", KW_DEFAULT:None},
+        "Location ID": {KW_TYPE:"null,integer", KW_COLUMN:"Location ID", KW_DEFAULT:None},
+        "Location Name": {KW_TYPE:"null,string", KW_COLUMN:"Location Name", KW_DEFAULT:None},
+        #"Location Country": {KW_TYPE: "null,string", KW_COLUMN:"Location Country", KW_DEFAULT:None},
+        #"Location Country Code": {KW_TYPE: "null,string", KW_COLUMN:"Location Country Code", KW_DEFAULT:None},
+        #"Location Country Name": {KW_TYPE: "null,string", KW_COLUMN:"Location Country Name", KW_DEFAULT:None},
+        "Location Comments": {KW_TYPE:"null,string", KW_COLUMN:"Location Comments", KW_DEFAULT:""},
+        "Arrived": {KW_TYPE:"null,string", KW_COLUMN:["Arrived","Location Timestamp"], KW_DEFAULT:""},
     },
     "Test":
     {
@@ -92,15 +100,30 @@ default_schema_fields_by_record_type = \
         "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""},
         "Test Results": {KW_TYPE:"datasheet"},
     },
+    #"Item Image":
+    #{
+    #    # for all record types:
+    #    **default_universal_fields,
+    #
+    #    # for record_type 'Item Image' or 'Test Image':
+    #    "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""},
+    #    "Image File": {KW_TYPE:"null,string", KW_COLUMN:"Image File", KW_DEFAULT:None},
+    #    "Save As": {KW_TYPE:"null,string", KW_COLUMN:"Save As", KW_DEFAULT:None},
+    #},
     "Item Image":
     {
         # for all record types:
         **default_universal_fields,
 
-        # for record_type 'Item Image' or 'Test Image':
-        "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""},
-        "Image File": {KW_TYPE:"null,string", KW_COLUMN:"Image File", KW_DEFAULT:None},
-        "Save As": {KW_TYPE:"null,string", KW_COLUMN:"Save As", KW_DEFAULT:None},
+        "Images": {
+            KW_TYPE: "group",
+            KW_KEY: ["Image File", "Save As", "Comments"],
+            KW_MEMBERS: { 
+                "Comments": {KW_TYPE:"string", KW_COLUMN:"Comments", KW_DEFAULT:""},
+                "Image File": {KW_TYPE:"null,string", KW_COLUMN:"Image File", KW_DEFAULT:None},
+                "Save As": {KW_TYPE:"null,string", KW_COLUMN:"Save As", KW_DEFAULT:None},
+            }
+        }
     },
     "Test Image":
     {
@@ -170,6 +193,8 @@ class Encoder:
         #......................................................................
         
         def make_prefix_variants(schema_key, column, prefix):
+
+            # TODO: consider changing the order of what it looks for
             
             if column is None:
                 columns = [schema_key]

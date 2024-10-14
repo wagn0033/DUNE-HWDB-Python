@@ -293,14 +293,27 @@ def fetch_hwitems(part_type_id = None,
     a horribly long time.
     '''
 
+    logger.info(f"<fetch_hwitems> part_type_id={part_type_id}, part_type_name={part_type_name}, "
+            f"part_id={part_id}, serial_number={serial_number}, count={count}")
+
+    NUM_THREADS = 50
+    MIN_PAGE_SIZE = 50
+    MAX_PAGE_SIZE = 250
+
+    # We're going to use a thread pool to get things, but we need to wrap
+    # the functions we need in order to pass the arguments correctly.
+    get_hwitems = lambda args, kwargs: ra.get_hwitems(*args, **kwargs)
+    get_hwitem = lambda args, kwargs: ra.get_hwitem(*args, **kwargs)
+    get_subcomponents = lambda args, kwargs: ra.get_subcomponents(*args, **kwargs)
+    get_locations = lambda args, kwargs: ra.get_hwitem_locations(*args, **kwargs)
+
+
     def fetch_multiple(part_type_id, part_type_name, part_id, serial_number, count):
         
-        NUM_THREADS = 50
-        MIN_PAGE_SIZE = 50
-        MAX_PAGE_SIZE = 250
-
         save_session_kwargs = deepcopy(ra.session_kwargs)
         ra.session_kwargs["timeout"] = 16
+    
+        pool = mp.Pool(processes=NUM_THREADS)
 
         count = max(1, 100000 if (count == -1) else count)
 
@@ -319,13 +332,6 @@ def fetch_hwitems(part_type_id = None,
             part_type_id = component_type["ComponentType"]["part_type_id"]
 
         retval = {}
-
-        # We're going to use a thread pool to get things, but we need to wrap
-        # the functions we need in order to pass the arguments correctly.
-        pool = mp.Pool(processes=NUM_THREADS)
-        get_hwitems = lambda args, kwargs: ra.get_hwitems(*args, **kwargs)
-        get_hwitem = lambda args, kwargs: ra.get_hwitem(*args, **kwargs)
-        get_subcomponents = lambda args, kwargs: ra.get_subcomponents(*args, **kwargs)
 
         # Let's first find out how many records we're dealing with
 
@@ -401,7 +407,12 @@ def fetch_hwitems(part_type_id = None,
         for part_id in part_ids:
             item_res = pool.apply_async(get_hwitem, ((), {"part_id": part_id}))
             subcomp_res = pool.apply_async(get_subcomponents, ((), {"part_id": part_id}))
-            hwitems_res[part_id] = {"Item": item_res, "Subcomponents": subcomp_res}
+            location_res = pool.apply_async(get_locations, ((), {"part_id": part_id}))
+            hwitems_res[part_id] = {
+                "Item": item_res, 
+                "Subcomponents": subcomp_res,
+                "Locations": location_res
+            }
 
         # Gather the collected data
         for part_id, res_dict in hwitems_res.items():
@@ -409,6 +420,7 @@ def fetch_hwitems(part_type_id = None,
             {
                 "Item": res_dict["Item"].get()["data"],
                 "Subcomponents": res_dict["Subcomponents"].get()["data"],
+                "Locations": res_dict["Locations"].get()["data"],
             }
 
         pool.close()
@@ -419,21 +431,35 @@ def fetch_hwitems(part_type_id = None,
         return hwitems
 
     def fetch_single(part_id):
+        
+        pool = mp.Pool(processes=NUM_THREADS)
+
+        item_res = pool.apply_async(get_hwitem, ((), {"part_id": part_id}))
+        subcomp_res = pool.apply_async(get_subcomponents, ((), {"part_id": part_id}))
+        location_res = pool.apply_async(get_locations, ((), {"part_id": part_id})) 
+
         hwitems = {
             part_id:
             {
-                "Item": ra.get_hwitem(part_id)['data'],
-                "Subcomponents": ra.get_subcomponents(part_id)['data'],
+                "Item": item_res.get()['data'],
+                "Subcomponents": subcomp_res.get()['data'],
+                "Locations": location_res.get()['data'],
             }
         }
+
+        pool.close()
+        pool.join()
+
         return hwitems
 
     if part_type_name or part_type_id:
+        logger.debug("using slower multiple get")
         return fetch_multiple(part_type_id, part_type_name, part_id, serial_number, count)
     else:
         # TODO: maybe could check if the serial number matches, if they
         # suppied it. But for now just accept the part_id and ignore
         # the serial_number entirely
+        logger.debug("using faster single get")
         return fetch_single(part_id)
 
     #}}}

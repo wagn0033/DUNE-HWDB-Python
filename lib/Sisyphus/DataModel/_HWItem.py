@@ -26,6 +26,7 @@ from copy import deepcopy
 import re
 import time
 import random
+from datetime import datetime
 
 _HWItem_cache = {}
 
@@ -52,6 +53,14 @@ class HWItem:
         "Subcomponents": "subcomponents",
         "Specifications": "specifications",
         "Status": "status",
+        'Location': "location", 
+        'Location ID': "location_id", 
+        'Location Name': "location_name",
+        #'Location Country': "location_country", 
+        #'Location Country Code': "location_country_code", 
+        #'Location Country Name': "location_country_name", 
+        'Location Comments': "location_comments",
+        "Arrived": "arrived",
     }
     _property_to_column = {v: k for k, v in _column_to_property.items()}
     #}}}
@@ -112,6 +121,33 @@ class HWItem:
     @property
     def specifications(self):
         return self._current['specifications']
+
+
+    @property
+    def location(self):
+        return self._current["location"]
+    @property
+    def location_id(self):
+        return self._current["location_id"]
+    @property
+    def location_name(self):
+        return self._current["location_name"]
+    #@property
+    #def location_country(self):
+    #    return self._current["location_country"]
+    #@property
+    #def location_country_code(self):
+    #    return self._current["location_country_code"]
+    #@property
+    #def location_country_name(self):
+    #    return self._current["location_country_name"]
+    @property
+    def location_comments(self):
+        return self._current["location_comments"]
+    @property
+    def arrived(self):
+        return self._current["arrived"]
+
 
     # TODO: add more of these
     #}}}
@@ -337,6 +373,8 @@ class HWItem:
         
         hwitem_raw = ut.fetch_hwitems(**kwargs)
 
+        logger.info(f"raw item data:\n{json.dumps(hwitem_raw,indent=4)}")
+
         # Raise an exception if no records are found, or more than one is found.
         if len(hwitem_raw) == 0:
             raise ra.NotFound("The arguments provided did not match any HWItems.")
@@ -349,7 +387,12 @@ class HWItem:
         # We still need a bit of extra data before we can create the record  
         _, item_node = hwitem_raw.popitem()
         it = item_node["Item"]
-        sc = item_node["Subcomponents"] 
+        sc = item_node["Subcomponents"]
+        loc_list = item_node["Locations"] 
+        if len(loc_list) == 0:
+            loc = None
+        else:
+            loc = loc_list[0]
         ct_all = ut.fetch_component_type(part_type_id=it["component_type"]["part_type_id"])
         ct = ct_all["ComponentType"]
        
@@ -385,6 +428,22 @@ class HWItem:
             hwdb_record["manufacturer_name"] = it["manufacturer"]["name"]
             hwdb_record["manufacturer"] = (f"({hwdb_record['manufacturer_id']}) "
                                     f"{hwdb_record['manufacturer_name']}")
+
+        # Location
+        if loc is None:
+            hwdb_record["location_id"] = None
+            hwdb_record["location_name"] = None
+            hwdb_record["location"] = None
+            hwdb_record["location_comments"] = None
+            hwdb_record["arrived"] = None
+        else:
+            hwdb_record["location_id"] = loc["location"]["id"]
+            hwdb_record["location_name"] = loc["location"]["name"]
+            hwdb_record["location"] = f"({loc['location']['id']}) {loc['location']['name']}"
+            hwdb_record["location_comments"] = loc["comments"]
+            hwdb_record["arrived"] = loc["arrived"]
+            
+
 
         # Specifications
         #print(json.dumps(ct_all, indent=4))
@@ -423,6 +482,35 @@ class HWItem:
     def is_new(self):
         """Tell whether this HWItem is new and is not in the HWDB yet"""
         return self._is_new
+    #--------------------------------------------------------------------------
+    
+    def update_location(self):
+        last_commit = self._last_commit
+        current = self._current
+
+        # Update only if "location" is present AND any one of the three fields
+        # has changed value, i.e., don't update if it hasn't been changed.
+
+        if current['location'] is None:
+            return
+
+        if current['location'] == last_commit['location'] \
+                and current['arrived'] == last_commit['arrived'] \
+                and current['location_comments'] == last_commit['location_comments']:
+            return
+
+        part_id = current['part_id']
+        post_data = {
+            "arrived": current['arrived'],
+            "comments": current['location_comments'],
+            "location": {
+                "id": current['location_id']
+            }
+        }
+        
+        ra.post_hwitem_location(part_id, post_data)
+
+
     #--------------------------------------------------------------------------
 
     def update_core(self):
@@ -463,7 +551,8 @@ class HWItem:
                 "comments", "country", "country_name", "country_code",
                 "institution", "institution_id", "institution_name",
                 "manufacturer", "manufacturer_id", "manufacturer_name",
-                "specifications", "status"
+                "specifications", "status" #, "location", "location_id", "location_name",
+                #"location_comments", "arrived"
             ]
 
             for field in fields_to_copy:
@@ -500,6 +589,7 @@ class HWItem:
     #--------------------------------------------------------------------------
 
     def update_enabled(self):
+        #{{{
         """Update the 'enabled' property of this HWItem in the HWDB"""
 
         logger.info(f"Committing item:\n{self}")
@@ -509,10 +599,12 @@ class HWItem:
             resp = ut.enable_hwitem(current['part_id'], 
                         enable=(current['enabled']==1), 
                         comments=current['comments'])  
+        #}}}
 
     #--------------------------------------------------------------------------
     
     def release_subcomponents(self):
+        #{{{
         """Release subcomponents used by this item
 
         Only subcomponents that are going to be swapped for a different
@@ -544,10 +636,12 @@ class HWItem:
         }
 
         resp = ra.patch_subcomponents(self.part_id, payload)
+        #}}}
 
     #--------------------------------------------------------------------------
 
     def normalize_subcomponents(self):
+        #{{{
         """Look up any subcomponents that are using a serial number instead of a part id"""
 
         def is_valid_part_id(part_type_id, s):
@@ -592,11 +686,12 @@ class HWItem:
                 
                 # We found it! So we can change our new one to be a part_id.
                 new_part_id = new_subcomps[func_pos] = list(lookup.keys())[0] 
-
+        #}}}
 
     #--------------------------------------------------------------------------
     
     def update_subcomponents(self):
+        #{{{
         """Update the subcomponents for this HWItem"""
         
         old_subcomps = self._last_commit['subcomponents']
@@ -619,6 +714,7 @@ class HWItem:
         }
 
         resp = ra.patch_subcomponents(self.part_id, payload)
+        #}}}
 
     #--------------------------------------------------------------------------
     
@@ -683,6 +779,45 @@ class HWItem:
             current["institution"] = last_commit['institution']
         else:
             raise ValueError("Items require an Institution to be specified.")
+
+        # Normalize LOCATION
+        if current['location'] or current['location_name'] or current['location_id'] \
+                    or current['arrival'] or current['location_comments']:
+
+            if current['location'] or current['location_name'] or current['location_id']:
+                loc = ut.lookup_institution(
+                            institution_id=current['location_id'],
+                            institution_name=current['location_name'],
+                            institution=current['location'])
+                if len(loc) == 0:
+                    raise ra.NotFound("No locations match the criteria given.")
+                elif len(loc) > 1:
+                    raise ra.AmbiguousParameters("The fields for Location do not uniquely "
+                                "identify a single Location")
+                current["location_id"] = loc[0]['id']
+                current['location_name'] = loc[0]['name']
+                current['location'] = loc[0]['combined']
+            else: # if only arrival or comments are given, use institution as location
+                current['location_id'] = current['institution_id']
+                current['location_name'] = current['institution_name']
+                current['location'] = current['institution']
+
+            if current['arrived'] in (None, ""):
+                current['arrived'] = datetime.now().astimezone()
+            else:
+                arrived = current['arrived']
+                iso_arrived = datetime.fromisoformat(arrived)
+                if iso_arrived.tzinfo is None:
+                    iso_arrived = datetime.fromisoformat(arrived).astimezone()
+                current['arrived'] = iso_arrived.isoformat() 
+ 
+        elif not self.is_new():
+            current["location_id"] = last_commit['location_id']
+            current["location_name"] = last_commit['location_name']
+            current["location"] = last_commit['location']
+            current["arrived"] = last_commit['arrived']
+            current["location_comments"] = last_commit["location_comments"]
+
 
         # Normalize COUNTRY
         # if there's no country, default to the institution's country
@@ -777,7 +912,8 @@ class HWItem:
                 #if v == "<null>":
                 #    current["specifications"][k] = None
                 current['specifications'][k] = literal_null_check(current['specifications'][k])
-                logger.warning(current['specifications'][k])
+                #logger.warning(f"{k}: {current['specifications'][k]}")
+        
         # Normalize STATUS
         #print(json.dumps(current, indent=4))
         #print(json.dumps(last_commit, indent=4))
@@ -981,10 +1117,10 @@ class HWItem:
 
                 [ 'Specifications',
                   json.dumps(current['specifications'], indent=4)],
-            
-                ['Enabled', current['enabled']],
+                ['Location', current['location']],           
+ 
+                ['Status', current['status']],
             ]
-
             table = Table(table_data)
             table.set_row_border(1, BoxDraw.BORDER_STRONG)
             table.set_column_border(1, BoxDraw.BORDER_STRONG)
@@ -1042,6 +1178,12 @@ class HWItem:
                     json.dumps(restore_order(current['specifications']), indent=4)))
             
             #table_data.append(add_row('Enabled', latest['enabled'], current['enabled']))
+            
+            table_data.append(add_row("Location", latest['location'], current['location']))
+            table_data.append(add_row("Location Comments", latest['location_comments'],
+                                         current['location_comments']))
+            table_data.append(add_row("Arrived", latest['arrived'], current['arrived']))
+
             table_data.append(add_row('Status', latest['status'], current['status']))
 
             table = Table(table_data)

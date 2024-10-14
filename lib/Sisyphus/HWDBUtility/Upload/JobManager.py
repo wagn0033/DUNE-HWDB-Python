@@ -135,7 +135,7 @@ class JobManager:
 
                 for job_index in sorted(self.item_jobs.keys()):
                     job = self.item_jobs[job_index]
-                    logger.info(f"{job}")
+                    logger.info(f"Item Job:\n{job}")
                     if submit:
                         # store this value, because it will change after updating
                         is_new = job.is_new()
@@ -143,6 +143,7 @@ class JobManager:
                         # update the job
                         job.update_core()
                         job.update_enabled()
+                        job.update_location()
 
                         if is_new:
                             # update the part id in tests
@@ -215,7 +216,7 @@ class JobManager:
             execute_item_attach_subcomponents()
 
             hwitems_touched.sort()
-            logger.warning(f"{hwitems_touched}")
+            logger.info(f"Making labels for: {hwitems_touched}")
 
             pdflabels = PDFLabels(hwitems_touched)
             pdflabels.use_default_label_types()
@@ -274,11 +275,13 @@ class JobManager:
                     #    job['Data']['Comments'], 
                     #    sep='\n')
 
-                    data = {"comments": job['Data']['Comments']}
-                    resp = ra.post_hwitem_image(
-                            job['Data']['External ID'], 
-                            data, 
-                            job['Data']['Image File'])
+                    for image_job in job['Data']['Images']:
+
+                        data = {"comments": image_job['Comments']}
+                        resp = ra.post_hwitem_image(
+                                job['Data']['External ID'], 
+                                data, 
+                                image_job['Image File'])
 
                 else:
                     time.sleep(0.01)
