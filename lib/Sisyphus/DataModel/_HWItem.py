@@ -782,7 +782,7 @@ class HWItem:
 
         # Normalize LOCATION
         if current['location'] or current['location_name'] or current['location_id'] \
-                    or current['arrival'] or current['location_comments']:
+                    or current['arrived'] or current['location_comments']:
 
             if current['location'] or current['location_name'] or current['location_id']:
                 loc = ut.lookup_institution(
@@ -797,7 +797,7 @@ class HWItem:
                 current["location_id"] = loc[0]['id']
                 current['location_name'] = loc[0]['name']
                 current['location'] = loc[0]['combined']
-            else: # if only arrival or comments are given, use institution as location
+            else: # if only arrived or comments are given, use institution as location
                 current['location_id'] = current['institution_id']
                 current['location_name'] = current['institution_name']
                 current['location'] = current['institution']
