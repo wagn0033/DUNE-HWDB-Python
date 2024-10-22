@@ -131,8 +131,8 @@ class Uploader():
 
         for k in sorted(item_jobs.keys()):
             v = item_jobs[k]
-            print(k, repr(v))
-            print(v.part_type_id, v.serial_number, v.part_id)
+            #print(k, repr(v))
+            #print(v.part_type_id, v.serial_number, v.part_id)
 
             hwitems.setdefault(v.part_type_id, {})
 
@@ -141,7 +141,7 @@ class Uploader():
 
             hwitems[v.part_type_id][pid, sn] = v
 
-        print(hwitems)
+        #print(hwitems)
 
         for part_type_id in hwitems.keys():
             path = os.path.join(self.output_path, f"Items-{part_type_id}.xlsx")
@@ -162,9 +162,11 @@ class Uploader():
                     "Institution": item.institution,
                     "Manufacturer": item.manufacturer,
                     "Location": item.location,
+                    "Arrived": item.arrived,
+                    "Location Comments": item.location_comments,
                     "Status": item.status,
                     "Comments": item.comments,
-                    "Subcomponents": item.subcomponents,
+                    #"Subcomponents": item.subcomponents,
                     "Specifications": item.specifications,
                 }
                 table.append(table_row)
