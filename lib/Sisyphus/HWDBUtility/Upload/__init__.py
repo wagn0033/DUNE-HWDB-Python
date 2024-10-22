@@ -105,13 +105,15 @@ class Uploader():
 
         for k in sorted(item_jobs.keys()):
             v = item_jobs[k]
-            if v.part_id:
+            if v.part_id and v.part_id not in ["<null>", "<unassigned>"]:
                 part_id_list.append(v.part_id)
 
         if not part_id_list:
             return
 
         Style.notice.print("Creating label sheets")
+
+        logger.debug(f"create_labels: part_id_list={part_id_list}")
 
         pdflabels = PDFLabels(part_id_list)
         pdflabels.use_default_label_types()
