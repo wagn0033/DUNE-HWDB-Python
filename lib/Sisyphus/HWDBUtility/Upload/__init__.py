@@ -6,6 +6,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 """
 
 import sys, os
+import shutil
 import json
 import argparse
 #from datetime import datetime, timezone
@@ -19,6 +20,7 @@ logger = config.getLogger(__name__)
 import Sisyphus
 from Sisyphus.HWDBUtility.Docket import Docket
 from Sisyphus.HWDBUtility.SheetWriter import ExcelWriter
+from Sisyphus.HWDBUtility.PDFLabels import PDFLabels
 
 from Sisyphus.DataModel import HWItem
 from Sisyphus.DataModel import HWTest
@@ -38,7 +40,21 @@ class Uploader():
         
         self.upload_time = datetime.now().astimezone().replace(microsecond=0)
         self.output_path = self.upload_time.replace(tzinfo=None).strftime('%Y%m%dT%H%M%S')
-        
+       
+        #print(self.output_path)
+        os.mkdir(self.output_path) 
+
+        try:
+            os.unlink("latest")
+        except:
+            pass
+
+        try:
+            os.symlink(self.output_path, "latest", target_is_directory=True)
+        except:
+            logger.warning("Error creating symlink")
+            pass
+
         if args:
             self._submit = args.submit
         else:
@@ -70,153 +86,95 @@ class Uploader():
 
         self.jobmanager.execute(self._submit)
 
+        self.create_labels()
+
+        self.output_receipts()
+
         Style.notice.print("Finished.")
         print()
 
-        # self.item_queue_new = []
-        # self.item_queue_edit = []
-        # self.test_queue_new = []
-        # self.item_summary = {} # we'll write these as sheets
-        # self.test_summary = {}
-        # # Turn the raw job data into actionable jobs
-        # #
-        # Style.info.print("Analyzing Jobs")
-        # self.process_raw_job_data()
-        #
-        # Style.info.print("Executing Jobs")
-        # self.execute_jobs()
-        
         #}}}
+    
+    #--------------------------------------------------------------------------
 
+    def create_labels(self):
+        #{{{
+
+        item_jobs = self.jobmanager.item_jobs
+        part_id_list = []
+
+        for k in sorted(item_jobs.keys()):
+            v = item_jobs[k]
+            if v.part_id:
+                part_id_list.append(v.part_id)
+
+        if not part_id_list:
+            return
+
+        Style.notice.print("Creating label sheets")
+
+        pdflabels = PDFLabels(part_id_list)
+        pdflabels.use_default_label_types()
+        pdflabels.generate_label_sheets(
+                os.path.join(self.output_path, "ItemLabels.pdf"))
+
+        #}}}
 
     #--------------------------------------------------------------------------
 
     def output_receipts(self):
-        if not (self.item_summary or self.test_summary):
-            return
+        
+        Style.notice.print("Outputting receipts")
+        item_jobs = self.jobmanager.item_jobs
+        
+        hwitems = {}
 
-        ...
+        for k in sorted(item_jobs.keys()):
+            v = item_jobs[k]
+            print(k, repr(v))
+            print(v.part_type_id, v.serial_number, v.part_id)
+
+            hwitems.setdefault(v.part_type_id, {})
+
+            sn = v.serial_number or "<unassigned>"
+            pid = v.part_id or "<unassigned>"
+
+            hwitems[v.part_type_id][pid, sn] = v
+
+        print(hwitems)
+
+        for part_type_id in hwitems.keys():
+            path = os.path.join(self.output_path, f"Items-{part_type_id}.xlsx")
+
+            header = {
+                "Record Type": "Item",
+                "Part Type ID": v.part_type_id,
+                "Part Type Name": v.part_type_name,
+            }
+
+            table = []
+
+            for item_key in sorted(hwitems[part_type_id].keys()):
+                item = hwitems[part_type_id][item_key]
+                table_row = {
+                    "External ID": item_key[0],
+                    "Serial Number": item_key[1],
+                    "Institution": item.institution,
+                    "Manufacturer": item.manufacturer,
+                    "Location": item.location,
+                    "Status": item.status,
+                    "Comments": item.comments,
+                    "Subcomponents": item.subcomponents,
+                    "Specifications": item.specifications,
+                }
+                table.append(table_row)
+
+            EW = ExcelWriter(path)
+            EW.add_sheet(header["Part Type ID"], header, table)
+            EW.close()
+
+    #--------------------------------------------------------------------------
     
-    #--------------------------------------------------------------------------
-
-    def old_execute_jobs(self):
-        #{{{
-        def update_part_id(part_type_id, part_id, serial_number):
-            # find any tests with the same part_type and serial_number
-            # but don't have the part_id updated yet and update them.
-            for merge_test in self.test_queue_new:
-                if HWTest._is_unassigned(merge_test._current['part_id']):
-                    if (merge_test._current['part_type_id'] == part_type_id
-                            and merge_test._current['serial_number'] == serial_number):
-                        merge_test._current['part_id'] = part_id
-
-
-        for new_item in self.item_queue_new:
-            if self._submit:
-                Style.notice.print("\nCreating new item:")
-            else:
-                Style.notice.print("\nCreating new item (SIMULATED):")
-
-            #print(new_item)
-
-            new_item.validate()
-            if self._submit:
-                new_item.update_core()
-                new_item.update_enabled()
-
-                update_part_id(new_item._current['part_type_id'],
-                                new_item._current['part_id'],
-                                new_item._current['serial_number'])
-
-
-        for edited_item in self.item_queue_edit:
-            if self._submit:
-                Style.notice.print("\nEditing an item:")
-            else:
-                Style.notice.print("\nEditing an item (SIMULATED):")
-            #print(edited_item)
-
-            edited_item.validate()
-            if self._submit:
-                edited_item.update_core()
-                edited_item.update_enabled()
-
-
-        for merge_test in self.test_queue_new:
-            if self._submit:
-                Style.notice.print("\nMerging tests:")
-            else:
-                Style.notice.print("\nMerging tests (SIMULATED):")
-            #print(merge_test)
-
-            if self._submit:
-                merge_test.update()
-
-        #}}}
-
-    #--------------------------------------------------------------------------
-
-    def queue_item_job(self, raw_job):
-        #{{{ 
-        #print(json.dumps(raw_job["Data"], indent=4))
-        hwitem = HWItem.fromUserData(raw_job["Data"])
-        if hwitem.is_new():
-            print(f"Queuing CREATE job for Item {hwitem._current['serial_number']} "
-                    f"(type: {hwitem._current['serial_number']})")
-            self.item_queue_new.append(hwitem)
-        else:
-            print(f"Queuing UPDATE job for Item {hwitem._current['part_id']} "
-                    f"({hwitem._current['serial_number']})")
-            self.item_queue_edit.append(hwitem)
-
-        encoder = raw_job['Encoder']
-        user_record = hwitem.toUserData()
-
-        sheet_data = encoder.decode(user_record)
-        
-        #Style.info.print("USER RECORD", json.dumps(user_record, indent=4))
-        #Style.info.print("ROW DATA", json.dumps(sheet_data, indent=4))
-        
-        part_type_id = user_record["Part Type ID"]
-        part_type_name = user_record["Part Type Name"]
-        part_id = user_record["External ID"]
-        serial_number = user_record["Serial Number"]
-        
-        part_type_dict = self.item_summary.setdefault(part_type_id, {})
-        part_type_dict["Part Type ID"] = part_type_id
-        part_type_dict["Part Type Name"] = part_type_name
-
-        if part_id:
-            part_type_edit = (
-                    part_type_dict
-                        .setdefault("edit", {})
-                        .setdefault(part_id, sheet_data)
-                    )
-        else:
-            part_type_new = (
-                    part_type_dict
-                        .setdefault("new", {})
-                        .setdefault(serial_number, sheet_data)
-                    )
-        #}}}
-    
-    #--------------------------------------------------------------------------
-
-    def queue_test_job(self, raw_job):
-        #{{{            
-        #Style.info.print(json.dumps(serialize_for_display(raw_job), indent=4))
-        #breakpoint()
-        hwtest = HWTest.fromUserData(raw_job["Data"], raw_job["Encoder"])
-        #Style.error.print(json.dumps(hwtest._current, indent=4))
-        #print(hwtest)
-
-        print(f"Queuing MERGE TEST job for Item {hwtest._current['serial_number']}")
-
-        self.test_queue_new.append(hwtest)
-        #}}}        
-
-    #--------------------------------------------------------------------------
-        
     def create_item_sheet(self, item_summary):
         #{{{
         
@@ -375,6 +333,125 @@ class Uploader():
         #}}}
 
     #--------------------------------------------------------------------------
+
+    def old_execute_jobs(self):
+        #{{{
+        def update_part_id(part_type_id, part_id, serial_number):
+            # find any tests with the same part_type and serial_number
+            # but don't have the part_id updated yet and update them.
+            for merge_test in self.test_queue_new:
+                if HWTest._is_unassigned(merge_test._current['part_id']):
+                    if (merge_test._current['part_type_id'] == part_type_id
+                            and merge_test._current['serial_number'] == serial_number):
+                        merge_test._current['part_id'] = part_id
+
+
+        for new_item in self.item_queue_new:
+            if self._submit:
+                Style.notice.print("\nCreating new item:")
+            else:
+                Style.notice.print("\nCreating new item (SIMULATED):")
+
+            #print(new_item)
+
+            new_item.validate()
+            if self._submit:
+                new_item.update_core()
+                new_item.update_enabled()
+
+                update_part_id(new_item._current['part_type_id'],
+                                new_item._current['part_id'],
+                                new_item._current['serial_number'])
+
+
+        for edited_item in self.item_queue_edit:
+            if self._submit:
+                Style.notice.print("\nEditing an item:")
+            else:
+                Style.notice.print("\nEditing an item (SIMULATED):")
+            #print(edited_item)
+
+            edited_item.validate()
+            if self._submit:
+                edited_item.update_core()
+                edited_item.update_enabled()
+
+
+        for merge_test in self.test_queue_new:
+            if self._submit:
+                Style.notice.print("\nMerging tests:")
+            else:
+                Style.notice.print("\nMerging tests (SIMULATED):")
+            #print(merge_test)
+
+            if self._submit:
+                merge_test.update()
+
+        #}}}
+
+    #--------------------------------------------------------------------------
+
+    def queue_item_job(self, raw_job):
+        #{{{ 
+        #print(json.dumps(raw_job["Data"], indent=4))
+        hwitem = HWItem.fromUserData(raw_job["Data"])
+        if hwitem.is_new():
+            print(f"Queuing CREATE job for Item {hwitem._current['serial_number']} "
+                    f"(type: {hwitem._current['serial_number']})")
+            self.item_queue_new.append(hwitem)
+        else:
+            print(f"Queuing UPDATE job for Item {hwitem._current['part_id']} "
+                    f"({hwitem._current['serial_number']})")
+            self.item_queue_edit.append(hwitem)
+
+        encoder = raw_job['Encoder']
+        user_record = hwitem.toUserData()
+
+        sheet_data = encoder.decode(user_record)
+        
+        #Style.info.print("USER RECORD", json.dumps(user_record, indent=4))
+        #Style.info.print("ROW DATA", json.dumps(sheet_data, indent=4))
+        
+        part_type_id = user_record["Part Type ID"]
+        part_type_name = user_record["Part Type Name"]
+        part_id = user_record["External ID"]
+        serial_number = user_record["Serial Number"]
+        
+        part_type_dict = self.item_summary.setdefault(part_type_id, {})
+        part_type_dict["Part Type ID"] = part_type_id
+        part_type_dict["Part Type Name"] = part_type_name
+
+        if part_id:
+            part_type_edit = (
+                    part_type_dict
+                        .setdefault("edit", {})
+                        .setdefault(part_id, sheet_data)
+                    )
+        else:
+            part_type_new = (
+                    part_type_dict
+                        .setdefault("new", {})
+                        .setdefault(serial_number, sheet_data)
+                    )
+        #}}}
+    
+    #--------------------------------------------------------------------------
+
+    def queue_test_job(self, raw_job):
+        #{{{            
+        #Style.info.print(json.dumps(serialize_for_display(raw_job), indent=4))
+        #breakpoint()
+        hwtest = HWTest.fromUserData(raw_job["Data"], raw_job["Encoder"])
+        #Style.error.print(json.dumps(hwtest._current, indent=4))
+        #print(hwtest)
+
+        print(f"Queuing MERGE TEST job for Item {hwtest._current['serial_number']}")
+
+        self.test_queue_new.append(hwtest)
+        #}}}        
+
+    #--------------------------------------------------------------------------
+        
 
     @classmethod
     def fromCommandLine(self, argv=None):

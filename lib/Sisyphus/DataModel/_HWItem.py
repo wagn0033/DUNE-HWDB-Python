@@ -105,7 +105,7 @@ class HWItem:
     def institution_name(self):
         return self._current['institution_name']
     @property
-    def country(self):
+    def institution(self):
         return self._current['institution']
     
     @property
@@ -148,6 +148,17 @@ class HWItem:
     def arrived(self):
         return self._current["arrived"]
 
+    @property
+    def status(self):
+        return self._current["status"]
+    
+    @property
+    def comments(self):
+        return self._current["comments"]
+
+    @property
+    def subcomponents(self):
+        return self._current["subcomponents"]
 
     # TODO: add more of these
     #}}}

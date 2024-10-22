@@ -657,7 +657,7 @@ class PDFLabels:
         for code_type in ('bar', 'qr'):
             for template in self._label_types[code_type]:
                 generate_intro_page(cvs, code_type, template)
-                generate_label_pages(cvs, code_type, template, True)
+                generate_label_pages(cvs, code_type, template, False)
 
         cvs.save()
         #}}}
