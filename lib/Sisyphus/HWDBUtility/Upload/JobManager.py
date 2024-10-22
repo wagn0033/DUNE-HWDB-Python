@@ -14,7 +14,7 @@ import Sisyphus.RestApiV1 as ra
 import Sisyphus.RestApiV1.Utilities as ut
 from Sisyphus.DataModel import HWItem
 from Sisyphus.DataModel import HWTest
-from Sisyphus.HWDBUtility.PDFLabels import PDFLabels
+#from Sisyphus.HWDBUtility.PDFLabels import PDFLabels
 
 import multiprocessing.dummy as mp # multiprocessing interface, but uses threads instead
 import json
@@ -151,7 +151,7 @@ class JobManager:
                             # will already have their part id's looked up)
                             # TODO: what if the user has changed the serial number??
                             update_part_id(job.part_type_id, job.part_id, job.serial_number)
-                        hwitems_touched.append(job.part_id)
+                        #hwitems_touched.append(job.part_id)
                     else:
                         time.sleep(0.01)
                     
@@ -209,18 +209,19 @@ class JobManager:
 
             # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
            
-            hwitems_touched = []
+            #hwitems_touched = []
  
             execute_item_core()
             execute_item_clear_subcomponents()
             execute_item_attach_subcomponents()
 
-            hwitems_touched.sort()
-            logger.info(f"Making labels for: {hwitems_touched}")
-
-            pdflabels = PDFLabels(hwitems_touched)
-            pdflabels.use_default_label_types()
-            pdflabels.generate_label_sheets("ItemLabels.pdf")
+            #hwitems_touched.sort()
+            #logger.info(f"Making labels for: {hwitems_touched}")
+            # 
+            #if hwitems_touched:
+            #    pdflabels = PDFLabels(hwitems_touched)
+            #    pdflabels.use_default_label_types()
+            #    pdflabels.generate_label_sheets("ItemLabels.pdf")
 
             #}}}
 
