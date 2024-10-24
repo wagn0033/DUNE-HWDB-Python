@@ -191,7 +191,7 @@ label_templates = {  #{{{
 class PDFLabels:
 
     def __init__(self, parts_list=None):
-        self._hwitems = parts_list or []
+        self._hwitems = list(set(parts_list)) or []
 
         self._label_types = {
             "qr": [],

@@ -169,8 +169,15 @@ class Uploader():
                     "Status": item.status,
                     "Comments": item.comments,
                     #"Subcomponents": item.subcomponents,
-                    "Specifications": item.specifications,
+                    #"Specifications": item.specifications,
                 }
+            
+                for subcomp in item.subcomponents.keys():
+                    table_row[f"C:{subcomp}"] = item.subcomponents[subcomp]
+
+                for spec in item.specifications.keys():
+                    table_row[f"S:{spec}"] = item.specifications[spec]
+
                 table.append(table_row)
 
             EW = ExcelWriter(path)

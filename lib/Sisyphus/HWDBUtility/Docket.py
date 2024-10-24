@@ -138,6 +138,8 @@ class Docket:
         # Check if each sheet's encoder can be found (or created if _AUTO_)
         #Style.debug.print("Checking sheets for encoders")
         
+        logger.info(self.sheets)
+
         for sheet_node in self.sheets:
             sheet = sheet_node["Sheet"]
             source = sheet_node["Source"]
