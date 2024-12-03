@@ -57,7 +57,7 @@ class HWComponentType:
             "connectors": component_data["connectors"],
             "manufacturers": [Manufacturer.make(**s) for s in component_data["manufacturers"]],
             "specifications": restore_order(component_data["properties"]
-                                                ["specifications"][0]["datasheet"]),
+                                                ["specifications"][-1]["datasheet"]),
             "roles": [Role.make(**s) for s in component_data["roles"]],
             "test_types": {},
         }

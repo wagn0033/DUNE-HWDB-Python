@@ -11,12 +11,17 @@ from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
 
 import Sisyphus.RestApiV1 as ra
+ra.session_kwargs['timeout'] = 10
+
+
 import Sisyphus.RestApiV1.Utilities as ut
 from Sisyphus.HWDBUtility.SheetReader import Sheet, Cell
 from Sisyphus.HWDBUtility import TypeCheck as tc
 from Sisyphus.Utils.Terminal.Style import Style
 from Sisyphus.Utils.CI_dict import CI_dict
 from Sisyphus.Utils import utils
+
+from Sisyphus.HWDBUtility.exceptions import *
 
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
@@ -143,36 +148,379 @@ default_schema_fields_by_record_type = \
 
 class Encoder:
     _encoder_cache = {}
+
+    record_types = {
+        k.casefold(): k for k in default_schema_fields_by_record_type.keys()
+    }
+
+    encoder_fields = {
+        k.casefold(): k for k in
+        ["Encoder Name", "Record Type", "Part Type ID", 
+            "Part Type Name", "Test Name", "Schema", "Version"]
+    }
+
+
     def __init__(self, encoder_def):
         #{{{
-        self._encoder_def = deepcopy(encoder_def)
-        enc = deepcopy(self._encoder_def)
+
+        # 'normalize' the fields in encoder_def
+        self.encoder_def = {}
+        for k, v in encoder_def.items():
+            self.encoder_def[Encoder.encoder_fields.get(k, k)] = v
+
+        enc = deepcopy(self.encoder_def)
         
         self.name = enc.pop("Encoder Name", None)
-        
-        self.record_type = enc.pop("Record Type", None)
-        if self.record_type in default_schema_fields_by_record_type:
+
+        # validate the record type
+        record_type = enc.pop("Record Type", None)
+        self.record_type = Encoder.record_types.get(record_type, record_type)
+        if self.record_type in Encoder.record_types.values():       
             self.default_schema_fields = default_schema_fields_by_record_type[self.record_type] 
+        elif self.record_type is None:
+            raise InvalidEncoder(f"Record Type is required")
         else:
-            raise ValueError("Record Type is required.")
+            raise InvalidEncoder(f"Unsupported Record Type: {self.record_type}")
+ 
+        # validate the part type
+        part_type_name = enc.pop("Part Type Name", None)
+        part_type_id = enc.pop("Part Type ID", None)
 
-        self.part_type_name = enc.pop("Part Type Name", None)
-        self.part_type_id = enc.pop("Part Type ID", None)
-        self.test_name = enc.pop("Test Name", None)
+        try:
+            resp = ut.fetch_component_type(part_type_id, part_type_name)
+        except ra.MissingArguments as ex:
+            raise InvalidEncoder("Encoder must specify part_type_id or part_type_name")
+        except ra.NotFound as ex:
+            raise InvalidEncoder("Part type or name not found")
 
-        self.options = enc.pop("Options", {})
-        
+        self.part_type_id = self.encoder_def["Part Type ID"] = resp["ComponentType"]["part_type_id"]
+        self.part_type_name = self.encoder_def["Part Type Name"] = resp["ComponentType"]["full_name"]
+
+        # validate test name
+        test_name = enc.pop("Test Name", None)
+        if self.record_type in ["Test", "Test Image"]:
+            if not test_name:
+                raise InvalidEncoder(f"Test Name is required when Record Type is Test or Test Image.")
+            
+            for tt in resp["TestTypes"]:
+                if tt['name'].casefold() == test_name.casefold():
+                    self.test_name = tt['name']
+                    break
+            else:
+                self.test_name = test_name
+                logger.warning(f"Test Type '{self.test_name}' for {self.part_type_id} "
+                        "does not exist and will need to be added before using this encoder")
+        else:
+            if test_name:
+                raise InvalidEncoder(f"Test Name is only allowed for Test or Test Image types")
+            self.test_name = None
+
+        # validate the schema
         self.raw_schema = enc.pop("Schema", {})
         self.schema = self._preprocess_schema(self.raw_schema)
 
-
-        self.uuid = str(uuid.uuid4()).upper()
-        self.__class__._encoder_cache[self.uuid] = self    
-
         # TODO: more fields
 
+        # there shouldn't be any fields left
+        extra_fields = [ k for k in enc.keys() if not k.startswith('_') ]
+            
+        if extra_fields:
+            logger.warning(f"Extra fields in encoder: {extra_fields}")
+
         #}}}
+
+    #--------------------------------------------------------------------------
+
+    def root_fields(self):
+        "Returns what fields need to be in the spec, according to the encoder"
+        #{{{
+
+        if self.record_type.casefold() == "item":
+            root = self.schema["members"]["Specifications"]["members"]
+        elif self.record_type.casefold() == "test":
+            root = self.schema["members"] ["Test Results"]["members"]
+        else:
+            return None
+
+        fields = {}
+        
+        for k, v in root.items():
+            if v["type"] == "group":
+                fields[k] = {}
+            else:
+                if "value" in v:
+                    fields[k] = v['value']
+                else:
+                    fields[k] = v.get("default", None)
+
+        return fields
+        #}}}
+
+    #--------------------------------------------------------------------------
+
+    def store(self, dryrun=False):
+        '''Store this encoder in the HWDB'''
+
+        #{{{
+        # Only items and tests can be (or even need to be) stored
+        if self.record_type not in ["Item", "Test"]:
+            logger.warning(f"Cannot store encoders of type '{self.record_type}'")
+            return
     
+        # We don't need to catch errors here because we already know it exists.
+        # It'll just pull from the cache anyway. We just want a copy.
+        resp = ut.fetch_component_type(self.part_type_id, self.part_type_name)
+        ct = resp["ComponentType"]
+        if ct["properties"] is not None:
+            spec = restore_order(ct["properties"]["specifications"][-1]["datasheet"])
+            spec_version = ct["properties"]["specifications"][-1]["version"]
+        else:
+            spec = {}
+            spec_version = -1
+        naked_spec = {k: v for k, v in spec.items() if k !='_meta'}
+
+        # The spec may not have been initialized before, so we need to add the
+        # necessary structure
+        spec.setdefault("_meta", {}).setdefault('encoders', {}).setdefault('Item', [])
+        spec['_meta']['encoders'].setdefault('Test', {})
+        if self.record_type == "Test":
+            spec['_meta']['encoders']['Test'].setdefault(self.test_name, [])
+
+        item_encoders = spec['_meta']['encoders']['Item']
+        all_test_encoders = spec['_meta']['encoders']['Test']
+        
+        if self.record_type == 'Test':
+            my_test_encoders = all_test_encoders[self.test_name]
+
+        # Any existing encoders with version=None are actually the current version
+        # number of this datasheet. The reason it is None now is because we couldn't 
+        # know for absolute certain what the next version number would be. It's 
+        # probably going to be the last version number incremented by one, but it's 
+        # dangerous to rely on it. 
+
+        for encoder in item_encoders:
+            if encoder.get('version', None) is None:
+                encoder['version'] = spec_version
+            encoder['Schema'] = Encoder.preserve_schema_order(encoder['Schema'])
+        for tn, encoder_list in all_test_encoders.items():
+            for encoder in encoder_list:
+                if encoder.get('version', None) is None:
+                    encoder['version'] = spec_version
+                encoder['Schema'] = Encoder.preserve_schema_order(encoder['Schema'])
+                
+        # Now we can insert our new encoder.
+        # We should check to make sure it has actually changed, though.
+        enc_def = {
+            'Schema': Encoder.preserve_schema_order(self.raw_schema),
+            'version': None
+        }
+
+        if self.record_type == "Item":
+            prev_encoder = item_encoders[0]['Schema'] if item_encoders else None
+
+            if prev_encoder == enc_def['Schema']:
+                changed = False
+            else:
+                changed = True
+                item_encoders.insert(0, enc_def)
+
+            # We should check that the fields for this item spec match the fields
+            # described in the encoder
+
+            root_fields = self.root_fields()
+
+            if naked_spec != root_fields:
+                changed = True
+                new_spec = preserve_order(root_fields)
+                new_spec.setdefault("_meta", {}).update(spec['_meta'].items())
+                spec = new_spec
+
+                logger.info(f"keys in spec: {naked_spec}")
+                logger.info(f"keys in encoder: {self.root_fields()}")
+
+
+        else:
+            prev_encoder = my_test_encoders[0]['Schema'] if my_test_encoders else None
+            
+            if prev_encoder == enc_def['Schema']:
+                changed = False
+            else:
+                changed = True
+                my_test_encoders.insert(0, enc_def)
+
+        if not changed:
+            logger.info("Encoder has not changed and will not be updated")
+            return False
+
+        logger.info("Old version:")
+        logger.info(json.dumps(prev_encoder, indent=4))
+        logger.info("New version:")
+        logger.info(json.dumps(enc_def["Schema"], indent=4))
+
+
+        # Upload the updated component type def
+        data = {
+            "comments": ct["comments"],
+            "connectors": ct["connectors"],
+            "manufacturers": [ s['id'] for s in ct["manufacturers"] ],
+            "name": ct["full_name"],
+            "part_type_id": ct["part_type_id"],
+            "properties":
+            {
+                "specifications":
+                {
+                    "datasheet": spec,
+                }
+            },
+            "roles": [ s['id'] for s in ct["roles"] ],
+        }
+
+        if dryrun:
+            logger.info(f"Storing encoder (dry run only!): {json.dumps(data, indent=4)}")
+        else:
+            resp = ra.patch_component_type(self.part_type_id, data)
+            logger.debug(f"Response from server: {json.dumps(resp, indent=4)}")
+
+            # Just for safety, we should reload this part type, so no one will
+            # get the outdated cached data for this.
+            logger.debug(f"Reloading part type info for {self.part_type_id}")
+            resp = ut.fetch_component_type(part_type_id=self.part_type_id, use_cache=False)
+
+        return True
+        #}}}
+
+    #--------------------------------------------------------------------------
+
+    @staticmethod
+    def retrieve(record_type, part_type_id=None, part_type_name=None, test_name=None, version=None):
+        '''Retrieve an encoder from the HWDB'''
+        #{{{
+
+        # Only items and tests can be (or even need to be) stored
+        if record_type.casefold() == "item":
+            record_type = 'Item'
+        elif record_type.casefold() == "test":
+            record_type = 'Test'
+            if not test_name:
+                raise InvalidEncoder("test_name is required if record_type is 'Test'")
+        else:
+            raise InvalidEncoder("record_type must be 'Item' or 'Test'")
+
+        # Let's look up the part type
+        try:
+            resp = ut.fetch_component_type(part_type_id, part_type_name)
+        except ra.MissingArguments as ex:
+            raise InvalidEncoder("Encoder must specify part_type_id or part_type_name")
+        except ra.NotFound as ex:
+            raise InvalidEncoder("Part type or name not found")
+
+        # Repopulate these values from the response, since it sort of 'normalizes' them
+        part_type_id = resp["ComponentType"]["part_type_id"]
+        part_type_name = resp["ComponentType"]["full_name"]
+
+        ct = resp["ComponentType"]
+        if ct["properties"] is not None:
+            spec = restore_order(ct["properties"]["specifications"][-1]["datasheet"])
+            spec_version = ct["properties"]["specifications"][-1]["version"]
+        else:
+            spec = {}
+            spec_version = -1
+
+        # The spec may not have been initialized before, so we need to add the
+        # necessary structure. We won't be saving it, but it makes accessing it
+        # easier
+        spec.setdefault("_meta", {}).setdefault('encoders', {}).setdefault('Item', [])
+        spec['_meta']['encoders'].setdefault('Test', {})
+
+        item_encoders = spec['_meta']['encoders']['Item']
+        all_test_encoders = spec['_meta']['encoders']['Test']
+        
+        if record_type == 'Test':
+            for tn in all_test_encoders.keys():
+                if tn.casefold() == test_name.casefold():
+                    test_name = tn
+                    my_test_encoders = all_test_encoders[test_name]
+                    break
+            else:
+                # The test encoder does not exist. We can quit now.
+                logger.warning(f"Part Type {part_type_id} does not have a test '{test_name}'")
+                return None
+
+            if version is None:
+                if my_test_encoders:
+                    test_encoder = my_test_encoders[0]
+                    encoder_schema = test_encoder["Schema"]
+                    encoder_version = test_encoder["version"] or spec_version
+                else:
+                    # There is no item encoder. We can quit.
+                    logger.warning(f"Part Type {part_type_id}, Test Type '{test_name}' "
+                        f"does not have an uploaded encoder")
+                    return None
+            else:
+                for test_encoder in my_test_encoders:
+                    if test_encoder["version"] == version:
+                        encoder_schema = test_encoder["Schema"]
+                        encoder_version = test_encoder["Version"]
+                        break
+                else:
+                    # The specific version requested does not exist. We can quit.
+                    logger.warning(f"Part Type {part_type_id}, Test Type '{test_name}' "
+                        f"does not have a version '{version}'")
+                    return None
+            
+            # At this point, we have an encoder schema, so we can construct the
+            # encoder
+
+            enc_name = f"_SAVED_{part_type_id}_{test_name.replace(' ', '_')}"
+            enc_def = {
+                "Encoder Name": enc_name,
+                "Record Type": "Test",
+                "Part Type Name": part_type_name,
+                "Part Type ID": part_type_id,
+                "Test Name": test_name,
+                "Schema": encoder_schema,
+                "Version": encoder_version,
+            }
+            return Encoder(enc_def)
+
+        else: # Must be record_type=Item
+            if version is None:
+                if item_encoders:
+                    item_encoder = item_encoders[0]
+                    encoder_schema = item_encoder["Schema"]
+                    encoder_version = item_encoder["version"] or spec_version
+                else:
+                    # The specific version requested does not exist. We can quit.
+                    logger.warning(f"Part Type {part_type_id} does not have an "
+                            f"uploaded encoder")
+                    return None
+                    
+            else:
+                for item_encoder in item_encoders:
+                    if item_encoder["version"] == version:
+                        encoder_schema = item_encoder["Schema"]
+                        encoder_version = item_encoder["version"]
+                        break
+                else:
+                    # The specific version requested does not exist. We can quit
+                    logger.warning(f"Part Type {part_type_id} does not have a "
+                            f"version '{version}'")
+            
+            # At this point, we have an encoder schema, so we can construct the
+            # encoder
+
+            enc_name = f"_SAVED_{part_type_id}"
+            enc_def = {
+                "Encoder Name": enc_name,
+                "Record Type": "Item",
+                "Part Type Name": part_type_name,
+                "Part Type ID": part_type_id,
+                "Schema": encoder_schema,
+                "Version": encoder_version,
+            }
+            return Encoder(enc_def)
+        #}}}            
+
     #--------------------------------------------------------------------------
     
     def _preprocess_schema(self, schema):
@@ -307,7 +655,12 @@ class Encoder:
         }
 
         sch_in = deepcopy(schema)
-        #Style.error.print(json.dumps(sch_in, indent=4))
+        if sch_in.get('type', None) == 'schema':
+            # This is the 'spelled out' version of the schema, which should
+            # be legal. But to handle it we need to go to the 'members' node,
+            # which will look more like the ordinary unprocessed version
+            sch_in = sch_in['members']
+
         sch_out = {}
 
         # Process the root level
@@ -318,9 +671,6 @@ class Encoder:
         
         for schema_key, default_field_def in self.default_schema_fields.items():
         
-            #if schema_key == "Serial Number":
-            #    breakpoint()
-
             field_type = default_field_def[KW_TYPE]
 
             if field_type in ("datasheet", "collection"):
@@ -332,7 +682,13 @@ class Encoder:
                     # this datasheet (which is essentially the same as a group), 
                     # but they should be allowed to provide it in the same form
                     # as we will process it into, so check for 'type' and 'members'.
-                    
+
+                    if user_field_def.get('type', None) in ("datasheet", "collection"):
+                        # this is already in 'processed' form, so skip ahead to
+                        # the 'members' node
+                        user_field_def = user_field_def['members']                   
+
+ 
                     if isinstance(default_field_def, str):
                         # If it's a string instead of a dictionary, then the 
                         # string indicates the type, which is useless for a
@@ -529,8 +885,8 @@ class Encoder:
             else:
                 #print(schema_key, field_def[KW_TYPE])
                 #print(record)
-                if schema_key not in record:
-                    breakpoint()
+                #if schema_key not in record:
+                #    breakpoint()
                 merged[schema_key] = record[schema_key]
 
         return merged
@@ -548,7 +904,7 @@ class Encoder:
                         json.dumps(serialize_for_display(record_indexed), indent=4))
         Style.fg(0x00ff00).print("NEW DATA:", 
                         json.dumps(serialize_for_display(addendum_indexed), indent=4))
-        breakpoint()
+        #breakpoint()
 
         '''
         #merged = deepcopy(record)
@@ -852,12 +1208,14 @@ class Encoder:
                 "Part Type Name": part_type_name,
                 "Schema": {"Specifications": {}, "Subcomponents": {}}
             }
-            spec = part_type_data["ComponentType"]["properties"]["specifications"][0]["datasheet"]
+            spec = part_type_data["ComponentType"]["properties"]["specifications"][-1]["datasheet"]
             spec = utils.restore_order(deepcopy(spec))
             meta = spec.pop('_meta', {})
             connectors = part_type_data["ComponentType"]["connectors"]
 
             for k, v in spec.items():
+                if k.startswith("_"):
+                    continue
                 if isinstance(v, list):
                     encoder_def["Schema"]["Specifications"][k] = {
                                 "type": "null,any",
@@ -888,7 +1246,7 @@ class Encoder:
         def create_test_encoder():
             encoder_def = \
             {
-                "Encoder Name": f"_AUTO_{part_type_id}_{test_name}",
+                "Encoder Name": f"_AUTO_{part_type_id}_{test_name.replace(' ', '_')}",
                 "Record Type": "Test",
                 "Part Type ID": part_type_id,
                 "Part Type Name": part_type_name,
@@ -896,9 +1254,10 @@ class Encoder:
                 "Schema": {"Test Results": {}}
             }
             test_node = part_type_data["TestTypeDefs"][test_name]["data"]
-            spec = test_node["properties"]["specifications"][0]["datasheet"]
+            spec = test_node["properties"]["specifications"][-1]["datasheet"]
             for k, v in spec.items():
-                
+                if k.startswith("_"):
+                    continue 
 
                 if isinstance(v, list):
                     encoder_def["Schema"]["Test Results"][k] = {
@@ -943,7 +1302,7 @@ class Encoder:
                             "'Test Name' was not provided.")
  
             encoder_def = {
-                        "Encoder Name": f"_AUTO_{part_type_id}_Test_Image",
+                        "Encoder Name": f"_AUTO_{part_type_id}_{test_name.replace(' ', '_')}_Image",
                         "Record Type": "Test Image",
                         "Part Type ID": part_type_id,
                         "Part Type Name": part_type_name,
@@ -972,39 +1331,141 @@ class Encoder:
         #}}}
 
     @staticmethod
-    def preserve_order(obj):
-        return utils.preserve_order(obj)
+    def preserve_schema_order(schema):
+        '''Modified version of 'preserve_order' that only preserves it where important
 
-    @staticmethod
-    def restore_order(obj):
-        return utils.restore_order(obj)
+        This is necessary so that two schemas can be compared for differences. You really
+        don't want it to flag something as different just because 'type', 'key', and 
+        'members' is in a different order!
+        '''
 
-    @staticmethod
-    def scramble_order(obj):
-        return utils.scramble_order(obj)
+        #{{{
+        
+        def strip_keys(node):
+            # if node['_meta']['keys'] exists, get rid of it.
+            # if node['_meta'] is now empty, get rid of that, too.
+            if '_meta' in node:
+                node['_meta'].pop('keys', None)
+                if not node['_meta']:
+                    # Only pop _meta if there isn't anything else
+                    # being stored in there, i.e., it was only there
+                    # to hold keys.
+                    node.pop('_meta', None)
 
+        def strip_unnecessary_order(node, lvl=0):
+            # We're trying to be conscious of the level we're at within the
+            # schema, because we don't want to blindly assume at every level
+            # that they might have done the same shortcutting ('raw') sort
+            # of method that's allowed on the first and second level.
+
+            if lvl == 0:
+                # level 0 is schema-level, but we don't know if it's the 
+                # shortcut-type or explicit-type yet.
+                
+                if node.get('type', None) == 'schema':
+                    # it's the explicit-type
+                    strip_keys(node)
+                
+                    if 'members' not in node:
+                        # there's nothing in this schema, so we can leave.
+                        # TODO: consider whether something should happen
+                        # if this node contains something besides 'type',
+                        # 'members', 'keys', or '_meta'
+                        return
+                    
+                    # advance to the 'members' node and carry on to the 
+                    # next level
+                    strip_unnecessary_order(node['members'], lvl=1)
+
+                else:
+                    # This node shortcutted by listing the members directly,
+                    # so advance it to level 1 and try again.
+                    strip_unnecessary_order(node, lvl=1)
+                return
+
+            if lvl == 1:
+                # Level 1 is schema-level, but it's already determined to
+                # be shortcut-type.
+                # The keys here are the root-level field names.
+                # Process each one.
+                for k, v in node.items():
+                    if k == '_meta':
+                        # keep the order, if it's there, but otherwise
+                        # skip this node
+                        continue
+
+                    if k in ('Specifications', 'Test Results'):
+                        # either of these *could* have the fields listed out,
+                        # or they could define a 'datasheet' type that has
+                        # 'members'
+                        if v.get('type', None) == 'datasheet':
+                            strip_keys(v)
+
+                            if 'members' not in v:
+                                continue
+
+                            strip_unnecessary_order(v['members'], lvl=3)
+                            continue
+
+                        else:
+                            strip_unnecessary_order(v, lvl=3)
+                            continue
+
+                    elif k == 'Subcomponents':
+                        # For Subcomponents, do the same, but we don't need 
+                        # to recurse. It should just be (key, value) pairs at
+                        # whatever node actually contains the members (i.e.,
+                        # either the root, or under 'members'
+                        if v.get('type', None) == 'collection':
+                            strip_keys(v)
+                        continue
+
+                    else:
+                        # This is some other root level field like 'Comments'
+                        # or 'Manufacturer' that doesn't have a hierarchy.
+                        # So, the only question is whether the type is just
+                        # a string, e.g., "string", "number", etc., or if it's
+                        # defined using a dictionary, e.g., {'type':'string',
+                        # 'default':'abc'}. If it's the latter, we need to 
+                        # strip the order
+                        if isinstance(v, dict):
+                            strip_keys(v)
+                            continue
+                return
+
+            if lvl >= 2:
+                # Level 2+ is a list of members, where members can possibly 
+                # be 'group' type, but they must be explicit. There are no
+                # implied shortcut-type groups here.
+                for k, v in node.items():
+                    if k == '_meta':
+                        # keep the order, if it's there, but otherwise
+                        # skip this node
+                        continue
+                
+                    if isinstance(v, dict):
+                        strip_keys(v)
+                        if v.get('type', None) in ('group', 'datasheet', 'collection'):
+                            if 'members' not in v:
+                                continue
+                            else:
+                                strip_unnecessary_order(v['members'], lvl+2)
+                return
+
+        # Strategy
+        # --------
+        # Preserve order the normal way, then remove _meta|keys everywhere where
+        # they are not needed.
+
+        preserve_order(schema)
+        
+        strip_unnecessary_order(schema, lvl=0)
+
+        return schema
+
+        #}}}
 
 if __name__ == "__main__":
     pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

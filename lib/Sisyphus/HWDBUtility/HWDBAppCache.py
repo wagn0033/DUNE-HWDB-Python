@@ -46,7 +46,7 @@ class ComponentTypeCache:
         #{{{
         if "_meta" in self._ct_data["TestTypeDefs"]:
             self._latest_db_cache = deepcopy(self._ct_data["TestTypeDefs"]["_meta"]["data"]
-                            ["properties"]["specifications"][0]["datasheet"])
+                            ["properties"]["specifications"][-1]["datasheet"])
             utils.restore_order(self._latest_db_cache)
             self._current_cache = deepcopy(self._latest_db_cache)
         else:

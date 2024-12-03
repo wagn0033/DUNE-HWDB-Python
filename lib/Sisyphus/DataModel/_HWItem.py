@@ -279,7 +279,7 @@ class HWItem:
         #print(json.dumps(user_record, indent=4))
 
         if isinstance(spec := user_record.get("Specifications", None), list):
-            user_record["Specifications"] = spec[0]
+            user_record["Specifications"] = spec[-1]
 
         if isinstance(subcomp := user_record.get("Subcomponents", None), list):
             user_record["Subcomponents"] = subcomp[0]
@@ -458,13 +458,13 @@ class HWItem:
 
         # Specifications
         #print(json.dumps(ct_all, indent=4))
-        #spec_def = ct_all["ComponentType"]["properties"]["specifications"][0]["datasheet"]
+        #spec_def = ct_all["ComponentType"]["properties"]["specifications"][-1]["datasheet"]
         
 
-        hwdb_record["specifications"] = utils.restore_order(deepcopy(it["specifications"][0]))
+        hwdb_record["specifications"] = utils.restore_order(deepcopy(it["specifications"][-1]))
         _ = hwdb_record["specifications"].pop("_meta", None)
         
-        #meta = deepcopy(it["specifications"][0].get("_meta", None))
+        #meta = deepcopy(it["specifications"][-1].get("_meta", None))
         #if meta:
         #    hwdb_record["specifications"]["_meta"] = meta
 
@@ -974,7 +974,7 @@ class HWItem:
 
         # Check spec fields
         spec_def_keys = {k: None for k in self._part_type["ComponentType"]["properties"]
-                                    ["specifications"][0]["datasheet"].keys()}
+                                    ["specifications"][-1]["datasheet"].keys()}
         spec_keys = {k: None for k in self.specifications.keys()}
         # (compare them WITHOUT the _meta field for now, but resolve it later)
         spec_def_keys.pop("_meta", None)

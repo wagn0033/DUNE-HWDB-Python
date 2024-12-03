@@ -62,7 +62,7 @@ def user_role_check(part_type_id=None, part_type_name=None):
 
 #######################################################################
 
-def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True):
+def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True, history=False):
     #{{{
     '''Returns component type info for a part_type_id or a part_type_name.
 
@@ -158,10 +158,13 @@ def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True)
     
     # It was not in the cache, so now we'll have to look it up.
     retval = {}
+    params = []
+    if history:
+        params.append(("history", "True"))
 
     # Get the main component type record
     try:
-        retval["ComponentType"] = ra.get_component_type(part_type_id)[ra.KW_DATA]
+        retval["ComponentType"] = ra.get_component_type(part_type_id, params=params)[ra.KW_DATA]
     except ra.DatabaseError as db_err:
         # Decide if this error was raised because there is no component
         # type with that part_type_id, or for some other reason we can't
@@ -173,12 +176,13 @@ def fetch_component_type(part_type_id=None, part_type_name=None, use_cache=True)
         else:
             raise db_err from None
 
-    retval["TestTypes"] = ra.get_test_types(part_type_id)[ra.KW_DATA]
+    retval["TestTypes"] = ra.get_test_types(part_type_id, params=params)[ra.KW_DATA]
     
     retval["TestTypeDefs"] = {}
+
     for test_type in retval["TestTypes"]:
         retval["TestTypeDefs"][test_type["name"]] = \
-                    ra.get_test_type(part_type_id, test_type["id"])
+                    ra.get_test_type(part_type_id, test_type["id"], params=params)
 
     _cache[part_type_id] = retval
     return retval

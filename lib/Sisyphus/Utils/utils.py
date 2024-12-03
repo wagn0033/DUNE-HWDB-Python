@@ -309,10 +309,10 @@ def postgresql_pattern(expr):
     '''
 
     new_expr = (expr
-                    .replace('.', '\.')
-                    .replace('*', '\*')
-                    .replace('(', '\(')
-                    .replace(')', '\)')
+                    .replace('.', '\\.')
+                    .replace('*', '\\*')
+                    .replace('(', '\\(')
+                    .replace(')', '\\)')
                     .replace('_', '.')
                     .replace('%', '.*')
                 )

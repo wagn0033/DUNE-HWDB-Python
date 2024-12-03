@@ -63,7 +63,7 @@ class HWTestType:
             "comments": test_data["comments"],
             "oid": test_data["id"],
             "specifications": restore_order(test_data["properties"]
-                                        ["specifications"][0]["datasheet"]),
+                                        ["specifications"][-1]["datasheet"]),
         })
 
         

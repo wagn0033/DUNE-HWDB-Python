@@ -8,6 +8,10 @@ Author:
 """
 
 
+class HWDBUtilityError(Exception):
+    """Base class for HWDBUtility exceptions."""
 
 
+class InvalidEncoder(HWDBUtilityError):
+    """The Encoder has bad or missing information"""
 

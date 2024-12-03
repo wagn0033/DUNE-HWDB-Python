@@ -57,7 +57,7 @@ class HWTest:
             raise ValueError(f"No test type found named '{test_name}'")
         self._test_def = test_def
         self._test_def_id = test_def["data"]["id"]
-        self._test_def_datasheet = test_def["data"]["properties"]["specifications"][0]["datasheet"]
+        self._test_def_datasheet = test_def["data"]["properties"]["specifications"][-1]["datasheet"]
 
         self._last_commit = {k: None for k in self._property_to_column.keys()}
         self._current = deepcopy(self._last_commit)
@@ -180,7 +180,7 @@ class HWTest:
         #    raise ValueError(f"No test type found named '{test_name}'")
         #self._test_def = test_def
         #self._test_def_id = test_def["data"]["id"]
-        #self._test_def_datasheet = test_def["data"]["properties"]["specifications"][0]["datasheet"]
+        #self._test_def_datasheet = test_def["data"]["properties"]["specifications"][-1]["datasheet"]
 
         ttd = ct_all["TestTypeDefs"][test_name]["data"]
 
@@ -190,7 +190,7 @@ class HWTest:
             existing_test_data = utils.restore_order(committed_tests[0]["test_data"])
             existing_comments = committed_tests[0]["comments"]
         else:
-            existing_test_data = ttd["properties"]["specifications"][0]["datasheet"]
+            existing_test_data = ttd["properties"]["specifications"][-1]["datasheet"]
             existing_comments = None
 
         _ = existing_test_data.pop("_meta", None)

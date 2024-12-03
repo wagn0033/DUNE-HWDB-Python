@@ -8,7 +8,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 
 import os
 
-version = 'v1.2.2.release.2024.10.29a'
+version = 'v1.2.2.dev.2024.12.01a'
 
 project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), "../.."))
 
@@ -20,8 +20,10 @@ def display_header():
     import Sisyphus.Configuration as Config
     from Sisyphus.Utils.Terminal import Image
     from Sisyphus.Utils.Terminal.Style import Style
+    import Sisyphus.Utils.Terminal.BoxDraw as box
     
-    columns = 66
+    #columns = 66 # I forgot why I chose 66. Maybe the image lines up better?
+    columns = 79
     padding = 4
     #bgcolor = 0x111111
     bgcolor = 0x000000
@@ -39,7 +41,12 @@ def display_header():
     if Config.config.newer_version_exists():
         url = "https://github.com/DUNE/DUNE-HWDB-Python/releases/latest"
         latest_version = Config.config.get_latest_release_version()
-        Style.notice.print(
-                f"Notice: a newer version of this software ({latest_version}) is available. To \n"
-                "download this version, go to:")
-        Style.link.print(url)
+        print()
+
+        message = (
+            Style.notice(f"Notice: a newer version of this software ({latest_version}) is available.\n")
+            + Style.notice("To download this version, go to:\n")
+            + Style.link(url))
+
+        print(box.MessageBox(message, width=columns-2, halign=box.HALIGN_CENTER))
+    print()

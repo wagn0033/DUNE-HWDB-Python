@@ -11,6 +11,9 @@ Author:
 from Sisyphus.Configuration import config
 logger = config.getLogger(__name__)
 
+from Sisyphus.Utils.Terminal.Style import Style
+import sys
+
 import Sisyphus.Configuration as Config # for keywords
 from .exceptions import *
 from .keywords import *
@@ -20,6 +23,7 @@ import requests
 import urllib.parse
 import functools
 import threading
+import time
 
 # Define any key/value pairs here that you wish to add to all session
 # requests by default.
@@ -62,25 +66,83 @@ class retry:
     #{{{
     '''Wrapper for RestApi functions to permit them to retry on a connection failure'''
 
-    def __init__(self, retries=1):
-        self.default_retries = retries
+    #def __init__(self, retries=1, timeouts=(None, None, None, None, None) ):
+    def __init__(self, retries=None, timeout=None, timeouts=None ):
+        # You can either specify the number of retries and an optional 
+        # timeout, or you can specify a list/tuple of the timeouts to use 
+        # on each try. If you specify timeouts, then retries will be ignored 
+        # and calculated from the timeouts list. If you specify retries
+        # and NOT timeouts, then timeouts will be initialized as the timeout
+        # value repeated <retries> times. A timeout of None means don't
+        # use a specific timeout on that try.
+
+        self.default_timeouts = timeouts
+
+        if timeouts is not None:
+            self.default_retries = len(timeouts)
+            self.timeouts = tuple(timeouts)
+        else:
+            self.default_retries = retries or 1
+            self.timeouts = (timeout,) * self.default_retries
 
     def __call__(self, function):
 
         @functools.wraps(function)
         def wrapped_function(*args, **kwargs):
-            retries = max(1, kwargs.pop("retries", self.default_retries))
+            timeouts = kwargs.pop("timeouts", None)
+            retries = kwargs.pop("retries", None)
+            timeout = kwargs.pop("timeout", None)
+
+            if timeouts is not None:
+                retries = len(timeouts)
+                timeouts = tuple(timeouts)
+            elif retries is not None:
+                timeouts = (timeout,) * retries
+            else:
+                retries = self.default_retries
+                timeouts = self.default_timeouts
+
             last_err = None
-            for try_num in range(1, retries+1):
+            default_timeout = kwargs.get('timeout', None)
+            for try_num in range(retries):
                 try:
+                    if timeouts[try_num]:
+                        kwargs['timeout'] = timeouts[try_num]
+                    elif default_timeout:
+                        kwargs['timeout'] = default_timeout
+                    else:
+                        kwargs.pop('timeout', None)
+
+                    if threading.current_thread().name == "MainThread":
+                        s = ("[connecting]" if try_num == 0 
+                                        else f"[connection failed. retrying: {try_num}]")
+                        msg = "".join([ 
+                                Style.cursor_abs_horizontal(1),
+                                Style.debug(f'{s}'),
+                                Style.erase_right
+                            ])
+
+                        sys.stdout.write(msg)
+                        sys.stdout.flush()
+
                     resp = function(*args, **kwargs)
+
                     break
                 except ConnectionFailed as err:
                     msg = (f"Connection failure in '{function.__name__}' "
                             f"in thread '{threading.current_thread().name}' "
-                            f"(attempt #{try_num})")
+                            f"(attempt #{try_num+1})")
                     logger.warning(msg)
                     last_err = err
+                finally:
+                    if threading.current_thread().name == "MainThread":
+                        msg = "".join([
+                                Style.cursor_abs_horizontal(1),
+                                Style.erase_line
+                            ])
+
+                        sys.stdout.write(msg)
+                        sys.stdout.flush()
             else:
                 logger.error(f"{msg}, max attempts reached")
                 raise last_err
@@ -92,7 +154,8 @@ class retry:
 
 #-----------------------------------------------------------------------------
 
-@retry(retries=5)
+#@retry(retries=5, timeouts=(5, 10, 15, 20, 25))
+@retry(timeouts=(5, 10, 15, 20, 25))
 def _request(method, url, *args, return_type="json", **kwargs):
     #{{{
     '''Does a session.request() with some extra error handling
@@ -872,7 +935,7 @@ def get_component_type(part_type_id, **kwargs):
     logger.debug(f"<get_component_type> part_type_id={part_type_id}")
     path = f"api/v1/component-types/{sanitize(part_type_id)}"
     url = f"https://{config.rest_api}/{path}"
-    
+   
     resp = _get(url, **kwargs) 
     return resp
     #}}}
@@ -1061,7 +1124,7 @@ def get_test_types(part_type_id, **kwargs):
 
 #-----------------------------------------------------------------------------
 
-def get_test_type(part_type_id, test_type_id, history=False, **kwargs):
+def get_test_type(part_type_id, test_type_id, **kwargs):
     #{{{
     """Get information about a specific test type for a given part type id
 
@@ -1079,9 +1142,7 @@ def get_test_type(part_type_id, test_type_id, history=False, **kwargs):
     path = f"api/v1/component-types/{part_type_id}/test-types/{test_type_id}"
     url = f"https://{config.rest_api}/{path}"
 
-    params = [("history", str(history).lower())]
-
-    resp = _get(url, params=params, **kwargs)
+    resp = _get(url, **kwargs)
     return resp
     #}}}
 
@@ -1163,7 +1224,7 @@ def post_test_type(part_type_id, data, **kwargs):
 
     Structure for 'data':
         {
-            "comments": <str>
+            "comments": <str>,
             "component_type": {"part_type_id": <str>},
             "name": <str>,
             "specifications": <dict>
@@ -1198,7 +1259,7 @@ def patch_test_type(part_type_id, data, **kwargs):
 
     Structure for 'data':
         {
-            "comments": <str>
+            "comments": <str>,
             "component_type": {"part_type_id": <str>},
             "name": <str>,
             "specifications": <dict>

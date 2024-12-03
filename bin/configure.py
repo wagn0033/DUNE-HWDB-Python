@@ -70,7 +70,6 @@ def check_server(config):
 
 
 def show_summary(config):
-    print()
     print("Configuration Summary:")
     print("======================")
     

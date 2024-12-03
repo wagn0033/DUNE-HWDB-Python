@@ -10,6 +10,7 @@ Author: Alex Wagner <wagn0033@umn.edu>, Dept. of Physics and Astronomy
 # Config or uses anything that uses Config
 
 import Sisyphus # for version and some file paths
+from Sisyphus.Utils.Terminal.Style import Style
 
 import os
 import shutil
@@ -246,7 +247,7 @@ class Config:
             del self.temp_pem_file
         
         # Delete any saved certificates that don't correspond to a current profile
-        pattern = re.compile('certificate_(.*)\.pem')
+        pattern = re.compile('certificate_(.*)\\.pem')
         files = {
                 pattern.match(f).group(1): f 
                     for f in os.listdir(self.user_settings_dir) 
@@ -496,7 +497,7 @@ class Config:
         self.arg_parser = argparse.ArgumentParser(allow_abbrev=False, add_help=False)        
 
         group = self.arg_parser.add_argument_group(
-                        'Global Configuration Options',
+                        Style.notice('Global Configuration Options'),
                         'These options are available for most scripts, and are only set '
                         'for the duration of the script. If used with the '
                         'Configuration Utility, however, they will be set permanently.')

@@ -30,10 +30,11 @@ from glob import glob
 import os
 from copy import deepcopy
 import re
+from uuid import uuid4
 
 class Docket:
     #{{{
-    def __init__(self, *, definition=None, filename=None):
+    def __init__(self, *, definition=None, filename=None, encoders_only=False):
         #{{{
 
         self.warnings = []
@@ -76,10 +77,11 @@ class Docket:
 
         self._raw = definition
         self.docket_name = casefold_get(self._raw, "Docket Name", (filename or "unnamed"))
-        self._preprocess_encoders()       
-        self._preprocess_values()
-        self._preprocess_sources()
-        self._preprocess_includes() 
+        self._preprocess_encoders()
+        if not encoders_only: 
+            self._preprocess_values()
+            self._preprocess_sources()
+            self._preprocess_includes() 
  
         #}}}
     
@@ -377,7 +379,8 @@ class Docket:
                 encoder['_docket_name'] = self.docket_name
                 
                 if not (encoder_name := casefold_get(encoder, "Encoder Name", None)):
-                    raise ValueError(f"{err_msg_prepend}: Encoders must have 'Encoder Name'")
+                    encoder_name = str(uuid4())
+                    #raise ValueError(f"{err_msg_prepend}: Encoders must have 'Encoder Name'")
                 
                 if encoder_name in self.encoders:
                     raise ValueError(f"{err_msg_prepend}: Duplicate Encoder Name '{encoder_name}'")

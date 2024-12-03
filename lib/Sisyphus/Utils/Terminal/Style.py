@@ -255,6 +255,29 @@ Style.fail = Style.fg(0xffffff).bg(0xc50f1f).bold()
 Style.notice = Style.fg(0xccaa00).italic()
 Style.link = Style.fg(0x6699ff).bold().italic().underline()
 
+
+Style.cursor_up = lambda n: f'\033[{n}A'
+Style.cursor_down = lambda n: f'\033[{n}B'
+Style.cursor_forward = lambda n: f'\033[{n}C'
+Style.cursor_back = lambda n: f'\033[{n}D'
+Style.cursor_move_vertical = lambda n: f'\033[{n}E' if n>=0 else f'\033[{-n}F'
+Style.cursor_abs_horizontal = lambda n: f'\033[{n}G'
+Style.cursor_position = lambda n, m: f'\033[{n};{m}H'
+Style.cursor_store = '\033[s'
+Style.cursor_recall = '\033[u'
+
+Style.clear_to_bottom = '\033[0J'
+Style.clear_to_top = '\033[1J'
+Style.clear_screen = '\033[2J'
+Style.clear_buffer = '\033[3J'
+Style.erase_right = '\033[0K'
+Style.erase_left = '\033[1K'
+Style.erase_line = '\033[2K'
+Style.scroll_up = lambda n: '\033[{n}S'
+Style.scroll_down = lambda n: '\033[{n}T'
+
+
+
 ###############################################################################
 
 def highlight(text, substring, *, match_case=False, style=Style.inverse()):
@@ -473,7 +496,7 @@ ESC # 4         Double-size characters on this line, bottom half
 ESC # 5         normal-size characters on this line
 ESC # 6         Double-wide characters on this line (discard 2nd half of line)
 
-ESC ]11;rgb:xx/yy/zz ESC \   change background color
+ESC ]11;rgb:xx/yy/zz ESC \\   change background color
 
 
 ESC [? 25 h      Show cursor
