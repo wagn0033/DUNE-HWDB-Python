@@ -48,11 +48,14 @@ KW_P12 = "p12"
 KW_PEM = "pem"
 KW_LOGGING = "logging"
 KW_LOGLEVEL = "loglevel"
+KW_SETTINGS = "settings"
 
 class Config:
     def __init__(self, *, 
             user_settings_dir=None, user_config_file=None, log_config_file=None, args=sys.argv):
         #{{{
+        self.original_args = args
+
         self.user_config_file = (user_config_file or USER_CONFIG_FILE)
         self.log_config_file = (log_config_file or LOG_CONFIG_FILE)
         self.user_settings_dir = (user_settings_dir or USER_SETTINGS_DIR)
@@ -156,6 +159,10 @@ class Config:
     @property
     def default_profile(self):
         return self.config_data[KW_DEFAULT_PROFILE]
+
+    @property
+    def settings(self):
+        return self.config_data.get(KW_SETTINGS, {})
 
     def _extract_cert_info(self):
         #{{{

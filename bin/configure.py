@@ -11,7 +11,7 @@ import argparse
 import Sisyphus
 import Sisyphus.Configuration as Config
 from Sisyphus.Configuration import config
-logger = config.getLogger(__name__)
+logger = config.getLogger(f"Sisyphus.{__name__}")
 import Sisyphus.RestApiV1 as ra
 from Sisyphus.Utils.Terminal import Image
 from Sisyphus.Utils.Terminal.Style import Style
@@ -45,27 +45,30 @@ def parse(command_line_args=sys.argv):
 def check_server(config):
     # we wait until here to import because we want to process arguments and 
     # update the configuration before accessing the HWDB.
-    from Sisyphus.RestApiV1 import session, whoami
+    #from Sisyphus.RestApiV1 import session, whoami
+    from Sisyphus.RestApiV1 import get_session, whoami
+    _ = get_session(config)
 
     # if the config is invalid or incomplete, "session" will be None
-    if session is None:
-        msg = "Server check not attempted"
-        config.logger.info(msg)
+    #if session is None:
+    #    msg = "Server check not attempted"
+    #    config.logger.info(msg)
+    #else:
+    try:
+        resp = whoami(timeout=10)
+    except ra.CertificateError as err:
+        msg = "The server does not recognize the certificate"
+        config.logger.error(msg)
+        config.logger.info(f"The exception was: {err}")
+    except Exception as err:
+        msg = "Failed to contact server to validate certificate"
+        config.logger.error(msg)
+        config.logger.info(f"The exception was: {err}")
     else:
-        try:
-            resp = whoami(timeout=10)
-        except ra.CertificateError as err:
-            msg = "The server does not recognize the certificate"
-            config.logger.error(msg)
-            config.logger.info(f"The exception was: {err}")
-        except Exception as err:
-            msg = "Failed to contact server to validate certificate"
-            config.logger.error(msg)
-            config.logger.info(f"The exception was: {err}")
-        else:
-            user = f"{(resp['data']['full_name'])} ({resp['data']['username']})"
-            msg = f"REST API 'whoami' returned {user}"
-            config.logger.info(msg)
+        user = f"{(resp['data']['full_name'])} ({resp['data']['username']})"
+        msg = f"REST API 'whoami' returned {user}"
+        config.logger.info(msg)
+
     return msg
 
 

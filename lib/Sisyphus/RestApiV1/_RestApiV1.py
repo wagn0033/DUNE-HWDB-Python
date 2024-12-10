@@ -18,12 +18,17 @@ import Sisyphus.Configuration as Config # for keywords
 from .exceptions import *
 from .keywords import *
 
+from copy import deepcopy
 import json
 import requests
 import urllib.parse
 import functools
 import threading
 import time
+#import faulthandler
+#faulthandler.enable()
+import warnings
+from contextlib import nullcontext
 
 # Define any key/value pairs here that you wish to add to all session
 # requests by default.
@@ -31,6 +36,24 @@ import time
 #     session_kwargs['timeout'] = 10
 # (Don't add it here. Just set it after loading this module.) 
 session_kwargs = {}
+
+# A hack for Requests 2.32
+# If using requests in a multithreaded fashion, the app will sometimes
+# seg fault when using certificates. For some reason, the problem goes
+# away if you disable 'verify' with requests
+# The default behavior right now will be to disable 'verify', even 
+# though this is highly NOT RECOMMENDED. It throws a bunch of warnings
+# when you do this, so we have to use a warning handle to squelch it.
+if config.settings.get("disable_host_certificate_verification", True):
+    session_kwargs["verify"] = False
+
+# A second hack for Requests 2.32
+# A different way to avoid seg faults is to just allow only one thread
+# process requests at a time
+if config.settings.get("use_throttle_lock", False):
+    throttle_lock = threading.Lock()
+else:
+    throttle_lock = nullcontext()
 
 # Use this function when constructing a URL that uses some variable as 
 # part of the URL itself, e.g.,
@@ -41,24 +64,34 @@ session_kwargs = {}
 def sanitize(s, safe=""):
     return urllib.parse.quote(str(s), safe=safe)
 
-# Initialize the session object with data from Configuration. This function
-# may be safely called to re-initialize the session if needed.
-def start_session():
-    global session
-    if config.cert_type == Config.KW_PEM:
+
+
+log_lock = threading.Lock()
+log_request_json = True
+
+# Something happened with Python 3.12 with the GIL that caused seg faults when
+# multiple threads shared the same session object. To mitigate this, every time
+# one needs a session, one should request one by calling get_session(). It will
+# create a session for each thread and put it in threading.local(). Hopefully,
+# once the thread is done, the session will be garbage collected along with the
+# thread.
+
+thread_local = threading.local()
+def get_session(use_config=None):
+    if not hasattr(thread_local, "session") or use_config is not None:
+        if use_config is None:
+            use_config = config
+        logger.info(f"CREATING session for thread {threading.current_thread().name}")
         session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(pool_connections=100, pool_maxsize=100)
         session.mount(f'https://{config.rest_api}', adapter)
-        session.cert = config.certificate
+        session.cert = use_config.certificate
+        #session.verify = config.certificate
+        thread_local.session = session
     else:
-        logger.warning("Unable to start session because a certificate was not available.")
-        session = None
-session = None
-start_session()
+        logger.info(f"REUSING session for thread {threading.current_thread().name}")
 
-log_lock = threading.Lock()
-
-log_request_json = True
+    return thread_local.session
 
 #-----------------------------------------------------------------------------
 
@@ -155,7 +188,7 @@ class retry:
 #-----------------------------------------------------------------------------
 
 #@retry(retries=5, timeouts=(5, 10, 15, 20, 25))
-@retry(timeouts=(5, 10, 15, 20, 25))
+@retry(timeouts=(5, 10, 15, 30, 60, 60))
 def _request(method, url, *args, return_type="json", **kwargs):
     #{{{
     '''Does a session.request() with some extra error handling
@@ -196,20 +229,19 @@ def _request(method, url, *args, return_type="json", **kwargs):
     threadname = threading.current_thread().name
     msg = (f"<_request> [{method.upper()}] "
             f"url='{url}' method='{method.lower()}'")
-    logger.debug(msg) 
+    with log_lock:
+        logger.debug(msg) 
 
     if log_request_json and "json" in kwargs:
         try:
             msg = f"json =\n{json.dumps(kwargs['json'], indent=4)}"
         except json.JSONDecodeError as exc:
             msg = f"data =\n{kwargs['json']}"
-        logger.debug(msg)
+        with log_lock:
+            logger.debug(msg)
 
-    if session is None:
-        msg = "No session available"
-        logger.error(msg)
-        raise NoSessionAvailable(msg)
- 
+    session = get_session()
+
     #
     #  Send the "get" request and handle possible errors
     #
@@ -231,19 +263,42 @@ def _request(method, url, *args, return_type="json", **kwargs):
             req = requests.Request(method, url, *args, **augmented_kwargs)
             prepped = req.prepare()
 
-            logger.info(f"prepped.headers: {prepped.headers}")
+            with log_lock:
+                logger.info(f"prepped.headers: {prepped.headers}")
+                if prepped.body is not None and len(prepped.body) > 1000:
+                    logger.info(f"prepped.body (beginning): {prepped.body[:800]}")
+                    logger.info(f"prepped.body (end): {prepped.body[-200:]}")
+                else:
+                    logger.info(f"prepped.body: {prepped.body}")
 
-            if prepped.body is not None and len(prepped.body) > 1000:
-                logger.info(f"prepped.body (beginning): {prepped.body[:800]}")
-                logger.info(f"prepped.body (end): {prepped.body[-200:]}")
-            else:
-                logger.info(f"prepped.body: {prepped.body}")
 
-            resp = session.send(prepped)
+            with throttle_lock, warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                resp = session.send(prepped)
+
+            # if enable_throttle_lock:    
+            #     with throttle_lock:
+            #         with warnings.catch_warnings():
+            #             warnings.simplefilter("ignore")
+            # else:
+            #     with warnings.catch_warnings():
+            #         warnings.simplefilter("ignore")
+            #         resp = session.send(prepped)
+
         else:
-            #if method in ('post', 'patch'):
-            #    breakpoint()
-            resp = session.request(method, url, *args, **augmented_kwargs)
+            with throttle_lock, warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                resp = session.request(method, url, *args, **augmented_kwargs)
+            
+            # if enable_throttle_lock:
+            #     with throttle_lock:
+            #         with warnings.catch_warnings():
+            #             warnings.simplefilter("ignore")
+            #             resp = session.request(method, url, *args, **augmented_kwargs)
+            # else:
+            #     with warnings.catch_warnings():
+            #         warnings.simplefilter("ignore")
+            #         resp = session.request(method, url, *args, **augmented_kwargs)
 
     except requests.exceptions.ConnectionError as conn_err:
         extra_info.append(f"| exception: {repr(conn_err)}")
@@ -291,7 +346,7 @@ def _request(method, url, *args, return_type="json", **kwargs):
         #  Convert the response to JSON and return.
         #  If the response cannot be converted to JSON, raise an exception
         try:
-            resp_json = resp.json()
+            resp_json = deepcopy(resp.json())
         except json.JSONDecodeError as json_err:
             # This is probably a 4xx or 5xx error that returned an HTML page 
             # instead of JSON. These are hard to figure out until we actually
@@ -397,7 +452,8 @@ def _request(method, url, *args, return_type="json", **kwargs):
             logger.info('\n'.join(extra_info))
         raise exc_type(msg, resp_json) from None
     else:
-        logger.debug("returning raw response object")
+        with log_lock:
+            logger.debug("returning raw response object")
         return resp
     #}}}
 
@@ -607,6 +663,7 @@ def get_hwitem(part_id, **kwargs):
             "status": "OK"
         }
     """
+
     logger.debug(f"<get_hwitem> part_id={part_id}")
     path = f"api/v1/components/{sanitize(part_id)}"
     url = f"https://{config.rest_api}/{path}"
@@ -848,7 +905,6 @@ def get_hwitem_locations(part_id, **kwargs):
             "status": "OK"
         }    
     """
-
     logger.debug(f"<get_hwitem_locations> part_id={part_id}")
     path = f"api/v1/components/{sanitize(part_id)}/locations"
     url = f"https://{config.rest_api}/{path}"

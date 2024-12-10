@@ -335,8 +335,8 @@ class Encoder:
                 new_spec.setdefault("_meta", {}).update(spec['_meta'].items())
                 spec = new_spec
 
-                logger.info(f"keys in spec: {naked_spec}")
-                logger.info(f"keys in encoder: {self.root_fields()}")
+                #logger.info(f"keys in spec: {naked_spec}")
+                #logger.info(f"keys in encoder: {self.root_fields()}")
 
 
         else:
@@ -352,10 +352,10 @@ class Encoder:
             logger.info("Encoder has not changed and will not be updated")
             return False
 
-        logger.info("Old version:")
-        logger.info(json.dumps(prev_encoder, indent=4))
-        logger.info("New version:")
-        logger.info(json.dumps(enc_def["Schema"], indent=4))
+        #logger.info("Old version:")
+        #logger.info(json.dumps(prev_encoder, indent=4))
+        #logger.info("New version:")
+        #logger.info(json.dumps(enc_def["Schema"], indent=4))
 
 
         # Upload the updated component type def

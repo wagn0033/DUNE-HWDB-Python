@@ -51,35 +51,36 @@ def parse(command_line_args=sys.argv):
                 'help': 'include encoder named <encoder name>'
             }
         ),
-        (
-            ('--include-encoders',),
-            {'metavar': "<part-type>", 'nargs': 1, 'action': 'append',
-                'help': 'include all item and test encoders for given part type'
-            }
-        ),
-        (
-            ('--include-item-encoder',),
-            {'metavar': "<part-type>", 'nargs': 1, 'action': 'append',
-                'help': 'include only the item encoder for given part type'
-            }
-        ),
-        (
-            ('--include-test-encoders',),
-            {'metavar': "<part-type>", 'nargs': 1, 'action': 'append',
-                'help': 'include only the test encoders for given part type'
-            }
-        ),
-        (
-            ('--include-test-encoder',),
-            {'metavar': ("<part-type>", "<test-name>"), 'nargs': 2, 'action': 'append',
-                'help': 'include test encoder for given part type and test name'
-            }
-        ),
+        #(
+        #    ('--include-encoders',),
+        #    {'metavar': "<part-type>", 'nargs': 1, 'action': 'append',
+        #        'help': 'include all item and test encoders for given part type'
+        #    }
+        #),
+        #(
+        #    ('--include-item-encoder',),
+        #    {'metavar': "<part-type>", 'nargs': 1, 'action': 'append',
+        #        'help': 'include only the item encoder for given part type'
+        #    }
+        #),
+        #(
+        #    ('--include-test-encoders',),
+        #    {'metavar': "<part-type>", 'nargs': 1, 'action': 'append',
+        #        'help': 'include only the test encoders for given part type'
+        #    }
+        #),
+        #(
+        #    ('--include-test-encoder',),
+        #    {'metavar': ("<part-type>", "<test-name>"), 'nargs': 2, 'action': 'append',
+        #        'help': 'include test encoder for given part type and test name'
+        #    }
+        #),
         (
             ('--submit', '-x'),
             {'dest': 'submit', 'action': 'store_true'}
         ),
     ]
+
 
     for args, kwargs in arg_table:
         group.add_argument(*args, **kwargs)
@@ -112,7 +113,7 @@ def find_encoders(args):
             # multiple encoders with the same name is okay as long as
             # that isn't the encoder asked for.
             if enc.name is not None:
-                print(f"adding name '{enc.name}' from docket '{docket.docket_name}'")
+                logger.debug(f"adding name '{enc.name}' from docket '{docket.docket_name}'")
                 encoders_by_name.setdefault(enc.name, []).append(enc)
 
             # append to encoders_by_part_type. Again, multiples are okay
@@ -125,9 +126,6 @@ def find_encoders(args):
             elif enc.record_type == "Test":
                 pt_node.setdefault("Test", {}).setdefault(enc.test_name, []).append(enc)
             
-    print(encoders_by_name)
-    print(encoders_by_part_type)
-
     def append_to_targets(targets, enc):
         # Look through targets to make sure this encoder isn't already there,
         # and append this encoder to the list if it's not.
@@ -136,11 +134,11 @@ def find_encoders(args):
         # we can check its 'id' property to see if it's the same exact object.
         # If it is, that's okay. Don't add it again, but it's not an error.
         targets.setdefault(enc.part_type_id, {})
-        if enc_record_type == "Item":
-            existing_enc = targets[part_type_id].setdefault("Item", None)
+        if enc.record_type == "Item":
+            existing_enc = targets[enc.part_type_id].setdefault("Item", None)
             if not existing_enc:
                 # Good, no problem here
-                targets[part_type_id]["Item"] = enc
+                targets[enc.part_type_id]["Item"] = enc
                 return True
             elif id(enc) == id(existing_enc):
                 # We ended up finding the exact same encoder.
@@ -151,15 +149,15 @@ def find_encoders(args):
                 # for the same part type. This is an error.
                 return False
         else:
-            existing_enc = targets[part_type_id].setdefault("Test").setdefault(enc.test_name, None)
+            existing_enc = (targets[enc.part_type_id].setdefault("Test", {})
+                                .setdefault(enc.test_name, None))
             if not existing_enc:
-                targets[part_type_id]["Test"][enc.test_name] = enc
+                targets[enc.part_type_id]["Test"][enc.test_name] = enc
                 return True
             elif id(enc) == id(existin_enc):
                 return True
             else:
                 return False
-
 
     targets = {}
 
@@ -214,6 +212,9 @@ def find_encoders(args):
                                 f"test_name='{enc.test_name}'")
                 return None
 
+    return targets
+
+    '''
     # It gets more complicated from here, because now we we have to collect
     # from several different types of includes, and then normalize the
     # part type and test name with what exists in the database.
@@ -308,12 +309,25 @@ def find_encoders(args):
 
         print(part_type_list)
 
-
     return targets
+    '''
 
-def upload_encoders(targets):
-    print("targets:")
-    print(targets)
+def upload_encoders(targets, submit=False):
+    #print("targets:")
+    #print(targets)
+
+    for part_type_id, node in targets.items():
+        item_enc = node.get("Item", None)
+        if item_enc is not None:
+            success = item_enc.store(dryrun=not submit)
+            Style.info.print(f"{item_enc.part_type_id}: {'Uploaded' if success else 'Not Updated'}")
+
+        test_node = node.get("Test", {})
+
+        for test_name, test_enc in test_node.items():
+            success = test_enc.store(dryrun=not submit)
+            Style.info.print(f"{test_enc.part_type_id} {test_enc.test_name}: "
+                        f"{'Uploaded' if success else 'Not Updated'}")
 
 
 
@@ -332,7 +346,10 @@ def main():
     targets = find_encoders(args) 
 
     if targets:
-        upload_encoders(targets)
+        upload_encoders(targets, args.submit)
+    else:
+        Style.error.print("Error: No targets found to upload")
+        print()
 
 
     logger.info(f"Finished {__name__} and exiting.")

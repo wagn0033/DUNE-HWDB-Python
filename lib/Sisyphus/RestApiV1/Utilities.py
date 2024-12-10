@@ -16,9 +16,11 @@ from Sisyphus.Utils import utils
 
 import sys
 from copy import deepcopy
-import multiprocessing.dummy as mp # multiprocessing interface, but uses threads instead
 from collections import namedtuple
 import json
+
+import concurrent.futures
+
 
 #######################################################################
 
@@ -314,11 +316,6 @@ def fetch_hwitems(part_type_id = None,
 
     def fetch_multiple(part_type_id, part_type_name, part_id, serial_number, count):
         
-        save_session_kwargs = deepcopy(ra.session_kwargs)
-        ra.session_kwargs["timeout"] = 16
-    
-        pool = mp.Pool(processes=NUM_THREADS)
-
         count = max(1, 100000 if (count == -1) else count)
 
         # "get_hwitems" doesn't permit part_type_name, so if it's present,
@@ -378,22 +375,23 @@ def fetch_hwitems(part_type_id = None,
             if (pages_needed-1) * page_size + items_on_last_page < count:
                 pages_needed += 1
 
-            # Generate a bunch of async requests to get our data in parallel
-            page_res = {}
-            for page_num in range(num_pages, max(1, num_pages - pages_needed), -1):
-                kwargs = \
-                {
-                    "part_type_id": part_type_id,
-                    "part_id": part_id,
-                    "serial_number": serial_number,
-                    "size": page_size,
-                    "page": page_num,
-                }
-                page_res[page_num] = pool.apply_async(get_hwitems, ((), kwargs))
+            # # Generate a bunch of async requests to get our data in parallel
+            with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
+                page_res = {}
+                for page_num in range(num_pages, max(1, num_pages - pages_needed), -1):
+                    kwargs = \
+                    {
+                        "part_type_id": part_type_id,
+                        "part_id": part_id,
+                        "serial_number": serial_number,
+                        "size": page_size,
+                        "page": page_num,
+                    }
+                    page_res[page_num] = executor.submit(ra.get_hwitems, **kwargs)
+                # # Read all the data that was gathered
+                for page_num, res in page_res.items():
+                    pages[page_num] = res.result()["data"]
 
-            # Read all the data that was gathered
-            for page_num, res in page_res.items():
-                pages[page_num] = res.get()["data"]
 
         # Iterate backwards through "pages" until we get the right number
         # of records
@@ -405,54 +403,50 @@ def fetch_hwitems(part_type_id = None,
                 part_ids.append(rec["part_id"])
                 if len(part_ids) >= count: break
 
-        # Generate more async requests
+        
         hwitems = {part_id: {} for part_id in part_ids}
-        hwitems_res = {}
-        for part_id in part_ids:
-            item_res = pool.apply_async(get_hwitem, ((), {"part_id": part_id}))
-            subcomp_res = pool.apply_async(get_subcomponents, ((), {"part_id": part_id}))
-            location_res = pool.apply_async(get_locations, ((), {"part_id": part_id}))
-            hwitems_res[part_id] = {
-                "Item": item_res, 
-                "Subcomponents": subcomp_res,
-                "Locations": location_res
-            }
 
-        # Gather the collected data
-        for part_id, res_dict in hwitems_res.items():
-            hwitems[part_id] = \
-            {
-                "Item": res_dict["Item"].get()["data"],
-                "Subcomponents": res_dict["Subcomponents"].get()["data"],
-                "Locations": res_dict["Locations"].get()["data"],
-            }
+        with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
 
-        pool.close()
-        pool.join()
+            # Generate more async requests
+            hwitems_res = {}
+            for part_id in part_ids:
 
-        ra.session_kwargs = save_session_kwargs
+                item_res = executor.submit(ra.get_hwitem, part_id=part_id)
+                subcomp_res = executor.submit(ra.get_subcomponents, part_id=part_id)
+                location_res = executor.submit(ra.get_hwitem_locations, part_id=part_id)
+                hwitems_res[part_id] = {
+                    "Item": item_res, 
+                    "Subcomponents": subcomp_res,
+                    "Locations": location_res
+                }
+
+            # Gather the collected data
+            for part_id, res_dict in hwitems_res.items():
+                hwitems[part_id] = \
+                {
+                    "Item": res_dict["Item"].result()["data"],
+                    "Subcomponents": res_dict["Subcomponents"].result()["data"],
+                    "Locations": res_dict["Locations"].result()["data"],
+                }
 
         return hwitems
 
     def fetch_single(part_id):
-        
-        pool = mp.Pool(processes=NUM_THREADS)
 
-        item_res = pool.apply_async(get_hwitem, ((), {"part_id": part_id}))
-        subcomp_res = pool.apply_async(get_subcomponents, ((), {"part_id": part_id}))
-        location_res = pool.apply_async(get_locations, ((), {"part_id": part_id})) 
+        with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
+            item_res = executor.submit(ra.get_hwitem, part_id=part_id)
+            subcomp_res = executor.submit(ra.get_subcomponents, part_id=part_id)
+            location_res = executor.submit(ra.get_locations, part_id=part_id)
 
-        hwitems = {
-            part_id:
-            {
-                "Item": item_res.get()['data'],
-                "Subcomponents": subcomp_res.get()['data'],
-                "Locations": location_res.get()['data'],
+            hwitems = {
+                part_id:
+                {
+                    "Item": item_res.result()['data'],
+                    "Subcomponents": subcomp_res.result()['data'],
+                    "Locations": location_res.result()['data'],
+                }
             }
-        }
-
-        pool.close()
-        pool.join()
 
         return hwitems
 
